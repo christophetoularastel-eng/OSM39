@@ -1,0 +1,39 @@
+EDIT - AIDE-MEMOIRE (touches WordStar)
+======================================
+Lancer : Entree sur un .ASM, .TXT ou .INC dans OSM-VISION, ou EDIT NOM
+dans le Terminal. Sans nom, le nom est demande a la premiere sauvegarde.
+
+SORTIR
+------
+  Ctrl+K puis X       sauver et sortir
+  Ctrl+K puis S       sauver et continuer
+  Ctrl+K puis Q       sortir sans sauver (O/N si le texte est modifie)
+  Echap               comme Ctrl+K Q
+  Ctrl+K puis L       ouvrir un autre fichier (nom demande)
+  Apres Ctrl+K : la lettre en minuscule ou avec Ctrl marche aussi ;
+  une autre touche annule.
+
+SE DEPLACER
+-----------
+  fleches, ou Ctrl+E Ctrl+X Ctrl+S Ctrl+D   haut bas gauche droite
+  Page prec. ou Ctrl+R / Page suiv. ou Ctrl+C   page par page
+  Debut / Fin                  debut / fin de la ligne
+  Ctrl+Debut ou Ctrl+Q R       debut du fichier
+  Ctrl+Fin   ou Ctrl+Q C       fin du fichier
+  ATTENTION : Ctrl+C et Ctrl+X ne copient ni ne coupent (WordStar).
+  Pas de copier-coller de blocs.
+
+ECRIRE, EFFACER
+---------------
+  Entree              coupe la ligne
+  Retour arriere      efface a gauche (joint les lignes en debut de ligne)
+  Suppr ou Ctrl+G     efface sous le curseur
+  Ctrl+Y              efface la ligne
+  Tab                 tabulation (affichee comme un espace)
+
+BON A SAVOIR
+------------
+  *modifie* sur la ligne d'etat : texte pas encore sauve.
+  Une ligne de plus de 77 colonnes defile horizontalement.
+  Fichiers jusqu'a 65279 octets (pages de RAM 2 et 3). Fins de ligne LF.
+  Saisie d'un nom : Retour arriere, Entree valide, Echap abandonne.

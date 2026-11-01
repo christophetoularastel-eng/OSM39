@@ -1,0 +1,94 @@
+# ===================================================================
+# Tout SAUF ces entrees est une sortie de build et doit etre regenere.
+# Regle : ne pas utiliser de motif par extension (*.bin) car cela
+# attrape des SOURCES non regenerables (fixtures asm/test*.bin,
+# polices et ROM video dans video/). On nomme les sorties explicitement.
+# ===================================================================
+
+# --- Objets, listings, maps, Intel-hex (make) ---
+*.o
+*.lst
+*.map
+*.hex
+
+# --- Intermediaires BIOS (make -C bios) ---
+*.srec
+bios/osm39.bin
+
+# --- Binaires de sortie SANS extension (make) ---
+shell/SHELL
+forth/FORTH
+basic69/BASIC
+cmd/TYPE
+cmd/CP
+cmd/MV
+cmd/RM
+cmd/SIZE
+cmd/CPU
+cmd/CD
+cmd/MKDIR
+cmd/PWD
+cmd/LS
+cmd/MONITEUR
+cmd/SDTEST
+cmd/TELE
+cmd/AYTEST
+cmd/AYJOUE
+cmd/CLOUTEST
+tools/ay/morceaux/*.MUS
+asm/ASM
+osmvision/OSMVISION
+games/BRIQUES
+apps/MIRE
+apps/ENVAHIS
+apps/CALC
+apps/EDIT
+apps/GLOUTON
+apps/SON
+apps/PAROLE
+apps/MINITEL
+apps/DONJON39
+apps/PONT
+apps/PONT2
+apps/PONT3
+
+# --- test/ : banc d'essai splash (make -C test), hors Makefile racine ---
+# test/biosadr.inc est genere depuis bios/osm39.map et SUIVI, comme
+# bios/hardware.inc et bios/sysfunc.inc.
+test/TEST
+test/VIDEO
+test/AUDIO
+# test/.stage est le tampon qui force la reconstruction de test/TEST
+# quand STAGE= change : sans lui, make resservait l'etape precedente.
+test/.stage
+
+# --- Genere par deploy_sd.sh ---
+dist/
+
+# --- Python ---
+__pycache__/
+
+# ===================================================================
+# A CONSERVER (rien ne les regenere) :
+#   asm/test{1,_dir,_edge,_pcr,_pcr2}.bin  fixtures du selftest emu6809
+#   video/font2.bin, font8x16.bin, rom_complete_8k.bin  donnees source
+# ===================================================================
+
+# --- Fichier perso : identifiant de session opencode, pas de valeur pour le depot ---
+continue.sh
+tools/parole/essais/
+bbcbasic/BBCBASIC
+bbcbasic/BBCBASIC.lst
+bbcbasic/BBCBASIC.map
+bbcbasic/BBCPLUS
+bbcbasic/BBCPLUS.lst
+bbcbasic/BBCPLUS.map
+bbcbasic/construit/
+tools/tele/ESSAI_SD
+tools/tele/ESSAI_SD.map
+tools/tele/essai_sd.o
+
+# Manuel : environnement Python, PDF et captures se refont (tools/manuel/)
+tools/manuel/.venv/
+docs/manuel/OSM39-manuel.pdf
+docs/manuel/images/

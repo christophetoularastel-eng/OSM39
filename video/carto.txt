@@ -1,0 +1,96 @@
+=== V4 (10 octobre 2026) : carte CRT2 modifiée ===
+U126 (74HC138) : broche 1 (A0) reliée à a12 (J6 broche A3), broches 2 et 3
+(A1, A2) reliées à la broche 4 (/E0 = /8000-9FFF) ; les pistes U125
+O3/O4/O5 -> U126 sont coupées.
+  $8000-$8FFF : RAM caractère      $9000-$9FFF : RAM couleur
+Les deux RAM sont toujours visibles du 68B09 ; U126 n'est validé que pendant
+un accès du CPU à $8000-$9FFF, le reste du temps le 68B45 lit les RAM.
+Le registre $A120 ne garde que D0, D1, D2 (page 0 à 7, commune aux deux RAM
+et au 68B45). D3, D4, D5 ne servent plus. On continue d'écrire pendant
+VSYNC=0 : un accès CPU perturbe l'affichage un instant.
+DÉFAUT TROUVÉ LE 10 OCT. 2026 : U126 broche 4 (/E0) n'était reliée à RIEN
+(sur le schéma CRT2 il manque la barre : le signal est /8000-9FFF, actif
+bas, J6 C8). En V3, U126 était donc validé en permanence et seul le latch
+décidait : $00/$08 = RAM sélectionnée tout le temps (affichage perturbé
+pendant toute la fenêtre CPU), $10 = aucune RAM : d'où le « mode
+affichage » obligatoire. En V4 : broche 4 reliée à /8000-9FFF, broches
+2 et 3 reliées à la broche 4 (équivaut à la masse pendant un accès,
+138 désactivé sinon).
+Tout ce qui suit décrit la carte AVANT la modification (V3).
+================================================
+
+carte vidéo à base de 68B45
+quartz 25,175Mhz-> alimente un 74hc166 qui sérialise les RAM vidéos
+                    - un 74F163 dont la sortie Q2 (CHARCLOCK) ck 6845 et la sortie TC (LOAD) voir CRT2.pdf pour les détails
+
+les 2 ram vidéos sont accessibles en $8000-8fff (4Ko)
+les registres du 68B45 accessible en $A100 et $A101
+1 registre 74HC374 accessible en $A120 en écriture seulement
+VSYNC est relié à C1 du 68B40 de la cpu ce qui permettra d'avoir un tick 60hz et une IRQ lorsque la ram vidéo est accessible pour le cpu.
+ce registre permet via 6 bits :
+D0, D1, D2 selectionne 1 des 8 pages des rams vidéo (2 rams de 4kox8)
+D3, D4, D5 donne l'accés  à 1 des 2 rams vidéo
+cartographie registre en $A120
+_________________________________________
+|    |    |    |    |    |
+| D4 | D3 | D2 | D1 | D0 |
+|_D5_|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  0 |  0 |  0 |  0 | accés page 0 de la ram caractère
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  0 |  0 |  0 |  1 | accés page 1 de la ram caractère
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  0 |  0 |  1 |  0 | accés page 2 de la ram caractère
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  0 |  0 |  1 |  1 | accés page 3 de la ram caractère
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  0 |  1 |  0 |  0 | accés page 4 de la ram caractère
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  0 |  1 |  0 |  1 | accés page 5 de la ram caractère
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  0 |  1 |  1 |  0 | accés page 6 de la ram caractère
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  0 |  1 |  1 |  1 | accés page 7 de la ram caractère
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  1 |  0 |  0 |  0 | accés page 0 de la ram couleur
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  1 |  0 |  0 |  1 | accés page 1 de la ram couleur
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  1 |  0 |  1 |  0 | accés page 2 de la ram couleur
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  1 |  0 |  1 |  1 | accés page 3 de la ram couleur
+|____|____|____|____|____|________________________________________
+|    |    |    |    |    |
+|  0 |  1 |  1 |  0 |  0 | accés page 4 de la ram couleur
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  1 |  1 |  0 |  1 | accés page 5 de la ram couleur
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  1 |  1 |  1 |  0 | accés page 6 de la ram couleur
+|____|____|____|____|____|_________________________________________
+|    |    |    |    |    |
+|  0 |  1 |  1 |  1 |  1 | accés page 7 de la ram couleur
+|____|____|____|____|____|________________________________________
+attention n'acceder par le 68B09 aux ram seulement quand D4 et D5 sont à 0
+cet accés ne peut se faire que pendant VSYNC=0
+les autres combinaisons de D4 et D5 permet au 68B45 de faire l'affichage des données
+D4 doit être positionné à 1 pour permettre la lecture des RAMS vidéos au 6845 (VSYNC =1)
+les 2 rams vidéos sont lues en parallèles par le 68B45.
+-la ram caractère contient le code ascii du caractère qui attaque la rom caractère.
+-la ram couleur contient un mot de 8 bits accompagnant chaque caractère définit comme suit :
+D0,D1,D2 couleur 0 à 7 du caractère
+D3 luminosité du caractère
+D4,D5, et D6 couleur de fond du caractère
+D7 page 0 ou 1  du générateur de caractère format des caractères 8x16

@@ -1,0 +1,69 @@
+maping.txt — RETIRÉ le 27 septembre 2026
+======================================
+
+Ce fichier n'est plus la carte mémoire du projet. Il ne le sera plus.
+
+La carte mémoire unique et maintenue est :
+
+    docs/memory-map.md
+
+Pourquoi ce fichier a été vidé
+-----------------------------
+
+Il décrivait une machine qui n'existe pas. Sur ses 219 lignes, la quasi-totalité
+des adresses était fausse, et les erreurs n'étaient pas indépendantes : elles
+venaient toutes du même démantèlement — la révision du 13 août, qui avait un `kernel/`
+et un sous-système de « paged buffer » supprimés depuis.
+
+Une nuance, parce qu'elle a été un faux débat pendant une journée : ce fichier
+ne disait **rien de faux** sur le nombre de pages de RAM utilisateur. Les
+« 4 banques de 32 Ko » sont correctes — 4 pages × 32 Ko, 128 Ko, fenêtrées en
+`$0000–$7FFF` par le latch `$A0C0`. Ce qui est faux, c'est le reste du
+paragraphe : le noyau, l'ordonnanceur, le tas à `$D900`, les 16 Ko de
+périphériques en `$8000–$BFFF`. Et ces 4 pages ne se lisent nulle part dans le
+code : c'est une donnée de la carte, fournie par le concepteur.
+
+Ce que ce fichier affirmait, et ce qui est vrai :
+
+  | Affirmé ici                    | Réalité                            |
+  |--------------------------------|------------------------------------|
+  | BSS de `$C000` à `$C676`       | `$C000` à `$C7D3`                  |
+  | `__bss_end__` = `$C676`        | `$C7D4`                            |
+  | `input_buffer` = 32 octets     | **128** octets                     |
+  | `HEAP_START` = `$D900`         | `$C7D4`                            |
+  | Tas en `$D900`–`$DFFF`         | `$C7D4`–`$CED3`, puis zone libre   |
+  | Noyau chargé en `$D000`        | Pas de noyau ; `SHELL` chargé en `$0000` |
+  | Kernel `$D500`–`$D8FF`        | N'existe pas                       |
+  | Vecteurs RAM `$DFF2`–`$DFFF`   | Section entière `$DFF0`–`$DFFD`    |
+  | Vecteurs ROM `$FFF2`–`$FFFF`   | `$FFF0`–`$FFFF` (16 octets)       |
+  | `.code` finissant vers `$F71E` | Fin de `.code` : `$FA44`           |
+  | Module `inkey.o`               | N'existe pas ; `fload.o` le remplace |
+  | Clavier = pilote PS/2 bit-bangé | PS/2 derrière un **second ACIA** à `$A1C0`/`$A1C1`, livré par NMI |
+  | `$8000`–`$BFFF` = 16 Ko de périphériques | Seuls `$8000`–`$8FFF` (vidéo) et `$A000`–`$A1FF` (I/O) sont mappés |
+  | « 4 banques de 32 Ko »         | **Juste** : 4 pages × 32 Ko. Donnée matériel, illisible dans le code |
+
+Le détail des adresses BSS par zone, les tailles de tampons, la disposition
+exacte du tas, de la pile et des vecteurs : tout est dans `docs/memory-map.md`,
+avec pour chaque affirmation la source exacte qui permet de la vérifier.
+
+Une seule source de vérité
+--------------------------
+
+Garder deux cartes mémoire dans le même dépôt, c'est garantir qu'elles
+divergeront. C'est précisément la famille de problèmes que ce dépôt a le plus :
+la table des services BIOS, la chaîne de génération, la description de la
+pagination. Elles sont désormais générées ou vérifiées par la machine ; la carte
+mémoire, elle, est un document, et un document ne peut avoir qu'un emplacement.
+
+Si vous avez besoin d'ajouter une section à ce fichier, ajoutez-la à
+`docs/memory-map.md` et laissez celui-ci vide.
+
+Historique
+----------
+
+Ce fichier a été un brouillon de conversation (« Voici la cartographie complète et
+détaillée de la mémoire de ton ordinateur »). Il était neuvième sur la
+description de la pagination, qui ne décrit pas le code, et absent de la
+description de la table des services, qui décrit exactement le code. Le contenu
+qui lui manquait a servi de base à `docs/memory-map.md` ; le reste était faux ou
+déjà couvert.

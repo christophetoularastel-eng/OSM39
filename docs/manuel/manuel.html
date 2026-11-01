@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>OSM39 — Manuel de l'utilisateur</title>
+<meta name="author" content="Christophe Toularastel">
+<link rel="stylesheet" href="manuel.css">
+</head>
+<body>
+
+<!-- ================= COUVERTURE ================= -->
+<div class="couverture">
+  <div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div>
+  <svg class="logo" viewBox="0 0 62 12" shape-rendering="crispEdges" role="img" aria-label="OSM39">
+    <g transform="translate(0,-1)" fill="#f4ead4"><path d="M1 2h5v1h-5zM0 3h2v1h-2zM5 3h2v1h-2zM0 4h2v1h-2zM5 4h2v1h-2zM0 5h2v1h-2zM5 5h2v1h-2zM0 6h2v1h-2zM5 6h2v1h-2zM0 7h2v1h-2zM5 7h2v1h-2zM0 8h2v1h-2zM5 8h2v1h-2zM0 9h2v1h-2zM5 9h2v1h-2zM0 10h2v1h-2zM5 10h2v1h-2zM1 11h5v1h-5zM9 2h5v1h-5zM8 3h2v1h-2zM13 3h2v1h-2zM8 4h2v1h-2zM13 4h2v1h-2zM9 5h2v1h-2zM10 6h3v1h-3zM12 7h2v1h-2zM13 8h2v1h-2zM8 9h2v1h-2zM13 9h2v1h-2zM8 10h2v1h-2zM13 10h2v1h-2zM9 11h5v1h-5zM16 2h2v1h-2zM21 2h2v1h-2zM16 3h3v1h-3zM20 3h3v1h-3zM16 4h7v1h-7zM16 5h7v1h-7zM16 6h2v1h-2zM19 6h1v1h-1zM21 6h2v1h-2zM16 7h2v1h-2zM21 7h2v1h-2zM16 8h2v1h-2zM21 8h2v1h-2zM16 9h2v1h-2zM21 9h2v1h-2zM16 10h2v1h-2zM21 10h2v1h-2zM16 11h2v1h-2zM21 11h2v1h-2zM25 2h5v1h-5zM24 3h2v1h-2zM29 3h2v1h-2zM29 4h2v1h-2zM29 5h2v1h-2zM26 6h4v1h-4zM29 7h2v1h-2zM29 8h2v1h-2zM29 9h2v1h-2zM24 10h2v1h-2zM29 10h2v1h-2zM25 11h5v1h-5zM33 2h5v1h-5zM32 3h2v1h-2zM37 3h2v1h-2zM32 4h2v1h-2zM37 4h2v1h-2zM32 5h2v1h-2zM37 5h2v1h-2zM33 6h6v1h-6zM37 7h2v1h-2zM37 8h2v1h-2zM37 9h2v1h-2zM36 10h2v1h-2zM33 11h4v1h-4z"/></g>
+    <g shape-rendering="geometricPrecision"><polygon points="43,11 45.2,11 48.2,1 46,1" fill="#d8372b"/><polygon points="45.6,11 47.8,11 50.8,1 48.6,1" fill="#e9b52c"/><polygon points="48.2,11 50.4,11 53.4,1 51.2,1" fill="#3d9a43"/><polygon points="50.8,11 53,11 56,1 53.8,1" fill="#2fa6b8"/><polygon points="53.4,11 55.6,11 58.6,1 56.4,1" fill="#2d4fb0"/><polygon points="56,11 58.2,11 61.2,1 59,1" fill="#9b3fa0"/></g>
+  </svg>
+  <div class="sous-logo">ORDINATEUR PERSONNEL</div>
+  <svg class="machine" viewBox="120 0 860 540" role="img" aria-label="L'ordinateur OSM39 : clavier-ordinateur gris clair et son moniteur">
+    <defs>
+      <pattern id="cle" width="32" height="32" patternUnits="userSpaceOnUse"><rect x="2" y="2" width="28" height="28" rx="3" fill="#7f848c"/><rect x="5" y="4" width="22" height="19" rx="3" fill="#b4b8bf"/></pattern>
+      <pattern id="fonction" width="32" height="24" patternUnits="userSpaceOnUse"><rect x="2" y="2" width="28" height="20" rx="3" fill="#c25f1c"/><rect x="5" y="3" width="22" height="13" rx="3" fill="#e9843a"/></pattern>
+      <pattern id="ouies" width="14" height="40" patternUnits="userSpaceOnUse"><rect x="0" y="0" width="7" height="40" rx="3" fill="#a9aaa3"/></pattern>
+      <pattern id="bureau" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#2d4fb0"/><rect x="0" y="0" width="2" height="2" fill="#7f97e0"/></pattern>
+    </defs>
+    <ellipse cx="560" cy="516" rx="450" ry="26" fill="#0d1428" opacity="0.6"/>
+    <polygon points="330,30 372,6 732,6 690,30" fill="#d9d8d1"/>
+    <polygon points="690,30 732,6 732,290 690,314" fill="#a9a8a1"/>
+    <rect x="330" y="30" width="360" height="284" rx="10" fill="#c7c6be"/>
+    <rect x="350" y="48" width="320" height="232" rx="16" fill="#1a1c1f"/>
+    <rect x="364" y="60" width="292" height="204" rx="10" fill="url(#bureau)"/>
+    <rect x="392" y="80" width="170" height="160" fill="#101010"/>
+    <rect x="392" y="80" width="170" height="13" fill="#cfcfcf"/>
+    <rect x="404" y="104" width="11" height="8" fill="#bdbdbd"/><rect x="420" y="105" width="38" height="6" fill="#4d6fd8"/>
+    <rect x="404" y="118" width="11" height="8" fill="#bdbdbd"/><rect x="420" y="119" width="44" height="6" fill="#bdbdbd"/>
+    <rect x="404" y="132" width="11" height="8" fill="#bdbdbd"/><rect x="420" y="133" width="30" height="6" fill="#bdbdbd"/>
+    <rect x="404" y="146" width="11" height="8" fill="#bdbdbd"/><rect x="420" y="147" width="36" height="6" fill="#bdbdbd"/>
+    <rect x="404" y="160" width="11" height="8" fill="#bdbdbd"/><rect x="420" y="161" width="48" height="6" fill="#bdbdbd"/>
+    <rect x="576" y="80" width="70" height="120" fill="#101010"/><rect x="576" y="80" width="70" height="13" fill="#cfcfcf"/>
+    <rect x="583" y="101" width="50" height="5" fill="#bdbdbd"/><rect x="583" y="111" width="42" height="5" fill="#bdbdbd"/><rect x="583" y="121" width="52" height="5" fill="#bdbdbd"/><rect x="583" y="131" width="40" height="5" fill="#bdbdbd"/><rect x="583" y="141" width="46" height="5" fill="#bdbdbd"/>
+    <rect x="648" y="292" width="14" height="6" rx="2" fill="#5bbf5f"/>
+    <polygon points="450,314 570,314 590,348 430,348" fill="#a9a8a1"/>
+    <polygon points="140,480 860,480 860,516 140,516" fill="#c9c9c2"/>
+    <polygon points="140,480 860,480 860,484 140,484" fill="#e2e2dc"/>
+    <polygon points="860,480 965,354 965,390 860,516" fill="#b4b4ad"/>
+    <g transform="matrix(1 0 -0.35 0.42 245 354)">
+      <rect x="0" y="0" width="720" height="300" rx="8" fill="#e4e3dd"/>
+      <rect x="24" y="16" width="250" height="60" fill="url(#ouies)"/>
+      <text x="312" y="62" font-family="Audiowide" font-size="38" fill="#3c3f45">OSM39</text>
+      <rect x="560" y="34" width="8" height="34" fill="#d8372b"/><rect x="569" y="34" width="8" height="34" fill="#e9b52c"/><rect x="578" y="34" width="8" height="34" fill="#3d9a43"/><rect x="587" y="34" width="8" height="34" fill="#2fa6b8"/><rect x="596" y="34" width="8" height="34" fill="#2d4fb0"/><rect x="605" y="34" width="8" height="34" fill="#9b3fa0"/>
+      <rect x="640" y="46" width="18" height="8" rx="2" fill="#e0402f"/><rect x="672" y="46" width="18" height="8" rx="2" fill="#5bbf5f"/>
+      <rect x="20" y="88" width="664" height="200" rx="8" fill="#cfcec8"/>
+      <rect x="30" y="96" width="480" height="24" fill="url(#fonction)"/>
+      <rect x="30" y="124" width="480" height="128" fill="url(#cle)"/>
+      <rect x="130" y="254" width="270" height="28" rx="4" fill="#7f848c"/><rect x="134" y="256" width="262" height="18" rx="3" fill="#b4b8bf"/>
+      <rect x="540" y="124" width="128" height="128" fill="url(#cle)"/>
+      <rect x="540" y="254" width="64" height="28" rx="4" fill="#7f848c"/><rect x="544" y="256" width="56" height="18" rx="3" fill="#b4b8bf"/>
+    </g>
+  </svg>
+  <div class="titre">Manuel de<br>l'utilisateur</div>
+  <div class="edition">Processeur HD6309 · 128 Ko · 80 colonnes · carte SD · son AY-3-8910</div>
+</div>
+
+<!-- ================= PAGE DE TITRE ================= -->
+<div class="liminaire page-titre">
+  <svg class="logo" viewBox="0 0 62 12" shape-rendering="crispEdges" role="img" aria-label="OSM39">
+    <g transform="translate(0,-1)" fill="#23262c"><path d="M1 2h5v1h-5zM0 3h2v1h-2zM5 3h2v1h-2zM0 4h2v1h-2zM5 4h2v1h-2zM0 5h2v1h-2zM5 5h2v1h-2zM0 6h2v1h-2zM5 6h2v1h-2zM0 7h2v1h-2zM5 7h2v1h-2zM0 8h2v1h-2zM5 8h2v1h-2zM0 9h2v1h-2zM5 9h2v1h-2zM0 10h2v1h-2zM5 10h2v1h-2zM1 11h5v1h-5zM9 2h5v1h-5zM8 3h2v1h-2zM13 3h2v1h-2zM8 4h2v1h-2zM13 4h2v1h-2zM9 5h2v1h-2zM10 6h3v1h-3zM12 7h2v1h-2zM13 8h2v1h-2zM8 9h2v1h-2zM13 9h2v1h-2zM8 10h2v1h-2zM13 10h2v1h-2zM9 11h5v1h-5zM16 2h2v1h-2zM21 2h2v1h-2zM16 3h3v1h-3zM20 3h3v1h-3zM16 4h7v1h-7zM16 5h7v1h-7zM16 6h2v1h-2zM19 6h1v1h-1zM21 6h2v1h-2zM16 7h2v1h-2zM21 7h2v1h-2zM16 8h2v1h-2zM21 8h2v1h-2zM16 9h2v1h-2zM21 9h2v1h-2zM16 10h2v1h-2zM21 10h2v1h-2zM16 11h2v1h-2zM21 11h2v1h-2zM25 2h5v1h-5zM24 3h2v1h-2zM29 3h2v1h-2zM29 4h2v1h-2zM29 5h2v1h-2zM26 6h4v1h-4zM29 7h2v1h-2zM29 8h2v1h-2zM29 9h2v1h-2zM24 10h2v1h-2zM29 10h2v1h-2zM25 11h5v1h-5zM33 2h5v1h-5zM32 3h2v1h-2zM37 3h2v1h-2zM32 4h2v1h-2zM37 4h2v1h-2zM32 5h2v1h-2zM37 5h2v1h-2zM33 6h6v1h-6zM37 7h2v1h-2zM37 8h2v1h-2zM37 9h2v1h-2zM36 10h2v1h-2zM33 11h4v1h-4z"/></g>
+    <g shape-rendering="geometricPrecision"><polygon points="43,11 45.2,11 48.2,1 46,1" fill="#d8372b"/><polygon points="45.6,11 47.8,11 50.8,1 48.6,1" fill="#e9b52c"/><polygon points="48.2,11 50.4,11 53.4,1 51.2,1" fill="#3d9a43"/><polygon points="50.8,11 53,11 56,1 53.8,1" fill="#2fa6b8"/><polygon points="53.4,11 55.6,11 58.6,1 56.4,1" fill="#2d4fb0"/><polygon points="56,11 58.2,11 61.2,1 59,1" fill="#9b3fa0"/></g>
+  </svg>
+  <h1>Manuel de l'utilisateur</h1>
+  <p>Ordinateur personnel OSM39 — matériel, système, applications et langages</p>
+  <p>Première édition, octobre 2026</p>
+</div>
+
+<!-- ================= SOMMAIRE ================= -->
+<div class="liminaire">
+  <nav class="sommaire">
+    <h2>Sommaire</h2>
+    <ol>
+      <li><a href="#bienvenue">Bienvenue dans le monde d'OSM39</a></li>
+      <li><a href="#materiel">Le matériel</a></li>
+      <li><a href="#mise-en-route">Mise en route</a></li>
+      <li><a href="#osmvision">OSM-VISION, le bureau</a></li>
+      <li><a href="#terminal">Le Terminal et les commandes</a></li>
+      <li><a href="#applications">Les applications</a></li>
+      <li><a href="#jeux">Les jeux</a></li>
+      <li><a href="#musique">La musique et la parole</a></li>
+      <li><a href="#langages">Les langages</a></li>
+      <li><a href="#programmer">Programmer OSM39</a></li>
+      <li><a href="#annexes">Annexes</a></li>
+    </ol>
+  </nav>
+</div>
+
+<!-- ================= 1. BIENVENUE ================= -->
+<section class="chapitre" id="bienvenue">
+<header>
+  <div class="numero">CHAPITRE 1</div>
+  <h1>Bienvenue dans le monde d'OSM39</h1>
+  <div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div>
+</header>
+<p class="chapo">OSM39 est un ordinateur personnel construit autour du processeur Hitachi HD6309, le plus puissant des descendants du célèbre 6809. Il réunit dans un seul boîtier tout ce qu'on attendait d'une machine des années 1980, avec un confort que celles-ci ne connaissaient pas : un bureau graphique, une carte SD, de la musique à trois voix et une voix de synthèse qui parle français.</p>
+
+<h2>Ce que contient votre OSM39</h2>
+<table>
+  <tr><th>Élément</th><th>Caractéristiques</th></tr>
+  <tr><td>Processeur</td><td>Hitachi HD6309 en mode natif, horloge de 1,8432 MHz</td></tr>
+  <tr><td>Mémoire vive</td><td>128 Ko pour les programmes, en 4 pages de 32 Ko, plus 8 Ko réservés au système</td></tr>
+  <tr><td>Mémoire morte</td><td>8 Ko : le BIOS, qui démarre la machine et offre ses services aux programmes</td></tr>
+  <tr><td>Affichage</td><td>80 colonnes × 30 rangées, caractères de 8 × 16 points, 8 couleurs de premier plan atténuables et 8 couleurs de fond, sortie VGA 640 × 480</td></tr>
+  <tr><td>Caractères</td><td>Deux pages de 256 : l'alphabet, et une page de semi-graphismes (cadres, mosaïques du Minitel, icônes)</td></tr>
+  <tr><td>Son</td><td>Générateur AY-3-8910 : trois voix, bruit, enveloppes ; minuterie 6840 pour la parole</td></tr>
+  <tr><td>Stockage</td><td>Carte SD, avec son propre système de fichiers à dossiers (OSMFS)</td></tr>
+  <tr><td>Clavier</td><td>AZERTY français, pavé numérique, voyants pilotés par le système</td></tr>
+  <tr><td>Communication</td><td>Liaison série RS-232 à 115 200 bauds : modem Minitel, ordinateur hôte</td></tr>
+  <tr><td>Extension</td><td>Connecteur 48 broches à l'arrière ; entrées pour la Clouris, la souris tactile</td></tr>
+</table>
+
+<h2>Ce que vous pouvez faire</h2>
+<p>Dès la mise sous tension, OSM39 joue sa petite mélodie et ouvre <strong>OSM-VISION</strong>, son bureau. De là, tout se fait au clavier :</p>
+<ul>
+  <li><strong>écrire et calculer</strong> avec EDIT, un traitement de texte, et CALC, un tableur ;</li>
+  <li><strong>se connecter au Minitel</strong> : avec un modem, OSM39 appelle les services Vidéotex encore ouverts, comme MiniPavi ;</li>
+  <li><strong>jouer</strong> à BRIQUES, ENVAHIS, GLOUTON ou DONJON39, un labyrinthe en trois dimensions ;</li>
+  <li><strong>écouter de la musique</strong> et <strong>faire parler la machine</strong> en français avec PAROLE ;</li>
+  <li><strong>programmer</strong> en BBC BASIC, en FORTH ou directement en assembleur, avec l'assembleur intégré.</li>
+</ul>
+
+<div class="encadre">
+  <div class="titre">Comment lire ce manuel</div>
+  <p>Les touches à frapper sont écrites ainsi : <kbd>Entrée</kbd>, <kbd>Ctrl</kbd>+<kbd>C</kbd>. Ce que vous tapez ou ce que la machine affiche est écrit <code>COMME CECI</code>. Les écrans reproduits dans ce manuel ont tous été pris sur le logiciel d'OSM39 lui-même.</p>
+</div>
+</section>
+
+<!-- ================= 2. MATÉRIEL ================= -->
+<section class="chapitre" id="materiel">
+<header>
+  <div class="numero">CHAPITRE 2</div>
+  <h1>Le matériel</h1>
+  <div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div>
+</header>
+<p class="chapo">Tout OSM39 tient sur une seule carte de 388 × 200 mm, logée sous le clavier. Ce chapitre vous en fait le tour : ses fonctions, ses connecteurs, ses deux mémoires mortes et les précautions à prendre.</p>
+
+<figure>
+  <img src="photos/carte_avant.png" alt="La carte d'OSM39 vue de l'avant, en trois dimensions">
+  <figcaption><b>La carte OSM39, vue de l'avant.</b> À droite, le bloc d'alimentation secteur et son bornier ; au fond, les connecteurs du panneau arrière.</figcaption>
+</figure>
+
+<h2>Les fonctions de la carte</h2>
+<table>
+  <tr><th>Fonction</th><th>Composants</th></tr>
+  <tr><td>Processeur</td><td>Hitachi HD6309 (U107), horloge E de 1,8432 MHz</td></tr>
+  <tr><td>BIOS</td><td>EEPROM AT28C64 de 8 Ko (U104), en <code>$E000-$FFFF</code></td></tr>
+  <tr><td>Mémoire des programmes</td><td>RAM de 128 Ko (U105), vue en 4 pages de 32 Ko à <code>$0000-$7FFF</code></td></tr>
+  <tr><td>Mémoire du système</td><td>RAM de 8 Ko en <code>$C000-$DFFF</code> (U102)</td></tr>
+  <tr><td>Vidéo</td><td>Contrôleur 68B45, deux RAM d'écran (caractères et couleurs), EPROM des caractères (U515), quartz de 25,175 MHz pour le VGA</td></tr>
+  <tr><td>Minuteries</td><td>68B40 : la cadence de l'image (60 Hz) et l'horloge de la parole</td></tr>
+  <tr><td>Liaison série</td><td>68B50 et MAX232, prise DE9 à l'arrière</td></tr>
+  <tr><td>Clavier</td><td>second 68B50, en PS/2, dans les deux sens (voyants)</td></tr>
+  <tr><td>Carte SD</td><td>liaison SPI câblée, lente pour le démarrage puis rapide</td></tr>
+  <tr><td>Son</td><td>AY-3-8910 : trois voix, bruit et enveloppes, sortie ligne vers l'écran ou un amplificateur</td></tr>
+  <tr><td>Interface parallèle</td><td>6821 : deux ports de 8 bits sur une barrette, pour une imprimante par exemple</td></tr>
+  <tr><td>Alimentation</td><td>module secteur RECOM RAC20-05SK : 230 V vers 5 V, 20 W, fusible de 1 A</td></tr>
+</table>
+
+<div class="encadre">
+  <div class="titre">Attention : tension du secteur</div>
+  <p>Le bornier d'alimentation reçoit directement le secteur 230 V. Ne travaillez jamais sur la carte ni dans le boîtier la machine branchée, et ne remplacez le fusible que par un modèle identique.</p>
+</div>
+
+<h2>Les connecteurs</h2>
+<figure>
+  <img src="photos/carte_arriere.png" alt="La carte d'OSM39 vue de l'arrière : connecteurs d'extension, VGA et série">
+  <figcaption><b>Le panneau arrière.</b> De gauche à droite sur cette vue : l'extension, la sortie VGA, et la prise série.</figcaption>
+</figure>
+<table>
+  <tr><th>Repère</th><th>Emplacement</th><th>Rôle</th></tr>
+  <tr><td>J501</td><td>arrière</td><td>sortie vidéo VGA (DE15), pour tout écran VGA ou plat</td></tr>
+  <tr><td>J201</td><td>arrière</td><td>liaison série RS-232 (DE9 mâle, câblée comme un PC) : modem, ordinateur</td></tr>
+  <tr><td>J301</td><td>arrière</td><td>connecteur d'extension DIN 41612, 48 broches : le bus du processeur</td></tr>
+  <tr><td>J401</td><td>avant droit</td><td>entrée secteur (terre, neutre, phase), vers le module d'alimentation</td></tr>
+  <tr><td>J601</td><td>bord arrière</td><td>le clavier PS/2 (+5 V, données, horloge, masse)</td></tr>
+  <tr><td>J602</td><td>bord gauche</td><td>les deux ports de l'AY-3-8910 : 16 lignes d'entrée-sortie, dont la Clouris</td></tr>
+  <tr><td>J604</td><td>bord gauche</td><td>la sortie son, niveau ligne</td></tr>
+  <tr><td>J603</td><td>sur la carte</td><td>le module de carte SD</td></tr>
+  <tr><td>J102</td><td>bord arrière</td><td>l'interface parallèle (ports A et B du 6821)</td></tr>
+  <tr><td>J101</td><td>bord arrière</td><td>les sorties des minuteries 68B40</td></tr>
+  <tr><td>J103</td><td>sur la carte</td><td>cavalier d'écriture du BIOS (voir plus bas)</td></tr>
+  <tr><td>SW101</td><td>sur la carte</td><td>le bouton de réinitialisation</td></tr>
+</table>
+
+<h2>Les deux mémoires mortes</h2>
+<p>OSM39 a deux mémoires mortes de 8 Ko, toutes deux au format 28C64 :</p>
+<ul>
+  <li><strong>le BIOS</strong> (U104) démarre la machine, gère l'écran, le clavier, la carte SD, le son et la liaison série, et offre ses services aux programmes ;</li>
+  <li><strong>la police</strong> (U515) contient les 512 caractères de 8 × 16 points : la page 0, l'alphabet complet, et la page 1, les cadres de fenêtres, les mosaïques du Minitel, les icônes et les dessins des jeux.</li>
+</ul>
+<p>Pour les mettre à jour, on les programme avec un programmeur d'EPROM (par exemple un TL866) à partir des fichiers <code>dist/EPROM/osm39.bin</code> et <code>dist/EPROM/font_osm39.bin</code>, produits par <code>deploy_sd.sh</code>. Le cavalier J103 permet aussi d'écrire le BIOS sans le retirer de la carte ; laissez-le en position protégée en temps normal, pour qu'un programme égaré ne puisse pas l'effacer.</p>
+</section>
+
+<!-- ================= 3. MISE EN ROUTE ================= -->
+<section class="chapitre" id="mise-en-route">
+<header>
+  <div class="numero">CHAPITRE 3</div>
+  <h1>Mise en route</h1>
+  <div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div>
+</header>
+<p class="chapo">Brancher OSM39 prend deux minutes. Ce chapitre explique aussi comment préparer une carte SD sur un ordinateur, et ce que fait la machine entre la mise sous tension et l'apparition du bureau.</p>
+
+<h2>Brancher la machine</h2>
+<ol>
+  <li>Reliez la sortie <strong>VGA</strong> à un écran. Un moniteur VGA de 14 pouces convient parfaitement ; un écran plat aussi, tant qu'il accepte le 640 × 480.</li>
+  <li>Reliez la <strong>sortie son</strong> à l'entrée audio de l'écran ou à un petit amplificateur.</li>
+  <li>Si vous le souhaitez, branchez un <strong>modem</strong> ou un ordinateur sur la prise série.</li>
+  <li>Glissez la <strong>carte SD</strong> dans son logement, puis branchez le cordon secteur.</li>
+</ol>
+
+<h2>Préparer une carte SD</h2>
+<p>OSM39 range ses fichiers selon son propre format, OSMFS. Une carte SD neuve se prépare sur un ordinateur sous Linux, avec les outils fournis dans le dossier <code>tools/egofs</code> :</p>
+<pre>./deploy_sd.sh                                     # tout reconstruire et vérifier
+python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
+<p>Remplacez <code>/dev/sdX</code> par le nom de votre lecteur de cartes. L'outil formate une carte qui ne l'est pas encore, y installe le système, les programmes et les dossiers, puis relit la carte pour vérifier. Sur une carte déjà en service, il met à jour le système sans toucher à vos propres fichiers. Une carte de 32 Go convient très bien ; OSM39 n'en utilise qu'une petite partie.</p>
+<p>L'interface graphique <code>egofs_gui.py</code> permet aussi de parcourir une carte, d'y ajouter ou d'en retirer des fichiers à la main.</p>
+
+<h2>Le démarrage</h2>
+<p>À la mise sous tension, OSM39 joue sa mélodie et affiche son nom. Pendant une seconde environ, il guette le clavier : si vous appuyez sur une touche, il ouvre le mode <strong>SECOURS</strong> (voir plus bas). Sinon, il charge OSM-VISION depuis la carte, et vous voilà devant le bureau.</p>
+<p>Le BIOS recharge OSM-VISION chaque fois que celui-ci rend la main : la machine retombe toujours sur ses pieds.</p>
+
+<h2>Le mode SECOURS</h2>
+<p>SECOURS est le petit moniteur caché dans le BIOS. Il sert quand la carte SD manque ou qu'il faut charger un programme par la liaison série. Il comprend trois commandes :</p>
+<table>
+  <tr><th>Commande</th><th>Effet</th></tr>
+  <tr><td><code>LOAD</code></td><td>recevoir un programme au format Intel hex, collé dans un terminal sur la liaison série</td></tr>
+  <tr><td><code>RUN aaaa</code></td><td>lancer le programme à l'adresse hexadécimale <code>aaaa</code></td></tr>
+  <tr><td><code>BOOT</code></td><td>relire la carte SD et lancer OSM-VISION</td></tr>
+</table>
+<p>Depuis un ordinateur relié à la prise série, <kbd>Ctrl</kbd>+<kbd>A</kbd> ramène OSM39 en SECOURS à tout moment.</p>
+
+<h2>Si quelque chose ne va pas</h2>
+<table>
+  <tr><th>Ce que vous voyez</th><th>Que faire</th></tr>
+  <tr><td><code>Carte SD absente ou muette</code></td><td>vérifiez la carte et son logement, puis tapez <code>BOOT</code>. Les cartes SD de première génération (SD v1, avant 2006) ne sont pas reconnues ; prenez une carte SDHC.</td></tr>
+  <tr><td>SECOURS s'ouvre tout seul</td><td>OSM-VISION n'a pas été trouvé à la racine de la carte : refaites la carte avec <code>egofs_deploy.py</code>.</td></tr>
+  <tr><td><code>TRAP 6309 PC=…</code></td><td>un programme a exécuté une instruction impossible. Appuyez sur une touche : la machine redémarre et garde un compte rendu, que la commande <code>MONITEUR</code> affiche avec <code>R</code>.</td></tr>
+  <tr><td>Écran noir</td><td>vérifiez le câble VGA ; l'écran doit accepter le 640 × 480 à 60 Hz.</td></tr>
+</table>
+</section>
+
+<!-- ================= 4. OSM-VISION ================= -->
+<section class="chapitre" id="osmvision">
+<header>
+  <div class="numero">CHAPITRE 4</div>
+  <h1>OSM-VISION, le bureau</h1>
+  <div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div>
+</header>
+<p class="chapo">OSM-VISION est le premier programme que vous voyez. C'est à la fois le gestionnaire de fichiers de la carte SD et la porte d'entrée de tous les autres programmes : vous y rangez vos documents, vous les ouvrez, et vous y revenez à la fin de chaque application.</p>
+
+<figure>
+  <img src="images/osmvision.png" alt="Le bureau OSM-VISION : fenêtre de la liste des fichiers sur fond bleu tramé">
+  <figcaption><b>Le bureau.</b> La fenêtre montre le contenu du dossier courant : les dossiers d'abord, puis les fichiers. En bas, le rang du fichier choisi, le nombre d'éléments, et l'état du son.</figcaption>
+</figure>
+
+<h2>Se déplacer dans la liste</h2>
+<p>Le fichier choisi apparaît en surbrillance. Les flèches le déplacent :</p>
+<table>
+  <tr><th>Touche</th><th>Effet</th></tr>
+  <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>fichier précédent, suivant</td></tr>
+  <tr><td><kbd>←</kbd> <kbd>→</kbd>, <kbd>Pg préc</kbd> <kbd>Pg suiv</kbd></td><td>page précédente, suivante, quand la liste est plus longue que la fenêtre</td></tr>
+  <tr><td><kbd>Début</kbd> <kbd>Fin</kbd></td><td>premier et dernier élément</td></tr>
+</table>
+<p>De petites flèches dans la marge de droite signalent qu'il reste des éléments au-dessus ou au-dessous. Un <code>+</code> après le nombre d'éléments indique un dossier si grand que la liste a été tronquée.</p>
+
+<h2>Les dossiers</h2>
+<p>Les dossiers portent une icône de classeur. <kbd>Entrée</kbd> sur un dossier y entre ; l'élément <code>..</code>, toujours en tête de liste hors de la racine, ramène au dossier parent. La carte livrée avec la machine est rangée ainsi :</p>
+<table>
+  <tr><th>Dossier</th><th>Contenu</th></tr>
+  <tr><td><code>BIN</code></td><td>les programmes du système et les commandes du Terminal, avec EDIT et CALC</td></tr>
+  <tr><td><code>APPS</code></td><td>les applications : MINITEL, PAROLE, la mire de réglage…</td></tr>
+  <tr><td><code>GAMES</code></td><td>les jeux</td></tr>
+  <tr><td><code>MUSIQUE</code></td><td>les morceaux pour le générateur de son</td></tr>
+  <tr><td><code>BASIC</code></td><td>des programmes d'exemple en BBC BASIC</td></tr>
+  <tr><td><code>DOC</code></td><td>des aide-mémoire à lire à l'écran</td></tr>
+  <tr><td><code>SRC</code>, <code>LIB</code>, <code>BIOS</code></td><td>les sources en assembleur, prêtes pour l'assembleur intégré</td></tr>
+  <tr><td><code>BUDGET</code></td><td>un dossier vide pour vos feuilles de calcul</td></tr>
+</table>
+<p>Pour créer un dossier, frappez <kbd>Ctrl</kbd>+<kbd>N</kbd> et donnez-lui un nom. Un programme reste utilisable quel que soit le dossier courant : quand un nom de programme n'est pas trouvé dans le dossier courant, le système le cherche dans <code>BIN</code>, puis à la racine.</p>
+
+<h2>Ouvrir un fichier</h2>
+<p><kbd>Entrée</kbd> ouvre l'élément choisi. Un programme est lancé ; un document est ouvert avec le programme qui lui correspond, d'après la fin de son nom :</p>
+<table>
+  <tr><th>Fin du nom</th><th>Ouvert avec</th></tr>
+  <tr><td><code>.TXT</code>, <code>.ASM</code>, <code>.INC</code></td><td>EDIT, le traitement de texte</td></tr>
+  <tr><td><code>.CAL</code></td><td>CALC, le tableur</td></tr>
+  <tr><td><code>.MUS</code></td><td>AYJOUE, le lecteur de musique</td></tr>
+</table>
+<p>Les applications s'ouvrent par-dessus le bureau ; les commandes du système s'exécutent dans la fenêtre du Terminal. À leur fin, vous retrouvez OSM-VISION là où vous l'aviez laissé.</p>
+
+<h2>Le menu</h2>
+<p>La barre d'<kbd>Espace</kbd> ouvre, à côté du fichier choisi, le menu de tout ce qu'on peut en faire. Choisissez une ligne avec les flèches et <kbd>Entrée</kbd>, ou frappez directement la lettre indiquée à droite ; <kbd>Échap</kbd> referme le menu.</p>
+<figure class="moitie">
+  <img src="images/osmvision_menu.png" alt="Le menu contextuel d'OSM-VISION ouvert à côté du fichier choisi">
+  <figcaption><b>Le menu.</b> Chaque action a sa lettre.</figcaption>
+</figure>
+<table>
+  <tr><th>Lettre</th><th>Action</th></tr>
+  <tr><td><kbd>Entrée</kbd></td><td><b>Ouvrir</b>, comme depuis la liste</td></tr>
+  <tr><td><kbd>E</kbd></td><td><b>Éditer</b> le fichier avec EDIT, quelle que soit sa fin de nom</td></tr>
+  <tr><td><kbd>V</kbd></td><td><b>Voir</b> son contenu sans risque de le modifier : <kbd>Tab</kbd> passe du texte à l'hexadécimal (32 Ko au plus)</td></tr>
+  <tr><td><kbd>R</kbd></td><td><b>Renommer</b></td></tr>
+  <tr><td><kbd>C</kbd> <kbd>U</kbd> <kbd>L</kbd></td><td><b>Copier</b>, <b>Couper</b>, <b>Coller</b> (voir ci-dessous)</td></tr>
+  <tr><td><kbd>N</kbd></td><td><b>Nouveau dossier</b></td></tr>
+  <tr><td><kbd>X</kbd></td><td><b>Exécuter</b> une commande, avec ses paramètres</td></tr>
+  <tr><td><kbd>P</kbd></td><td><b>Propriétés</b> : taille, adresse de chargement, et les attributs à cocher</td></tr>
+  <tr><td><kbd>S</kbd></td><td><b>Supprimer</b>, après confirmation</td></tr>
+  <tr><td><kbd>T</kbd></td><td>ouvrir le <b>Terminal</b></td></tr>
+</table>
+
+<h2>Copier, couper, coller</h2>
+<p>Pour copier un fichier dans un autre dossier : choisissez-le, frappez <kbd>Ctrl</kbd>+<kbd>C</kbd>, entrez dans le dossier de destination, puis frappez <kbd>Ctrl</kbd>+<kbd>V</kbd>. <kbd>Ctrl</kbd>+<kbd>X</kbd> au lieu de <kbd>Ctrl</kbd>+<kbd>C</kbd> <em>déplace</em> le fichier au lieu de le copier. La copie garde tout du fichier : son contenu, son adresse de chargement et ses attributs. Un fichier peut atteindre 64 Ko. Un dossier se déplace, mais ne se copie pas.</p>
+<p>OSM-VISION refuse de coller sur un nom qui existe déjà : rien n'est jamais écrasé sans que vous l'ayez demandé.</p>
+
+<h2>Le son</h2>
+<p>Le petit haut-parleur de la barre d'état montre si le son est en marche ou coupé. La touche <kbd>M</kbd> coupe et rétablit le son, pour OSM-VISION comme pour toutes les applications.</p>
+
+<h2>L'aide</h2>
+<p>Vous ne vous souvenez plus d'une touche ? Frappez <kbd>?</kbd> : le panneau des raccourcis s'ouvre à droite du bureau. Il reste affiché pendant que vous travaillez, et revient même après une application ; frappez de nouveau <kbd>?</kbd> pour le refermer.</p>
+<figure>
+  <img src="images/osmvision_aide.png" alt="OSM-VISION avec le panneau des raccourcis ouvert à droite">
+  <figcaption><b>Le panneau des raccourcis</b>, ouvert par <kbd>?</kbd>. Ici, le son est coupé : le haut-parleur de la barre d'état est barré.</figcaption>
+</figure>
+
+<h2>Recharger le bureau</h2>
+<p><kbd>Échap</kbd> rend la main au système, qui recharge aussitôt OSM-VISION depuis la carte. C'est utile si vous avez changé de carte SD sans éteindre la machine.</p>
+</section>
+
+<!-- ================= CHAPITRES À VENIR ================= -->
+<section class="chapitre" id="terminal"><header><div class="numero">CHAPITRE 5</div><h1>Le Terminal et les commandes</h1><div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div></header>
+<p class="chapo">Le Terminal est la ligne de commande d'OSM39. Il s'ouvre dans une fenêtre du bureau, et vous y tapez des commandes, comme sur les ordinateurs d'avant les fenêtres.</p>
+
+<figure>
+  <img src="images/terminal.png" alt="La fenêtre du Terminal : les commandes cd, ls et pwd">
+  <figcaption><b>Le Terminal.</b> Les commandes <code>cd /games</code>, <code>ls</code> et <code>pwd</code>. Pour chaque fichier, <code>ls</code> donne sa taille en octets et ses attributs.</figcaption>
+</figure>
+
+<h2>Ouvrir et fermer le Terminal</h2>
+<p>Dans OSM-VISION, la touche <kbd>T</kbd> (ou la ligne <b>Terminal</b> du menu) ouvre le Terminal. Le signe <code>#</code> vous invite à taper une commande, puis <kbd>Entrée</kbd>. La commande <code>EXIT</code> referme le Terminal et vous ramène au bureau, dans le dossier où vous avez terminé.</p>
+<p>Les majuscules et les minuscules sont équivalentes dans les noms de commandes et de fichiers.</p>
+
+<h2>Les chemins</h2>
+<p>Un fichier se désigne par son nom dans le dossier courant (<code>LETTRE.TXT</code>), ou par un chemin : <code>/</code> est la racine, <code>..</code> le dossier parent, et les dossiers se séparent par <code>/</code> (<code>/GAMES/DONJON39.TXT</code>, <code>../DOC/EDIT.TXT</code>). Toutes les commandes acceptent les chemins.</p>
+
+<h2>Les commandes intégrées</h2>
+<table>
+  <tr><th>Commande</th><th>Effet</th></tr>
+  <tr><td><code>HELP</code></td><td>la liste des commandes</td></tr>
+  <tr><td><code>CLS</code></td><td>effacer la fenêtre</td></tr>
+  <tr><td><code>DEL nom</code></td><td>supprimer un fichier</td></tr>
+  <tr><td><code>CHMOD nom mode</code></td><td>changer les attributs : <code>+x</code>, <code>-w</code>, <code>=r</code>… ou un chiffre de 0 à 7</td></tr>
+  <tr><td><code>DUMP adresse</code></td><td>afficher la mémoire en hexadécimal</td></tr>
+  <tr><td><code>VER</code></td><td>la version du Terminal</td></tr>
+  <tr><td><code>EXIT</code></td><td>retour à OSM-VISION</td></tr>
+</table>
+
+<h2>Les commandes du dossier BIN</h2>
+<p>Tout programme se lance en tapant son nom, suivi de ses paramètres. Les commandes du système vivent dans le dossier <code>BIN</code>, et se trouvent depuis n'importe quel dossier :</p>
+<table>
+  <tr><th>Commande</th><th>Effet</th></tr>
+  <tr><td><code>LS [dossier]</code></td><td>lister un dossier : noms, tailles, attributs</td></tr>
+  <tr><td><code>CD dossier</code></td><td>changer de dossier (<code>CD ..</code>, <code>CD /</code>, <code>CD /APPS</code>)</td></tr>
+  <tr><td><code>PWD</code></td><td>afficher le dossier courant</td></tr>
+  <tr><td><code>MKDIR nom</code></td><td>créer un dossier</td></tr>
+  <tr><td><code>CP source dest</code></td><td>copier un fichier</td></tr>
+  <tr><td><code>MV source dest</code></td><td>déplacer ou renommer un fichier</td></tr>
+  <tr><td><code>RM nom</code></td><td>supprimer un fichier ou un dossier vide</td></tr>
+  <tr><td><code>TYPE nom</code></td><td>afficher un fichier texte, page par page</td></tr>
+  <tr><td><code>SIZE nom</code></td><td>la taille d'un fichier</td></tr>
+  <tr><td><code>CPU</code></td><td>reconnaître le processeur : 6809 ou HD6309</td></tr>
+  <tr><td><code>MONITEUR</code></td><td>examiner et modifier la mémoire, lire le compte rendu du dernier incident</td></tr>
+  <tr><td><code>SDTEST</code></td><td>tester la carte SD en détail</td></tr>
+  <tr><td><code>AYTEST</code></td><td>tester le générateur de son, voix par voix</td></tr>
+  <tr><td><code>AYJOUE morceau</code></td><td>jouer un morceau de musique (chapitre 8)</td></tr>
+  <tr><td><code>TELE</code></td><td>se laisser piloter par un ordinateur sur la liaison série (chapitre 10)</td></tr>
+  <tr><td><code>ASM source sortie</code></td><td>l'assembleur intégré (chapitre 9)</td></tr>
+  <tr><td><code>EDIT</code>, <code>CALC</code></td><td>le traitement de texte et le tableur (chapitre 6)</td></tr>
+  <tr><td><code>BBCBASIC</code>, <code>BASIC</code>, <code>FORTH</code></td><td>les langages (chapitre 9)</td></tr>
+</table>
+
+<h2>Le MONITEUR</h2>
+<p><code>MONITEUR</code> est l'outil des curieux et des programmeurs. Ses commandes tiennent en une lettre :</p>
+<table>
+  <tr><th>Commande</th><th>Effet</th></tr>
+  <tr><td><code>M [page:]aaaa</code></td><td>afficher la mémoire à partir de l'adresse <code>aaaa</code>, dans une page de RAM au choix</td></tr>
+  <tr><td><code>E [page:]aaaa</code></td><td>modifier la mémoire, octet par octet</td></tr>
+  <tr><td><code>G [page:]aaaa</code></td><td>appeler une routine</td></tr>
+  <tr><td><code>R</code></td><td>le compte rendu du dernier incident (TRAP) : registres, pile, état de la machine</td></tr>
+  <tr><td><code>Q</code></td><td>quitter</td></tr>
+</table>
+</section>
+<section class="chapitre" id="applications"><header><div class="numero">CHAPITRE 6</div><h1>Les applications</h1><div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div></header>
+<p class="chapo">OSM39 est livré avec un traitement de texte, un tableur, un Minitel et une machine qui parle. Ils se lancent tous depuis OSM-VISION, et rendent la main par <kbd>Échap</kbd>.</p>
+
+<h2>EDIT, le traitement de texte</h2>
+<figure>
+  <img src="images/edit.png" alt="EDIT ouvert sur son aide-mémoire">
+  <figcaption><b>EDIT</b> ouvert sur son propre aide-mémoire, <code>DOC/EDIT.TXT</code>.</figcaption>
+</figure>
+<p>EDIT reprend les touches de WordStar, le traitement de texte des années 1980, mais les flèches et les touches de page fonctionnent aussi. Il s'ouvre par <kbd>Entrée</kbd> sur un fichier <code>.TXT</code>, <code>.ASM</code> ou <code>.INC</code>, ou par <code>EDIT nom</code> dans le Terminal. Il accepte des textes de près de 64 Ko.</p>
+<table>
+  <tr><th>Touches</th><th>Effet</th></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd> puis <kbd>S</kbd></td><td>sauver et continuer</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd> puis <kbd>X</kbd></td><td>sauver et sortir</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd> puis <kbd>Q</kbd>, ou <kbd>Échap</kbd></td><td>sortir sans sauver (EDIT demande confirmation si le texte a changé)</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd> puis <kbd>L</kbd></td><td>ouvrir un autre fichier</td></tr>
+  <tr><td>flèches, ou <kbd>Ctrl</kbd>+<kbd>E</kbd> <kbd>X</kbd> <kbd>S</kbd> <kbd>D</kbd></td><td>se déplacer</td></tr>
+  <tr><td><kbd>Pg.préc</kbd> <kbd>Pg.suiv</kbd>, ou <kbd>Ctrl</kbd>+<kbd>R</kbd> <kbd>C</kbd></td><td>page par page</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Début</kbd>, <kbd>Ctrl</kbd>+<kbd>Fin</kbd></td><td>début, fin du fichier</td></tr>
+  <tr><td><kbd>Suppr</kbd> ou <kbd>Ctrl</kbd>+<kbd>G</kbd></td><td>effacer le caractère sous le curseur</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>effacer la ligne</td></tr>
+</table>
+<div class="encadre">
+  <div class="titre">Habitude de WordStar</div>
+  <p>Dans EDIT, <kbd>Ctrl</kbd>+<kbd>C</kbd> descend d'une page et <kbd>Ctrl</kbd>+<kbd>X</kbd> d'une ligne : ils ne copient pas et ne coupent pas. La mention <code>*modifie*</code> sur la ligne d'état rappelle que le texte n'est pas encore sauvé.</p>
+</div>
+
+<h2>CALC, le tableur</h2>
+<figure>
+  <img src="images/calc.png" alt="CALC : un petit budget et sa somme">
+  <figcaption><b>CALC</b> : un budget de trois lignes, dont le total est la formule <code>@SUM(B2...B4)</code>.</figcaption>
+</figure>
+<p>CALC est un tableur dans l'esprit de VisiCalc : 26 colonnes (A à Z) sur 50 lignes. Il s'ouvre par <kbd>Entrée</kbd> sur un fichier <code>.CAL</code>, ou vide par <code>CALC</code>. Tapez directement dans une cellule pour la remplacer ; <kbd>Entrée</kbd> sur une cellule reprend son contenu pour le modifier.</p>
+<ul>
+  <li>Un <strong>libellé</strong> commence par une lettre. Pour un libellé en chiffres, commencez par <code>"</code> (<code>"2026</code>).</li>
+  <li>Une <strong>valeur</strong> est un nombre (deux décimales, virgule ou point) ou une formule : <code>+ - * / ( )</code>, les références <code>A1</code> à <code>Z50</code>, et les fonctions <code>@SUM</code>, <code>@MIN</code>, <code>@MAX</code>, <code>@AVG</code> sur une plage, comme <code>@SUM(A1...A9)</code>.</li>
+  <li>Une formule qui commence par une référence doit commencer par <code>+</code> : <code>+A1*2</code> est une formule, <code>A1*2</code> un libellé.</li>
+</ul>
+<p>Les commandes commencent par <kbd>/</kbd> : <kbd>/</kbd><kbd>S</kbd> sauve la feuille, <kbd>/</kbd><kbd>L</kbd> en lit une autre, <kbd>/</kbd><kbd>B</kbd> vide la cellule, <kbd>/</kbd><kbd>E</kbd> efface toute la feuille. <kbd>Échap</kbd> quitte, après confirmation si la feuille n'est pas sauvée. <code>ERREUR</code> signale une division par zéro ou une formule mal écrite, et <code>&gt;&gt;&gt;&gt;</code> un nombre trop large pour sa colonne.</p>
+
+<h2>MINITEL</h2>
+<figure class="moitie">
+  <img src="images/minitel.png" alt="MINITEL attend un numéro">
+  <figcaption><b>MINITEL</b> attend le numéro à appeler.</figcaption>
+</figure>
+<figure class="moitie">
+  <img src="images/minipavi.png" alt="La page d'accueil de MiniPavi">
+  <figcaption><b>La page d'accueil de MiniPavi</b>, telle qu'OSM39 l'a reçue au téléphone.</figcaption>
+</figure>
+<p>Avec un modem V.23 branché sur la prise série, OSM39 devient un Minitel et appelle les serveurs d'aujourd'hui, comme MiniPavi. Tapez <code>3615</code> (ou <code>36xx</code>) puis <kbd>Entrée</kbd> : OSM39 compose le numéro de MiniPavi, laisse passer son message vocal, et affiche la page d'accueil. La correction d'erreurs du Minitel 1B est prise en charge : une ligne téléphonique bruyante ne gâche pas l'écran.</p>
+<p>Sans modem, le programme <code>tools/minitel/modem.py</code> joue ce rôle sur un ordinateur relié à la prise série, et passe par Internet.</p>
+<table>
+  <tr><th>Touche d'OSM39</th><th>Touche du Minitel</th></tr>
+  <tr><td><kbd>Entrée</kbd></td><td>ENVOI</td></tr>
+  <tr><td><kbd>Ret. arr.</kbd></td><td>CORRECTION</td></tr>
+  <tr><td><kbd>Suppr</kbd></td><td>ANNULATION</td></tr>
+  <tr><td><kbd>Pg.préc</kbd> / <kbd>Pg.suiv</kbd></td><td>RETOUR / SUITE</td></tr>
+  <tr><td><kbd>Début</kbd></td><td>SOMMAIRE</td></tr>
+  <tr><td><kbd>Fin</kbd></td><td>GUIDE</td></tr>
+  <tr><td><kbd>Inser</kbd></td><td>RÉPÉTITION</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>fenêtre ou plein écran</td></tr>
+  <tr><td><kbd>Échap</kbd></td><td>raccrocher</td></tr>
+</table>
+<div class="encadre">
+  <div class="titre">Brancher un modem</div>
+  <p>La prise série d'OSM39 est câblée comme celle d'un PC. Un modem s'y branche par un câble droit mâle-mâle (broche 1 vers 1, 2 vers 2…), jamais par un câble « null-modem ». Les broches 2, 3, 5, 7 et 8 suffisent.</p>
+</div>
+
+<h2>PAROLE</h2>
+<figure>
+  <img src="images/parole.png" alt="PAROLE : une phrase à dire">
+  <figcaption><b>PAROLE</b> : tapez une phrase, OSM39 la prononce.</figcaption>
+</figure>
+<p>OSM39 n'a pas de puce vocale : PAROLE fabrique la voix par logiciel, à la manière du célèbre S.A.M. de 1982, et la fait sortir par le générateur de son. Tapez une phrase en français puis <kbd>Entrée</kbd>. Les nombres (jusqu'à 9999) sont lus en lettres, les sigles en majuscules sont épelés. <kbd>Tab</kbd> change de voix, <kbd>Échap</kbd> revient au bureau. Le résultat a tout le charme d'une voix de robot des années 1980.</p>
+
+<h2>Les outils</h2>
+<table>
+  <tr><th>Programme</th><th>Rôle</th></tr>
+  <tr><td><code>MIRE</code></td><td>outil de diagnostic : le code de chaque touche, des écrans de test pour l'image et la touche <kbd>V</kbd> pour régler le contrôleur vidéo</td></tr>
+  <tr><td><code>SON</code></td><td>essai d'échantillons sonores par les minuteries</td></tr>
+  <tr><td><code>PONT</code></td><td>démonstration des appels entre pages de mémoire (chapitre 10)</td></tr>
+</table>
+<figure>
+  <img src="images/mire.png" alt="MIRE affiche les codes des touches">
+  <figcaption><b>MIRE</b>, l'application modèle et l'outil de diagnostic.</figcaption>
+</figure>
+</section>
+<section class="chapitre" id="jeux"><header><div class="numero">CHAPITRE 7</div><h1>Les jeux</h1><div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div></header>
+<p class="chapo">Quatre jeux attendent dans le dossier <code>GAMES</code>. Tous se quittent par <kbd>Échap</kbd>, et ramènent le bureau tel que vous l'aviez laissé.</p>
+
+<h2>BRIQUES</h2>
+<figure class="moitie"><img src="images/briques.png" alt="BRIQUES en cours de partie"><figcaption><b>BRIQUES</b>.</figcaption></figure>
+<p>Le grand classique des pièces qui tombent. <kbd>←</kbd> <kbd>→</kbd> déplacent la pièce, <kbd>↑</kbd> la tourne, <kbd>↓</kbd> accélère sa chute, et <kbd>Espace</kbd> la lâche d'un coup. Chaque ligne complète disparaît ; la partie se termine quand la pile atteint le haut du puits.</p>
+
+<h2>ENVAHIS</h2>
+<figure class="moitie"><img src="images/envahis.png" alt="ENVAHIS : la flotte des envahisseurs"><figcaption><b>ENVAHIS</b>.</figcaption></figure>
+<p>Défendez la Terre contre les vagues d'envahisseurs. <kbd>←</kbd> <kbd>→</kbd> déplacent le canon (on peut les garder enfoncées), <kbd>Espace</kbd> tire. Le meilleur score est gardé sur la carte SD, dans <code>ENVAHIS.HI</code>.</p>
+
+<h2>GLOUTON</h2>
+<figure class="moitie"><img src="images/glouton.png" alt="GLOUTON dans son labyrinthe"><figcaption><b>GLOUTON</b>.</figcaption></figure>
+<p>Mangez toutes les pastilles du labyrinthe sans vous faire attraper. Les quatre fantômes suivent chacun leur propre tactique, comme sur la borne d'arcade. Les flèches (ou le pavé numérique) dirigent GLOUTON, <kbd>P</kbd> met en pause, <kbd>Espace</kbd> relance une partie. Meilleur score dans <code>GLOUTON.HI</code>.</p>
+
+<h2>DONJON39</h2>
+<figure class="moitie"><img src="images/donjon39.png" alt="DONJON39 : un couloir en trois dimensions"><figcaption><b>DONJON39</b>.</figcaption></figure>
+<p>Promenez-vous dans un labyrinthe en trois dimensions, dessiné en temps réel avec les mosaïques du Minitel. <kbd>↑</kbd> <kbd>↓</kbd> avancent et reculent, <kbd>←</kbd> <kbd>→</kbd> tournent, <kbd>Espace</kbd> ouvre la porte devant vous (elle se referme seule), <kbd>Tab</kbd> affiche la mini-carte.</p>
+<h3>Dessiner votre propre labyrinthe</h3>
+<p>La carte est lue dans le fichier <code>DONJON39.TXT</code> du dossier courant : modifiez-la avec EDIT. C'est une grille de 16 × 16 caractères : un caractère par case, les murs et les portes d'un côté, le vide de l'autre, et la position de départ du joueur. Les règles complètes sont rappelées en tête du fichier. Le bord est toujours un mur, même si vous l'oubliez ; sans fichier, DONJON39 prend sa carte intégrée.</p>
+</section>
+<section class="chapitre" id="musique"><header><div class="numero">CHAPITRE 8</div><h1>La musique et la parole</h1><div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div></header>
+<p class="chapo">Le générateur de son AY-3-8910 est celui de l'Amstrad CPC et du ZX Spectrum 128 : trois voix, un bruit, et des enveloppes. OSM39 s'en sert pour la musique, les bruitages, et même pour parler.</p>
+
+<h2>Écouter un morceau</h2>
+<figure>
+  <img src="images/musique.png" alt="AYJOUE joue Korobeiniki">
+  <figcaption><b>AYJOUE</b> joue Korobeiniki, l'air russe que BRIQUES a rendu célèbre.</figcaption>
+</figure>
+<p>Les morceaux sont des fichiers <code>.MUS</code>, rangés dans le dossier <code>MUSIQUE</code>. <kbd>Entrée</kbd> sur l'un d'eux dans OSM-VISION le joue ; dans le Terminal, tapez <code>AYJOUE nom</code>. <kbd>Échap</kbd> arrête la musique.</p>
+<p>La touche <kbd>M</kbd> d'OSM-VISION coupe ou rétablit le son de toute la machine ; le haut-parleur de la barre d'état montre son état.</p>
+
+<h2>Écrire un morceau</h2>
+<p>Un morceau s'écrit comme un texte, sur un ordinateur ou dans EDIT, puis se compile avec <code>tools/ay/ay.py</code>. Le même outil le fait écouter sur l'ordinateur (<code>--wav</code>) avant de l'envoyer sur la carte. Voici un extrait :</p>
+<pre>titre Korobeiniki
+tempo 8                     # trames par unité (60 trames = 1 s)
+instrument piano vol 15 13 12 10 9 8 7 6 5 4
+instrument tambour bruit 6 son non vol 15 10 6 3 0
+A: @piano E5*2 B4 C5 D5*2 C5 B4 | A4*2 - ~
+C: [ @piano E2*4 @tambour C4 ]</pre>
+<table>
+  <tr><th>Élément</th><th>Signification</th></tr>
+  <tr><td><code>A:</code> <code>B:</code> <code>C:</code></td><td>les trois voix ; une voix peut tenir sur plusieurs lignes</td></tr>
+  <tr><td><code>C4</code>, <code>D#4</code>, <code>Eb3</code></td><td>une note, en notation anglaise (C = do), octaves 1 à 8</td></tr>
+  <tr><td><code>*n</code></td><td>après une note : sa durée en unités (1 par défaut)</td></tr>
+  <tr><td><code>-</code> et <code>~</code></td><td>un silence ; la note précédente continue</td></tr>
+  <tr><td><code>@nom</code></td><td>changer d'instrument</td></tr>
+  <tr><td><code>[ … ]</code></td><td>répéter sans fin (pour les musiques de fond)</td></tr>
+  <tr><td><code>|</code></td><td>barre de mesure, pour la lisibilité</td></tr>
+  <tr><td><code>instrument</code></td><td><code>vol</code> : le volume trame par trame ; <code>bruit P</code> : ajouter le bruit ; <code>son non</code> : retirer le son ; <code>env forme période</code> : l'enveloppe de l'AY</td></tr>
+</table>
+
+<h2>La parole</h2>
+<p>PAROLE (chapitre 6) utilise l'AY d'une façon inattendue : ses volumes, changés 7200 fois par seconde, en font un convertisseur numérique-analogique. Pendant qu'OSM39 parle, toute la machine se consacre à la voix ; l'image reste figée.</p>
+
+<h2>Le son dans vos programmes</h2>
+<p>Le BIOS joue une partition simple en tâche de fond (c'est lui qui joue la mélodie du démarrage) : en BBC BASIC, c'est l'instruction <code>SOUND</code>. Les programmes en assembleur peuvent aussi inclure le lecteur de musique, <code>lib/ay_joue.asm</code>.</p>
+</section>
+<section class="chapitre" id="langages"><header><div class="numero">CHAPITRE 9</div><h1>Les langages</h1><div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div></header>
+<p class="chapo">Comme tout ordinateur familial digne de ce nom, OSM39 se programme dès qu'on l'allume. Il parle quatre langages : deux BASIC, le FORTH et l'assembleur.</p>
+
+<h2>BBC BASIC</h2>
+<p>Le BASIC de la BBC Micro d'Acorn, réputé le meilleur de son époque : procédures, fonctions, variables locales, et un assembleur intégré. OSM39 utilise le portage pour 6809 de Dominic Beesley. Il se lance par <code>BBCBASIC</code> (avec l'assembleur, 9 Ko pour les programmes) ou <code>BBCPLUS</code> (sans l'assembleur, 11 Ko).</p>
+<pre>10 FOR I%=1 TO 10
+20   PRINT I%, I%*I%
+30 NEXT
+RUN</pre>
+<table>
+  <tr><th>Commande</th><th>Effet</th></tr>
+  <tr><td><code>SAVE "NOM"</code>, <code>LOAD "NOM"</code></td><td>sauver, charger un programme sur la carte SD</td></tr>
+  <tr><td><code>*CAT</code>, <code>*DIR dossier</code></td><td>lister, changer de dossier</td></tr>
+  <tr><td><code>*EXEC fichier</code></td><td>taper un programme écrit en texte, par exemple dans EDIT</td></tr>
+  <tr><td><code>*DELETE nom</code></td><td>supprimer un fichier</td></tr>
+  <tr><td><code>*LOAD</code>, <code>*SAVE</code></td><td>charger, sauver du code machine</td></tr>
+  <tr><td><code>*BYE</code></td><td>quitter</td></tr>
+</table>
+<p>Le graphisme (<code>PLOT</code>, <code>MOVE</code>, <code>DRAW</code>, <code>GCOL</code>, <code>CLG</code>, <code>POINT</code>) dessine en 152 × 60 points dans la fenêtre, avec les mosaïques du Minitel. <code>SOUND</code> joue des notes ; <code>OPENIN</code>, <code>OPENOUT</code>, <code>PRINT#</code> et <code>INPUT#</code> lisent et écrivent des fichiers. <kbd>Échap</kbd> arrête un programme. Le dossier <code>BASIC</code> contient des exemples : <code>MANDELBROT.BAS</code>, <code>GRAPHE.BAS</code>, <code>REBOND.BAS</code>, <code>MUSIQUE.BAS</code>… à charger par <code>*EXEC</code>.</p>
+
+<h2>BASIC</h2>
+<p><code>BASIC</code> est un BASIC classique à numéros de ligne, dans la tradition de Microsoft : <code>PRINT</code>, <code>INPUT</code>, <code>GOTO</code>, <code>GOSUB</code>, <code>FOR</code>…<code>NEXT</code>, <code>DATA</code>, <code>PEEK</code> et <code>POKE</code>, <code>LIST</code>, <code>RENUM</code>, <code>EDIT</code>, <code>LOAD</code> et <code>SAVE</code>. Il occupe peu de place et démarre instantanément.</p>
+
+<h2>FORTH</h2>
+<p>Le FORTH, langage à pile cher aux pionniers de la micro-informatique. On empile des nombres, puis on les traite par des mots :</p>
+<pre>2 3 + . 5
+OK
+: CARRE DUP * ;
+OK
+7 CARRE . 49
+OK</pre>
+<p><code>QUIT</code> rend la main.</p>
+
+<h2>ASM, l'assembleur</h2>
+<p>OSM39 assemble lui-même ses programmes, sans ordinateur hôte. <code>ASM</code> lit un source en assembleur 6309 sur la carte et écrit le programme :</p>
+<pre>CD /SRC
+ASM HELLO.ASM HELLO
+ASM GLOUTON.ASM /GAMES/GLOUTON</pre>
+<p>Il comprend tout le jeu d'instructions du HD6309, les directives usuelles (<code>EQU</code>, <code>FCB</code>, <code>FDB</code>, <code>FCC</code>, <code>FCN</code>, <code>RMB</code>, <code>ORG</code>), les assemblages conditionnels et les <code>INCLUDE</code> sur quatre niveaux. Son résultat est identique, octet pour octet, à celui de l'assembleur lwasm sur un PC. Les sources de GLOUTON et de MIRE sont dans le dossier <code>SRC</code>, avec les bibliothèques dans <code>LIB</code> et <code>BIOS</code> : de quoi apprendre, modifier et réassembler un vrai jeu. En cas d'erreur, ASM indique le fichier et la ligne.</p>
+</section>
+<section class="chapitre" id="programmer"><header><div class="numero">CHAPITRE 10</div><h1>Programmer OSM39</h1><div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div></header>
+<p class="chapo">Ce chapitre s'adresse à ceux qui veulent écrire leurs propres programmes en assembleur, sur OSM39 ou sur un PC.</p>
+
+<h2>Le processeur</h2>
+<p>Le Hitachi HD6309 est un 6809 amélioré : deux accumulateurs de plus (E et F, réunis en W, puis Q = D:W pour 32 bits), des multiplications et divisions 16 bits, des copies de blocs (<code>TFM</code>) et des opérations sur les bits. OSM39 le fait fonctionner en <strong>mode natif</strong>, plus rapide : une interruption empile alors 14 octets, et l'adresse de retour se trouve à <code>12,S</code>.</p>
+
+<h2>La mémoire</h2>
+<p>Un programme dispose de <code>$0000-$7FFF</code>, 32 Ko pris dans l'une des quatre pages de RAM. OSM-VISION occupe la page 0 et lance les programmes en page 1 ; les pages 2 et 3 servent de mémoire de travail (EDIT y range son texte, CALC ses cellules). L'écran est en <code>$8000</code> (les caractères) et <code>$9000</code> (les couleurs), le BIOS en <code>$E000</code>. Le détail est en annexe.</p>
+<p>Pour appeler une routine d'une autre page, le BIOS offre <code>FAR_CALL</code> (A = page, X = adresse), qui revient avec la page de l'appelant ; c'est ce que montre l'application PONT.</p>
+
+<h2>Les services du BIOS</h2>
+<p>Les services du BIOS s'appellent par une table de pointeurs en <code>$C000</code>, dont les noms sont dans <code>BIOS/SYSFUNC.INC</code> :</p>
+<pre>        INCLUDE "../BIOS/HARDWARE.INC"
+        INCLUDE "../BIOS/SYSFUNC.INC"
+        LDX     #Message
+        JSR     [table_function_ram+sys_PrintString]</pre>
+<p>Règle commune : <strong>la retenue signale l'erreur</strong>. Au retour, C = 1 si le service a échoué, C = 0 s'il a réussi. Les familles de services :</p>
+<table>
+  <tr><th>Famille</th><th>Exemples</th></tr>
+  <tr><td>console</td><td>écrire un caractère ou un texte, lire une ligne, lire une touche sans attendre (<code>sys_kbd_poll</code>)</td></tr>
+  <tr><td>fichiers</td><td>chercher, charger, sauver, renommer, supprimer, lister, lire un secteur</td></tr>
+  <tr><td>dossiers</td><td>changer de dossier, en créer, connaître le dossier courant</td></tr>
+  <tr><td>mémoire</td><td>copier entre pages, appeler dans une autre page</td></tr>
+  <tr><td>noms</td><td><code>sys_Format_Filename_83</code> met un nom ou un chemin au format des services de fichiers ; à appeler avant tout service <code>FS_*</code></td></tr>
+</table>
+<p>Les adresses d'entrées-sorties et de la RAM du système viennent de <code>HARDWARE.INC</code> : n'écrivez jamais une adresse en dur, elle pourrait changer avec le BIOS.</p>
+
+<h2>Une application OSM-VISION</h2>
+<p>Le plus simple est de partir de <code>SRC/MIRE.ASM</code>, l'application modèle. Une application :</p>
+<ol>
+  <li>commence par son point d'entrée, à l'adresse 0 ;</li>
+  <li>inclut <code>LIB/VISION.ASM</code>, qui apporte les services de dessin (fenêtres, textes, saisie, son) décrits dans <code>LIB/VIS.INC</code> ;</li>
+  <li>dessine par ces services, et écrit dans l'écran seulement pendant le retour de trame ;</li>
+  <li>rend la main par <code>RTS</code>, sans effacer l'écran : OSM-VISION le restaure.</li>
+</ol>
+<p>Sur la carte, une application porte l'attribut <code>a</code> et se charge en page 1 : <code>CHMOD NOM +a</code>. ASM le fait de lui-même pour un source qui inclut <code>VISION.ASM</code>.</p>
+
+<h2>Les outils sur PC</h2>
+<table>
+  <tr><th>Outil</th><th>Rôle</th></tr>
+  <tr><td><code>make</code>, <code>deploy_sd.sh</code></td><td>construire tout le système avec lwtools, puis préparer la carte</td></tr>
+  <tr><td><code>tools/egofs</code></td><td>lire et écrire une carte au format OSMFS</td></tr>
+  <tr><td><code>tools/tele/tele.py</code></td><td>piloter OSM39 par la liaison série, une fois <code>TELE</code> lancé : lire et écrire la mémoire, appeler des routines</td></tr>
+  <tr><td><code>tools/ay/ay.py</code></td><td>compiler et écouter les morceaux de musique</td></tr>
+  <tr><td><code>tools/minitel/modem.py</code></td><td>un modem Minitel simulé, relié à Internet</td></tr>
+  <tr><td><code>make -C test</code></td><td>les vérificateurs : le vrai BIOS et les vrais programmes, exécutés dans un émulateur</td></tr>
+</table>
+</section>
+<section class="chapitre" id="annexes"><header><div class="numero">ANNEXES</div><h1>Annexes</h1><div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div></header>
+<h2>A. La carte de la mémoire</h2>
+<table>
+  <tr><th>Adresses</th><th>Contenu</th></tr>
+  <tr><td><code>$0000-$7FFF</code></td><td>RAM des programmes : une page de 32 Ko sur quatre</td></tr>
+  <tr><td><code>$8000-$8FFF</code></td><td>écran : les caractères (80 colonnes, 30 rangées)</td></tr>
+  <tr><td><code>$9000-$9FFF</code></td><td>écran : les couleurs, une par caractère</td></tr>
+  <tr><td><code>$A000-$A001</code></td><td>liaison série (68B50)</td></tr>
+  <tr><td><code>$A040-$A043</code></td><td>interface parallèle (6821)</td></tr>
+  <tr><td><code>$A080-$A087</code></td><td>minuteries (68B40)</td></tr>
+  <tr><td><code>$A0C0</code></td><td>choix de la page de RAM (écriture seule)</td></tr>
+  <tr><td><code>$A100-$A101</code></td><td>contrôleur vidéo (68B45)</td></tr>
+  <tr><td><code>$A140</code>, <code>$A148</code></td><td>carte SD : contrôle, données</td></tr>
+  <tr><td><code>$A150-$A151</code></td><td>générateur de son AY-3-8910</td></tr>
+  <tr><td><code>$A180-$A181</code></td><td>clavier PS/2 (68B50)</td></tr>
+  <tr><td><code>$C000-$DFFF</code></td><td>RAM du système : table des services, variables du BIOS</td></tr>
+  <tr><td><code>$E000-$FFFF</code></td><td>BIOS en EEPROM ; <code>$FFE0</code> <code>FAR_CALL</code>, <code>$FFE3</code> <code>FAR_CALLN</code></td></tr>
+</table>
+
+<h2>B. L'octet de couleur</h2>
+<table>
+  <tr><th>Bits</th><th>Rôle</th></tr>
+  <tr><td>0-2</td><td>couleur du caractère : bit 0 bleu, bit 1 vert, bit 2 rouge</td></tr>
+  <tr><td>3</td><td>atténue la couleur du caractère</td></tr>
+  <tr><td>4-6</td><td>couleur du fond, même codage</td></tr>
+  <tr><td>7</td><td>page de la police : 0 l'alphabet, 1 les graphismes</td></tr>
+</table>
+<p>Exemple : <code>$1F</code> donne un texte blanc atténué sur fond bleu. Pour une case noire et vide, préférez la couleur <code>$08</code> à <code>$00</code>.</p>
+
+<h2>C. Les touches spéciales</h2>
+<p>Les touches sans caractère arrivent aux programmes sous ces codes :</p>
+<table>
+  <tr><th>Code</th><th>Touche</th><th>Code</th><th>Touche</th></tr>
+  <tr><td><code>$80</code></td><td>↑</td><td><code>$86</code></td><td>Pg.préc</td></tr>
+  <tr><td><code>$81</code></td><td>↓</td><td><code>$87</code></td><td>Pg.suiv</td></tr>
+  <tr><td><code>$82</code></td><td>←</td><td><code>$88</code></td><td>Suppr</td></tr>
+  <tr><td><code>$83</code></td><td>→</td><td><code>$89</code></td><td>Inser</td></tr>
+  <tr><td><code>$84</code></td><td>Début</td><td><code>$8A</code></td><td>Ctrl+Début</td></tr>
+  <tr><td><code>$85</code></td><td>Fin</td><td><code>$8B</code></td><td>Ctrl+Fin</td></tr>
+</table>
+<p><kbd>Échap</kbd> donne <code>$1B</code>, <kbd>Entrée</kbd> <code>$0D</code>, <kbd>Ret. arr.</kbd> <code>$08</code>, <kbd>Tab</kbd> <code>$09</code>, et <kbd>Ctrl</kbd>+lettre les codes <code>$01</code> à <code>$1A</code>. <kbd>Verr. Maj</kbd> inverse la casse des lettres et allume son voyant.</p>
+
+<h2>D. Les erreurs de la carte SD</h2>
+<p>Le dernier code d'erreur se lit avec <code>MONITEUR</code>, par <code>M C879</code> ; l'octet suivant compte les relectures depuis le démarrage.</p>
+<table>
+  <tr><th>Code</th><th>Signification</th></tr>
+  <tr><td><code>$E1</code></td><td>la carte a refusé la commande de lecture</td></tr>
+  <tr><td><code>$E2</code></td><td>lecture : les données ne sont pas venues</td></tr>
+  <tr><td><code>$E3</code></td><td>écriture : la carte n'a pas répondu</td></tr>
+  <tr><td><code>$E4</code></td><td>écriture : les données ont été refusées</td></tr>
+  <tr><td><code>$E5</code></td><td>écriture : la carte est restée occupée trop longtemps</td></tr>
+</table>
+
+
+<h2 class="nouvelle-page">E. Les instructions du BBC BASIC</h2>
+<p>Le BBC BASIC d'OSM39 est le BASIC IV de la BBC Master. Les mots-clés s'écrivent en majuscules ; les variables entières finissent par <code>%</code>, les chaînes par <code>$</code>. Les variables <code>A%</code> à <code>Z%</code> et <code>@%</code> (le format d'affichage) survivent à <code>NEW</code> et <code>RUN</code>.</p>
+<h3>Programme</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>AUTO [début[,pas]]</code></td><td>numéroter les lignes automatiquement (Échap arrête)</td></tr>
+  <tr><td><code>LIST [a,b]</code></td><td>afficher le programme ; <code>LISTO n</code> règle l'indentation</td></tr>
+  <tr><td><code>RENUMBER [début[,pas]]</code></td><td>renuméroter</td></tr>
+  <tr><td><code>DELETE a,b</code></td><td>effacer des lignes</td></tr>
+  <tr><td><code>NEW, OLD</code></td><td>effacer le programme ; le récupérer après un NEW</td></tr>
+  <tr><td><code>RUN, CHAIN "nom"</code></td><td>lancer ; charger puis lancer</td></tr>
+  <tr><td><code>SAVE "nom", LOAD "nom"</code></td><td>sauver, charger sur la carte SD</td></tr>
+  <tr><td><code>END, STOP</code></td><td>fin du programme ; arrêt avec message</td></tr>
+  <tr><td><code>TRACE ON / OFF</code></td><td>afficher les numéros de ligne exécutés</td></tr>
+  <tr><td><code>REM</code></td><td>commentaire</td></tr>
+</table>
+<h3>Variables et structures</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>LET, DIM a(n)</code></td><td>affectation (LET est facultatif) ; tableau</td></tr>
+  <tr><td><code>IF … THEN … ELSE</code></td><td>test, sur une ligne</td></tr>
+  <tr><td><code>FOR … TO … STEP … NEXT</code></td><td>boucle comptée</td></tr>
+  <tr><td><code>REPEAT … UNTIL</code></td><td>boucle jusqu'à une condition</td></tr>
+  <tr><td><code>GOTO, GOSUB, RETURN</code></td><td>sauts et sous-programmes ; <code>ON n GOTO …</code></td></tr>
+  <tr><td><code>DEF PROCnom(…) … ENDPROC</code></td><td>procédure, appelée par <code>PROCnom</code></td></tr>
+  <tr><td><code>DEF FNnom(…) = …</code></td><td>fonction, appelée par <code>FNnom</code></td></tr>
+  <tr><td><code>LOCAL</code></td><td>variables locales d'une procédure ou fonction</td></tr>
+  <tr><td><code>DATA, READ, RESTORE</code></td><td>données dans le programme</td></tr>
+  <tr><td><code>ON ERROR …, ERR, ERL, REPORT</code></td><td>traiter une erreur : numéro, ligne, message</td></tr>
+  <tr><td><code>CLEAR</code></td><td>effacer les variables</td></tr>
+  <tr><td><code>PAGE, TOP, LOMEM, HIMEM</code></td><td>limites de la mémoire du BASIC</td></tr>
+</table>
+<h3>Écran et clavier</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>PRINT</code></td><td>afficher ; <code>;</code> colle, <code>,</code> tabule, <code>'</code> passe à la ligne</td></tr>
+  <tr><td><code>INPUT, INPUT LINE</code></td><td>lire une saisie</td></tr>
+  <tr><td><code>GET, GET$</code></td><td>attendre une touche</td></tr>
+  <tr><td><code>INKEY(n), INKEY$(n)</code></td><td>une touche, en attendant au plus n centièmes de seconde</td></tr>
+  <tr><td><code>CLS</code></td><td>effacer la fenêtre</td></tr>
+  <tr><td><code>TAB(n), TAB(x,y), SPC(n)</code></td><td>positionner le texte</td></tr>
+  <tr><td><code>POS, VPOS</code></td><td>position du curseur</td></tr>
+  <tr><td><code>COLOUR n</code></td><td>couleur du texte</td></tr>
+  <tr><td><code>VDU n,…</code></td><td>envoyer des codes à l'écran</td></tr>
+  <tr><td><code>WIDTH n</code></td><td>largeur des lignes</td></tr>
+</table>
+<h3>Graphisme et son</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>MOVE x,y, DRAW x,y</code></td><td>déplacer, tracer un trait</td></tr>
+  <tr><td><code>PLOT k,x,y</code></td><td>points, traits, triangles et rectangles pleins</td></tr>
+  <tr><td><code>GCOL m,c</code></td><td>couleur et mode de tracé</td></tr>
+  <tr><td><code>CLG</code></td><td>effacer le dessin</td></tr>
+  <tr><td><code>POINT(x,y)</code></td><td>couleur d'un point</td></tr>
+  <tr><td><code>VDU 29,x;y;</code></td><td>déplacer l'origine</td></tr>
+  <tr><td><code>SOUND c,v,h,d</code></td><td>jouer une note : canal, volume, hauteur, durée</td></tr>
+</table>
+<h3>Fichiers</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>OPENIN, OPENOUT, OPENUP</code></td><td>ouvrir un fichier en lecture, écriture, mise à jour : rend un canal</td></tr>
+  <tr><td><code>PRINT#c, INPUT#c</code></td><td>écrire, lire des valeurs</td></tr>
+  <tr><td><code>BPUT#c, BGET#c</code></td><td>écrire, lire un octet</td></tr>
+  <tr><td><code>PTR#c, EXT#c, EOF#c</code></td><td>position, taille, fin du fichier</td></tr>
+  <tr><td><code>CLOSE#c</code></td><td>fermer (et écrire sur la carte)</td></tr>
+</table>
+<h3>Nombres et chaînes</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>+ - * / ^ DIV MOD</code></td><td>opérations ; division entière et reste</td></tr>
+  <tr><td><code>= &lt;&gt; &lt; &gt; &lt;= &gt;=</code></td><td>comparaisons</td></tr>
+  <tr><td><code>AND OR EOR NOT, TRUE FALSE</code></td><td>logique (TRUE vaut -1)</td></tr>
+  <tr><td><code>ABS SGN INT SQR EXP LN LOG</code></td><td>fonctions numériques</td></tr>
+  <tr><td><code>SIN COS TAN ASN ACS ATN DEG RAD PI</code></td><td>trigonométrie</td></tr>
+  <tr><td><code>RND, RND(n)</code></td><td>nombre au hasard</td></tr>
+  <tr><td><code>LEN LEFT$ MID$ RIGHT$ INSTR</code></td><td>longueur, extraits, recherche</td></tr>
+  <tr><td><code>ASC CHR$ STR$ VAL STRING$ EVAL</code></td><td>conversions ; évaluer une expression écrite</td></tr>
+  <tr><td><code>&amp;FF</code></td><td>un nombre en hexadécimal</td></tr>
+</table>
+<h3>Machine</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>? ! $</code></td><td>lire et écrire la mémoire : octet, mot de 4 octets, chaîne</td></tr>
+  <tr><td><code>CALL adr, USR(adr)</code></td><td>appeler du code machine (A% B% X% Y% vers A B X U)</td></tr>
+  <tr><td><code>[ … ]</code></td><td>assembleur 6309 intégré (BBCBASIC seulement)</td></tr>
+  <tr><td><code>TIME</code></td><td>horloge en centièmes de seconde</td></tr>
+  <tr><td><code>OSCLI "…"</code></td><td>passer une commande étoilée</td></tr>
+</table>
+<h3>Commandes étoilées</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>*CAT</code></td><td>lister le dossier courant</td></tr>
+  <tr><td><code>*DIR dossier</code></td><td>changer de dossier</td></tr>
+  <tr><td><code>*DELETE nom</code></td><td>supprimer un fichier</td></tr>
+  <tr><td><code>*EXEC nom</code></td><td>taper un fichier texte comme au clavier</td></tr>
+  <tr><td><code>*LOAD nom [adr], *SAVE nom début fin</code></td><td>charger, sauver du code machine</td></tr>
+  <tr><td><code>*HELP</code></td><td>version</td></tr>
+  <tr><td><code>*BYE</code></td><td>quitter le BBC BASIC</td></tr>
+</table>
+<p>Ne sont pas encore pris en charge : <code>ENVELOPE</code>, plusieurs voix de <code>SOUND</code> à la fois, les cercles, <code>VDU 24</code>.</p>
+
+<h2 class="nouvelle-page">F. Les instructions du BASIC</h2>
+<p><code>BASIC</code> est l'Extended BASIC de Microsoft pour le 6809 (1982), adapté à OSM39. Les noms de variables n'ont que deux caractères significatifs ; une chaîne finit par <code>$</code>.</p>
+<h3>Instructions</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>PRINT [USING]</code></td><td>afficher, éventuellement avec un format</td></tr>
+  <tr><td><code>INPUT, LINE INPUT</code></td><td>lire une saisie ; une ligne entière</td></tr>
+  <tr><td><code>IF … THEN … ELSE</code></td><td>test</td></tr>
+  <tr><td><code>FOR … TO … STEP, NEXT</code></td><td>boucle comptée</td></tr>
+  <tr><td><code>GOTO, GOSUB, RETURN</code></td><td>sauts, sous-programmes ; <code>ON n GOTO</code></td></tr>
+  <tr><td><code>DIM</code></td><td>tableau</td></tr>
+  <tr><td><code>DATA, READ, RESTORE</code></td><td>données dans le programme</td></tr>
+  <tr><td><code>DEF FN</code></td><td>fonction d'une ligne</td></tr>
+  <tr><td><code>REM, '</code></td><td>commentaire</td></tr>
+  <tr><td><code>END, STOP, CONT</code></td><td>fin ; arrêt ; reprise</td></tr>
+  <tr><td><code>POKE adr,v</code></td><td>écrire un octet en mémoire</td></tr>
+  <tr><td><code>EXEC adr</code></td><td>appeler du code machine</td></tr>
+  <tr><td><code>COLOR n</code></td><td>attribut de couleur du texte (0-255, voir l'annexe B)</td></tr>
+  <tr><td><code>CLEAR [n]</code></td><td>effacer les variables, réserver n octets aux chaînes</td></tr>
+</table>
+<h3>Commandes</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>RUN, LIST, NEW</code></td><td>lancer, afficher, effacer le programme</td></tr>
+  <tr><td><code>EDIT n</code></td><td>modifier la ligne n</td></tr>
+  <tr><td><code>DEL a-b</code></td><td>effacer des lignes</td></tr>
+  <tr><td><code>RENUM</code></td><td>renuméroter</td></tr>
+  <tr><td><code>TRON, TROFF</code></td><td>afficher les numéros de ligne exécutés</td></tr>
+  <tr><td><code>LOAD, SAVE</code></td><td>charger, sauver un programme</td></tr>
+</table>
+<h3>Fonctions</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>+ - * / ^</code></td><td>opérations</td></tr>
+  <tr><td><code>AND OR NOT, = &lt; &gt;</code></td><td>logique et comparaisons</td></tr>
+  <tr><td><code>ABS SGN INT FIX SQR EXP LOG RND</code></td><td>fonctions numériques</td></tr>
+  <tr><td><code>SIN COS TAN ATN</code></td><td>trigonométrie</td></tr>
+  <tr><td><code>LEN LEFT$ MID$ RIGHT$ INSTR</code></td><td>longueur, extraits, recherche</td></tr>
+  <tr><td><code>ASC CHR$ STR$ VAL HEX$ STRING$</code></td><td>conversions</td></tr>
+  <tr><td><code>PEEK(adr), USR(n), VARPTR(v)</code></td><td>lire la mémoire, appeler du code, adresse d'une variable</td></tr>
+  <tr><td><code>INKEY$</code></td><td>la touche appuyée, sans attendre</td></tr>
+  <tr><td><code>POS(0), TAB(n)</code></td><td>position, tabulation</td></tr>
+  <tr><td><code>MEM</code></td><td>mémoire libre</td></tr>
+</table>
+
+<h2 class="nouvelle-page">G. Les mots du FORTH</h2>
+<p>La notation <code>( a b -- c )</code> décrit la pile : avant le mot, à gauche ; après, à droite. Les nombres sont des entiers de 16 bits. <code>LIST</code> affiche tous les mots du dictionnaire, y compris les vôtres.</p>
+<h3>Pile</h3><table class="mots">
+  <tr><th>Mot et pile</th><th>Rôle</th></tr>
+  <tr><td><code>DUP ( a -- a a )</code></td><td>dupliquer</td></tr>
+  <tr><td><code>DROP ( a -- )</code></td><td>jeter</td></tr>
+  <tr><td><code>SWAP ( a b -- b a )</code></td><td>échanger</td></tr>
+  <tr><td><code>OVER ( a b -- a b a )</code></td><td>copier le second</td></tr>
+  <tr><td><code>ROT ( a b c -- b c a )</code></td><td>faire tourner</td></tr>
+  <tr><td><code>NIP ( a b -- b ), TUCK ( a b -- b a b )</code></td><td>variantes</td></tr>
+  <tr><td><code>DEPTH ( -- n )</code></td><td>nombre d'éléments</td></tr>
+</table>
+<h3>Calcul et logique</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>+ - * /, MOD</code></td><td>opérations, reste</td></tr>
+  <tr><td><code>NEGATE, ABS</code></td><td>opposé, valeur absolue</td></tr>
+  <tr><td><code>1+ 1- 2+ 2- 2* 2/</code></td><td>opérations rapides</td></tr>
+  <tr><td><code>= &lt; &gt;</code></td><td>comparaisons (vrai = -1)</td></tr>
+  <tr><td><code>AND OR XOR INVERT</code></td><td>logique bit à bit</td></tr>
+  <tr><td><code>TRUE FALSE</code></td><td>-1 et 0</td></tr>
+</table>
+<h3>Mémoire</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>@ ( adr -- v ), ! ( v adr -- )</code></td><td>lire, écrire un mot</td></tr>
+  <tr><td><code>C@, C!</code></td><td>lire, écrire un octet</td></tr>
+  <tr><td><code>VARIABLE nom, CONSTANT nom</code></td><td>créer une variable ; une constante ( v -- )</td></tr>
+  <tr><td><code>HERE, ALLOT, ,</code></td><td>fin du dictionnaire ; réserver n octets ; y ranger un mot</td></tr>
+  <tr><td><code>FILL ( adr n c -- ), CMOVE ( de vers n -- )</code></td><td>remplir, copier</td></tr>
+</table>
+<h3>Définitions et contrôle</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>: nom … ;</code></td><td>définir un mot</td></tr>
+  <tr><td><code>IF … ELSE … THEN</code></td><td>test (dans une définition)</td></tr>
+  <tr><td><code>DO … LOOP, +LOOP</code></td><td>boucle comptée ( fin début -- ) ; <code>I</code>, <code>J</code> : les compteurs</td></tr>
+  <tr><td><code>LEAVE, UNLOOP</code></td><td>sortir d'une boucle</td></tr>
+  <tr><td><code>." texte"</code></td><td>afficher un texte (dans une définition)</td></tr>
+</table>
+<h3>Entrées, sorties, système</h3><table class="mots">
+  <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>. ( n -- )</code></td><td>afficher un nombre</td></tr>
+  <tr><td><code>EMIT ( c -- ), KEY ( -- c )</code></td><td>écrire, lire un caractère</td></tr>
+  <tr><td><code>CR, SPACE</code></td><td>passer à la ligne, une espace</td></tr>
+  <tr><td><code>DECIMAL, HEX</code></td><td>base des nombres</td></tr>
+  <tr><td><code>LIST</code></td><td>la liste des mots</td></tr>
+  <tr><td><code>SAVE nom, LOAD nom</code></td><td>sauver, recharger vos définitions sur la carte</td></tr>
+  <tr><td><code>QUIT</code></td><td>quitter le FORTH</td></tr>
+</table>
+
+<h2 class="nouvelle-page">H. Les jeux de caractères</h2>
+<p>L'EPROM des caractères contient deux pages de 256 caractères de 8 × 16 points. Le bit 7 de l'octet de couleur choisit la page (annexe B). Dans ces tableaux, la rangée donne le premier chiffre hexadécimal du code, la colonne le second : <code>A</code> est le caractère <code>$41</code> de la page 0.</p>
+<figure class="police">
+  <img src="images/police0.png" alt="Page 0 de la police : l'alphabet, les chiffres, les lettres accentuées et les cadres">
+  <figcaption><b>Page 0 : le texte.</b> L'ASCII de <code>$20</code> à <code>$7E</code>, les lettres accentuées, les symboles et les traits de cadre.</figcaption>
+</figure>
+<figure class="police">
+  <img src="images/police1.png" alt="Page 1 de la police : les graphismes">
+  <figcaption><b>Page 1 : les graphismes.</b> <code>$00-$06</code> trames et blocs ; <code>$07-$1B</code> et <code>$4F-$7F</code> les mosaïques du Minitel ; <code>$1C-$1F</code> les icônes d'OSM-VISION (haut-parleur, ondes, croix, pointeur) ; <code>$20-$2A</code> et <code>$40-$46</code> les cadres des fenêtres ; <code>$2B-$3F</code> et <code>$48-$4E</code> ENVAHIS ; <code>$88-$FF</code> GLOUTON.</figcaption>
+</figure>
+
+<h2 class="nouvelle-page">I. Licences et remerciements</h2>
+<ul>
+  <li><strong>BBC BASIC</strong> : portage pour 6809 et 6309 de Dominic Beesley, d'après le BASIC 4 d'Acorn et le désassemblage de J. G. Harston. Usage personnel ; ne pas redistribuer.</li>
+  <li><strong>asm6809</strong> : Ciaran Anscomb, licence GPL.</li>
+  <li><strong>lwtools</strong> (lwasm, lwlink) : William Astle.</li>
+  <li><strong>MiniPavi</strong> : la passerelle qui rend le Minitel aux serveurs d'aujourd'hui.</li>
+  <li>Polices de ce manuel : <strong>Audiowide</strong> et <strong>IBM Plex</strong>, licence SIL Open Font.</li>
+</ul>
+</section>
+
+<!-- ================= QUATRIÈME DE COUVERTURE ================= -->
+<div class="couverture dos">
+  <div class="accroche">Un ordinateur des années 1980,<br>construit aujourd'hui.</div>
+  <div class="ecrans">
+    <img src="images/osmvision.png" alt="Le bureau OSM-VISION">
+    <img src="images/donjon39.png" alt="DONJON39">
+    <img src="images/minipavi.png" alt="MiniPavi sur le Minitel d'OSM39">
+  </div>
+  <ul class="points">
+    <li><b>Processeur Hitachi HD6309</b> en mode natif, 128 Ko de RAM</li>
+    <li><b>80 colonnes</b> en couleurs sur tout écran VGA</li>
+    <li><b>OSM-VISION</b>, un bureau graphique piloté au clavier</li>
+    <li><b>Carte SD</b> avec dossiers, des milliers de fichiers</li>
+    <li><b>Son AY-3-8910</b> à trois voix, et une machine qui parle</li>
+    <li><b>Minitel</b> : 3615 et MiniPavi par un vrai modem</li>
+    <li><b>BBC BASIC</b>, BASIC, FORTH et un assembleur intégré</li>
+    <li>Traitement de texte, tableur et quatre jeux livrés</li>
+  </ul>
+  <svg class="logo" viewBox="0 0 62 12" shape-rendering="crispEdges" role="img" aria-label="OSM39">
+    <g transform="translate(0,-1)" fill="#f4ead4"><path d="M1 2h5v1h-5zM0 3h2v1h-2zM5 3h2v1h-2zM0 4h2v1h-2zM5 4h2v1h-2zM0 5h2v1h-2zM5 5h2v1h-2zM0 6h2v1h-2zM5 6h2v1h-2zM0 7h2v1h-2zM5 7h2v1h-2zM0 8h2v1h-2zM5 8h2v1h-2zM0 9h2v1h-2zM5 9h2v1h-2zM0 10h2v1h-2zM5 10h2v1h-2zM1 11h5v1h-5zM9 2h5v1h-5zM8 3h2v1h-2zM13 3h2v1h-2zM8 4h2v1h-2zM13 4h2v1h-2zM9 5h2v1h-2zM10 6h3v1h-3zM12 7h2v1h-2zM13 8h2v1h-2zM8 9h2v1h-2zM13 9h2v1h-2zM8 10h2v1h-2zM13 10h2v1h-2zM9 11h5v1h-5zM16 2h2v1h-2zM21 2h2v1h-2zM16 3h3v1h-3zM20 3h3v1h-3zM16 4h7v1h-7zM16 5h7v1h-7zM16 6h2v1h-2zM19 6h1v1h-1zM21 6h2v1h-2zM16 7h2v1h-2zM21 7h2v1h-2zM16 8h2v1h-2zM21 8h2v1h-2zM16 9h2v1h-2zM21 9h2v1h-2zM16 10h2v1h-2zM21 10h2v1h-2zM16 11h2v1h-2zM21 11h2v1h-2zM25 2h5v1h-5zM24 3h2v1h-2zM29 3h2v1h-2zM29 4h2v1h-2zM29 5h2v1h-2zM26 6h4v1h-4zM29 7h2v1h-2zM29 8h2v1h-2zM29 9h2v1h-2zM24 10h2v1h-2zM29 10h2v1h-2zM25 11h5v1h-5zM33 2h5v1h-5zM32 3h2v1h-2zM37 3h2v1h-2zM32 4h2v1h-2zM37 4h2v1h-2zM32 5h2v1h-2zM37 5h2v1h-2zM33 6h6v1h-6zM37 7h2v1h-2zM37 8h2v1h-2zM37 9h2v1h-2zM36 10h2v1h-2zM33 11h4v1h-4z"/></g>
+    <g shape-rendering="geometricPrecision"><polygon points="43,11 45.2,11 48.2,1 46,1" fill="#d8372b"/><polygon points="45.6,11 47.8,11 50.8,1 48.6,1" fill="#e9b52c"/><polygon points="48.2,11 50.4,11 53.4,1 51.2,1" fill="#3d9a43"/><polygon points="50.8,11 53,11 56,1 53.8,1" fill="#2fa6b8"/><polygon points="53.4,11 55.6,11 58.6,1 56.4,1" fill="#2d4fb0"/><polygon points="56,11 58.2,11 61.2,1 59,1" fill="#9b3fa0"/></g>
+  </svg>
+  <div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div>
+</div>
+
+</body>
+</html>

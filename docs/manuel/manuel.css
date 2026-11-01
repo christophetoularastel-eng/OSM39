@@ -1,0 +1,156 @@
+/* ==================================================================
+   manuel.css - Mise en page du manuel d'OSM39 (WeasyPrint, A4)
+   ================================================================== */
+@font-face { font-family: "Audiowide"; src: url("../../tools/manuel/polices/Audiowide-Regular.ttf"); }
+@font-face { font-family: "Plex Sans"; src: url("../../tools/manuel/polices/IBMPlexSans-Variable.ttf"); font-weight: 100 700; }
+@font-face { font-family: "Plex Sans"; src: url("../../tools/manuel/polices/IBMPlexSans-Italic-Variable.ttf"); font-style: italic; font-weight: 100 700; }
+@font-face { font-family: "Plex Mono"; src: url("../../tools/manuel/polices/IBMPlexMono-Regular.ttf"); }
+@font-face { font-family: "Plex Mono"; src: url("../../tools/manuel/polices/IBMPlexMono-SemiBold.ttf"); font-weight: 600; }
+
+:root {
+  --nuit: #1b2440;
+  --creme: #f4ead4;
+  --encre: #23262c;
+  --gris: #5d6068;
+  --filet: #d9d6cc;
+  --orange: #c25f1c;
+}
+
+@page {
+  size: A4;
+  margin: 22mm 20mm 24mm 22mm;
+  @bottom-center {
+    content: counter(page);
+    font-family: "Plex Sans"; font-size: 9pt; color: #8a8d94;
+  }
+  @top-right {
+    content: string(chapitre);
+    font-family: "Plex Sans"; font-size: 8.5pt; color: #8a8d94; letter-spacing: 0.08em;
+  }
+}
+@page couverture { margin: 0; @bottom-center { content: none; } @top-right { content: none; } }
+@page liminaire { @bottom-center { content: none; } @top-right { content: none; } }
+
+html { font-family: "Plex Sans", sans-serif; font-size: 10.3pt; line-height: 1.5; color: var(--encre); }
+body { margin: 0; }
+
+/* ---------- Couverture ---------- */
+.couverture {
+  page: couverture;
+  width: 210mm; height: 297mm;
+  background: var(--nuit);
+  color: var(--creme);
+  position: relative;
+  break-after: page;
+}
+.couverture .bandes { position: absolute; left: 0; right: 0; top: 0; height: 9mm; display: flex; }
+.couverture .bandes span { flex: 1; }
+.couverture .logo { position: absolute; left: 22mm; top: 32mm; width: 150mm; }
+.couverture .sous-logo {
+  position: absolute; left: 23mm; top: 61mm;
+  font-size: 12pt; letter-spacing: 0.42em; color: #c9c0aa;
+}
+.couverture .machine { position: absolute; left: 10mm; top: 92mm; width: 190mm; }
+.couverture .titre {
+  position: absolute; left: 22mm; bottom: 34mm;
+  font-family: "Audiowide"; font-size: 30pt; line-height: 1.1; color: var(--creme);
+}
+.couverture .edition {
+  position: absolute; left: 22mm; bottom: 22mm;
+  font-size: 10.5pt; color: #b7b09c; letter-spacing: 0.04em;
+}
+
+/* ---------- Pages liminaires ---------- */
+.liminaire { page: liminaire; break-after: page; }
+.page-titre { padding-top: 60mm; text-align: left; }
+.page-titre .logo { width: 110mm; }
+.page-titre h1 { font-family: "Audiowide"; font-weight: 400; font-size: 26pt; margin: 14mm 0 4mm; color: var(--encre); string-set: none; }
+.page-titre p { color: var(--gris); margin: 0 0 2mm; }
+
+nav.sommaire h2 { font-family: "Audiowide"; font-weight: 400; font-size: 20pt; margin: 0 0 8mm; }
+nav.sommaire ol { list-style: none; padding: 0; margin: 0; counter-reset: ch; }
+nav.sommaire li { counter-increment: ch; margin: 0 0 3.2mm; }
+nav.sommaire li::before { content: counter(ch) "."; display: inline-block; width: 9mm; color: var(--orange); font-weight: 600; }
+nav.sommaire a { color: var(--encre); text-decoration: none; font-size: 11.5pt; }
+nav.sommaire a::after { content: leader(".") target-counter(attr(href), page); color: var(--gris); }
+nav.sommaire .a-venir a { color: #9a9ca2; }
+
+/* ---------- Chapitres ---------- */
+section.chapitre { break-before: page; counter-increment: chapitre; }
+section.chapitre > header { margin: 0 0 9mm; }
+section.chapitre > header .numero {
+  font-family: "Audiowide"; font-size: 13pt; color: var(--orange); letter-spacing: 0.1em;
+}
+section.chapitre > header h1 {
+  string-set: chapitre content();
+  font-family: "Audiowide"; font-weight: 400; font-size: 25pt; line-height: 1.15;
+  margin: 2mm 0 4mm; color: var(--encre);
+}
+section.chapitre > header .bandes { display: flex; height: 2.2mm; width: 64mm; }
+section.chapitre > header .bandes span { flex: 1; }
+.chapo { font-size: 11.5pt; color: #3d4048; margin: 0 0 6mm; }
+
+h2 { font-family: "Plex Sans"; font-weight: 650; font-size: 14pt; margin: 8mm 0 2.5mm; color: var(--nuit); break-after: avoid; }
+h3 { font-weight: 650; font-size: 11pt; margin: 5mm 0 1.5mm; break-after: avoid; }
+p { margin: 0 0 2.8mm; orphans: 3; widows: 3; text-align: justify; hyphens: auto; }
+ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+li { margin: 0 0 1.2mm; }
+strong { font-weight: 650; }
+
+kbd {
+  font-family: "Plex Mono"; font-size: 8.6pt; font-weight: 600;
+  border: 0.3mm solid #9ea1a8; border-bottom-width: 0.7mm; border-radius: 1mm;
+  padding: 0.1mm 1.3mm; background: #f3f2ee; color: var(--encre); white-space: nowrap;
+}
+code, .mono { font-family: "Plex Mono"; font-size: 9pt; }
+pre {
+  font-family: "Plex Mono"; font-size: 8.8pt; line-height: 1.4;
+  background: #15181d; color: #d7e3d4; padding: 3mm 4mm; border-radius: 1.5mm; margin: 0 0 3.5mm;
+  white-space: pre-wrap; break-inside: avoid;
+}
+
+figure { margin: 4mm 0 5mm; break-inside: avoid; }
+figure img { width: 100%; border-radius: 1.2mm; border: 0.3mm solid #c9c6bc; }
+figure.moitie { width: 72%; margin-left: auto; margin-right: auto; }
+figcaption { font-size: 8.8pt; color: var(--gris); margin-top: 1.6mm; }
+figcaption b { color: var(--encre); }
+
+table { width: 100%; border-collapse: collapse; margin: 1mm 0 4.5mm; font-size: 9.5pt; break-inside: avoid; }
+th { text-align: left; font-weight: 650; border-bottom: 0.5mm solid var(--nuit); padding: 1.4mm 2mm; }
+td { border-bottom: 0.25mm solid var(--filet); padding: 1.3mm 2mm; vertical-align: top; }
+td:first-child { white-space: nowrap; }
+
+.encadre {
+  border-left: 1.2mm solid var(--orange); background: #f6f1e7; padding: 2.5mm 4mm; margin: 3mm 0 4mm;
+  break-inside: avoid;
+}
+.encadre p:last-child { margin-bottom: 0; }
+.encadre .titre { font-weight: 650; color: var(--orange); margin-bottom: 1mm; }
+
+.a-ecrire { color: #8a8d94; font-style: italic; }
+
+/* ---------- Quatrième de couverture ---------- */
+.couverture.dos { break-before: page; break-after: auto; }
+.couverture.dos .accroche {
+  position: absolute; left: 22mm; right: 22mm; top: 30mm;
+  font-family: "Audiowide"; font-size: 22pt; line-height: 1.25;
+}
+.couverture.dos .ecrans { position: absolute; left: 22mm; right: 22mm; top: 72mm; display: flex; gap: 5mm; }
+.couverture.dos .ecrans img { width: 52mm; height: 39mm; object-fit: contain; background: #000; border: 1.2mm solid #3a3f4b; border-radius: 1.5mm; }
+.couverture.dos .points {
+  position: absolute; left: 22mm; right: 22mm; top: 128mm;
+  list-style: none; padding: 0; margin: 0; font-size: 11.5pt; line-height: 1.9;
+}
+.couverture.dos .points li::before { content: "▸ "; color: #e9b52c; }
+.couverture.dos .points b { color: #ffffff; }
+.couverture.dos .logo { top: auto; bottom: 30mm; left: 22mm; width: 80mm; }
+.couverture.dos .bandes { top: auto; bottom: 0; }
+
+/* ---------- Annexes : listes de mots, police ---------- */
+h2.nouvelle-page { break-before: page; }
+table.mots { font-size: 9pt; }
+table.mots td:first-child { width: 42%; }
+table.mots td, table.mots th { padding-top: 1.2mm; padding-bottom: 1.2mm; }
+h3 { break-after: avoid; }
+figure.police img { width: 112mm; margin: 0 auto; display: block; }
+figure.police { break-inside: avoid; }

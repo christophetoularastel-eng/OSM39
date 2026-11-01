@@ -1,0 +1,45 @@
+CALC - AIDE-MEMOIRE (tableur facon VisiCalc)
+============================================
+Lancer : Entree sur un .CAL dans OSM-VISION (la feuille est lue), ou CALC
+(feuille vide, nom propose FEUILLE.CAL). 26 colonnes A-Z, 50 lignes.
+
+SORTIR
+------
+  / puis S            sauver (nom demande, prerempli)
+  Echap               quitter (O/N si la feuille n'est pas sauvee)
+
+TOUCHES
+-------
+  fleches             changer de cellule
+  Page prec./suiv.    17 lignes plus haut / plus bas
+  Debut / Fin         colonne A / derniere cellule remplie de la ligne
+  Ctrl+Debut          A1
+  Ctrl+Fin            derniere ligne et colonne utilisees
+  un caractere        NOUVELLE saisie (remplace la cellule)
+  Entree              MODIFIE la cellule (son texte est repris)
+  Suppr               vide la cellule
+  Saisie : Retour arriere, Entree valide (et descend), Echap abandonne.
+
+COMMANDES : / PUIS UNE LETTRE
+-----------------------------
+  S  sauver        L  lire une feuille        B  vider la cellule
+  E  effacer toute la feuille (O/N)           autre touche : annule
+  Une feuille fait toujours 20800 octets ; L refuse un autre fichier.
+
+CONTENU D'UNE CELLULE (15 caracteres)
+-------------------------------------
+  Libelle : commence par une lettre ; "2026 pour un libelle en chiffres.
+  Valeur  : nombre ou formule.
+    12,50  -3  0.5         2 decimales fixes, virgule ou point
+    + - * / ( )            operateurs ; references A1 a Z50
+    @SUM @MIN @MAX @AVG    sur une plage : @SUM(A1...A9) ou @AVG(B1:B5)
+  ATTENTION : une formule qui commence par une reference commence par +
+    +A1*2 est une formule ; A1*2 est un libelle.
+
+AFFICHAGE
+---------
+  ERREUR      division par zero, depassement, syntaxe, ou reference a
+              une cellule en erreur
+  >>>>>>>>    le nombre ne tient pas en 8 caracteres
+  "reference circulaire ?" : pas stable apres 10 passes de calcul
+  Valeurs en centiemes : 1/3 donne 0,33.
