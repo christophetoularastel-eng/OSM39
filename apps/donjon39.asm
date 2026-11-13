@@ -61,7 +61,17 @@ TEXTE_MAX       equ 2048
 PORTES_N        equ 8               ; portes ouvertes en même temps
 PORTE_DUREE     equ 300             ; trames (5 s) avant de se refermer
 DEVANT          equ 192             ; la porte à 3/4 de case devant soi
+; v4 : un tampon = le plan des glyphes puis celui des attributs. mono :
+; entrelacé comme la VRAM (glyphe, attribut), une rangée = un seul TFM.
+    IFNE    CARTE_MONO
+ATTR_OFS        equ 1               ; l'attribut suit le glyphe
+CEL             equ 2               ; octets par cellule dans un tampon
+RANG_O          equ 128             ; octets par rangée dans un tampon
+    ELSE
 ATTR_OFS        equ F_TAILLE        ; attributs = glyphes + ATTR_OFS
+CEL             equ 1
+RANG_O          equ VUE_L           ; (VUE_L = 64, défini plus bas : forme longue, comme avant)
+    ENDC
 
 RANGEES_TRAME   equ 4               ; rangées recopiées par VSYNC au plus
 VITESSE         equ 16              ; 1/16 de case par trame
@@ -601,6 +611,9 @@ Co_PasPorte:
     LDX     PtrWant                 ; X = cellule (rangée 0, colonne Col)
     LDB     Col
     ABX
+    IFNE    CARTE_MONO
+    ABX
+    ENDC
     LDY     #Div3                   ; rangées et restes de Haut et Bas
     LDB     Haut
     LDA     B,Y
@@ -627,7 +640,7 @@ Co_PasPorte:
 Co_Plafond:
     STA     ,X
     STB     ATTR_OFS,X
-    LEAX    VUE_L,X
+    LEAX    RANG_O,X
     DEC     Compte
     BNE     Co_Plafond
 ; 2) la rangée où le mur commence, s'il commence en cours de rangée
@@ -648,7 +661,7 @@ Co_Mur:
 Co_MurPlein:
     STA     ,X
     STB     ATTR_OFS,X
-    LEAX    VUE_L,X
+    LEAX    RANG_O,X
     DEC     Compte
     BNE     Co_MurPlein
 ; 4) la rangée où le mur finit, s'il finit en cours de rangée (et
@@ -671,7 +684,7 @@ Co_Sol:
     LDD     B,Y
     STA     ,X
     STB     ATTR_OFS,X
-    LEAX    VUE_L,X
+    LEAX    RANG_O,X
     INC     Rang
     BRA     Co_Sol
 Co_Fin:
@@ -736,7 +749,7 @@ Co_LigVide:
 Co_LigEcrit:
     STA     ,X
     STB     ATTR_OFS,X
-    LEAX    VUE_L,X
+    LEAX    RANG_O,X
     INC     Rang
     RTS
 
@@ -746,6 +759,41 @@ Co_LigEcrit:
 ; tampons s'échangent.
 ; -------------------------------------------------------------------
 Ecrire_Etat:
+    IFNE    CARTE_MONO
+    LDX     #TxtAide64              ; mono : rangée 18, l'aide, case par case
+    LDY     PtrWant
+    LEAY    ETAT_Y*RANG_O,Y
+    LDB     #64
+EE_Aide:
+    LDA     ,X+
+    STA     ,Y+
+    LDA     #ETAT_ATTR
+    STA     ,Y+
+    DECB
+    BNE     EE_Aide
+    LDA     #' '                    ; rangée 19 : espaces dans EtatTxt,
+    LDX     #EtatTxt                ; les mesures par-dessus, puis entrelacée
+    LDB     #64
+EE_Esp:
+    STA     ,X+
+    DECB
+    BNE     EE_Esp
+    LDU     #EtatTxt
+    BSR     EE_Mesures
+    LDX     #EtatTxt
+    LDY     PtrWant
+    LEAY    ETAT_Y*RANG_O+RANG_O,Y
+    LDB     #64
+EE_R19:
+    LDA     ,X+
+    STA     ,Y+
+    LDA     #ETAT_ATTR
+    STA     ,Y+
+    DECB
+    BNE     EE_R19
+    RTS
+EE_Mesures:
+    ELSE
     LDX     #TxtAide64              ; rangée 18 : l'aide (64 caractères)
     LDY     PtrWant
     LEAY    ETAT_Y*64,Y
@@ -767,6 +815,7 @@ Ecrire_Etat:
     TFM     X,Y+
     LDU     PtrWant
     LEAU    ETAT_Y*64+64,U
+    ENDC
     LDX     #TxtPos
     JSR     Append
     LDB     PosX
@@ -812,7 +861,7 @@ Marquer:
     CLRB
 Ma_Rangee:
     PSHS    B
-    LDA     #64
+    LDA     #RANG_O
     MUL                             ; D = décalage de la rangée
     LDX     PtrWant
     LEAX    D,X
@@ -827,8 +876,8 @@ Ma_Comp:
     LDB     ATTR_OFS,X
     CMPB    ATTR_OFS,Y
     BNE     Ma_Change
-    LEAX    1,X
-    LEAY    1,Y
+    LEAX    CEL,X
+    LEAY    CEL,Y
     DEC     Compte
     BNE     Ma_Comp
     PULS    B
@@ -865,7 +914,7 @@ Iq_Rangee:
     BEQ     Iq_Suiv
     CLR     B,X
     PSHS    B
-    LDA     #64
+    LDA     #RANG_O
     MUL
     STD     Decal
     LDB     ,S                      ; Y = adresse VRAM de la rangée
@@ -875,6 +924,10 @@ Iq_Rangee:
     LDX     PtrPret
     LDD     Decal
     LEAX    D,X
+    IFNE    CARTE_MONO
+    LDW     #RANG_O                 ; mono : la rangée entrelacée, d'un coup
+    TFM     X+,Y+
+    ELSE
     LDW     #64
     TFM     X+,Y+                   ; les glyphes...
     LDB     ,S
@@ -887,6 +940,7 @@ Iq_Rangee:
     LEAX    ATTR_OFS,X
     LDW     #64
     TFM     X+,Y+                   ; ... et les attributs
+    ENDC
     PULS    B
     DEC     Reste
     BEQ     Iq_Bios
@@ -1183,7 +1237,7 @@ Dessiner_Mini:
     LDA     PosY
     STA     JY
     LDX     PtrWant
-    LEAX    MINI_COL,X
+    LEAX    MINI_COL*CEL,X
     CLR     MiniR
 DM_Rangee:
     CLR     MiniC
@@ -1222,12 +1276,12 @@ DM_KSuiv:
     STA     ,X
     LDA     MiniA
     STA     ATTR_OFS,X
-    LEAX    1,X
+    LEAX    CEL,X
     INC     MiniC
     LDA     MiniC
     CMPA    #8
     BLO     DM_Cel
-    LEAX    VUE_L-8,X
+    LEAX    RANG_O-8*CEL,X
     INC     MiniR
     LDA     MiniR
     CMPA    #MINI_H
@@ -1280,16 +1334,16 @@ DMP_Fin:
 
 ; Adresse VRAM du début de chaque rangée de l'intérieur
 RangVram:
-    FDB     VRAM_BASE+(F_Y+0)*80+F_X,VRAM_BASE+(F_Y+1)*80+F_X
-    FDB     VRAM_BASE+(F_Y+2)*80+F_X,VRAM_BASE+(F_Y+3)*80+F_X
-    FDB     VRAM_BASE+(F_Y+4)*80+F_X,VRAM_BASE+(F_Y+5)*80+F_X
-    FDB     VRAM_BASE+(F_Y+6)*80+F_X,VRAM_BASE+(F_Y+7)*80+F_X
-    FDB     VRAM_BASE+(F_Y+8)*80+F_X,VRAM_BASE+(F_Y+9)*80+F_X
-    FDB     VRAM_BASE+(F_Y+10)*80+F_X,VRAM_BASE+(F_Y+11)*80+F_X
-    FDB     VRAM_BASE+(F_Y+12)*80+F_X,VRAM_BASE+(F_Y+13)*80+F_X
-    FDB     VRAM_BASE+(F_Y+14)*80+F_X,VRAM_BASE+(F_Y+15)*80+F_X
-    FDB     VRAM_BASE+(F_Y+16)*80+F_X,VRAM_BASE+(F_Y+17)*80+F_X
-    FDB     VRAM_BASE+(F_Y+18)*80+F_X,VRAM_BASE+(F_Y+19)*80+F_X
+    FDB     VRAM_BASE+(F_Y+0)*VRAM_LIGNE+F_X*VRAM_PAS,VRAM_BASE+(F_Y+1)*VRAM_LIGNE+F_X*VRAM_PAS
+    FDB     VRAM_BASE+(F_Y+2)*VRAM_LIGNE+F_X*VRAM_PAS,VRAM_BASE+(F_Y+3)*VRAM_LIGNE+F_X*VRAM_PAS
+    FDB     VRAM_BASE+(F_Y+4)*VRAM_LIGNE+F_X*VRAM_PAS,VRAM_BASE+(F_Y+5)*VRAM_LIGNE+F_X*VRAM_PAS
+    FDB     VRAM_BASE+(F_Y+6)*VRAM_LIGNE+F_X*VRAM_PAS,VRAM_BASE+(F_Y+7)*VRAM_LIGNE+F_X*VRAM_PAS
+    FDB     VRAM_BASE+(F_Y+8)*VRAM_LIGNE+F_X*VRAM_PAS,VRAM_BASE+(F_Y+9)*VRAM_LIGNE+F_X*VRAM_PAS
+    FDB     VRAM_BASE+(F_Y+10)*VRAM_LIGNE+F_X*VRAM_PAS,VRAM_BASE+(F_Y+11)*VRAM_LIGNE+F_X*VRAM_PAS
+    FDB     VRAM_BASE+(F_Y+12)*VRAM_LIGNE+F_X*VRAM_PAS,VRAM_BASE+(F_Y+13)*VRAM_LIGNE+F_X*VRAM_PAS
+    FDB     VRAM_BASE+(F_Y+14)*VRAM_LIGNE+F_X*VRAM_PAS,VRAM_BASE+(F_Y+15)*VRAM_LIGNE+F_X*VRAM_PAS
+    FDB     VRAM_BASE+(F_Y+16)*VRAM_LIGNE+F_X*VRAM_PAS,VRAM_BASE+(F_Y+17)*VRAM_LIGNE+F_X*VRAM_PAS
+    FDB     VRAM_BASE+(F_Y+18)*VRAM_LIGNE+F_X*VRAM_PAS,VRAM_BASE+(F_Y+19)*VRAM_LIGNE+F_X*VRAM_PAS
 
 TxtTitre:   FCN " DONJON39 "
 TxtAide64:  FCC " Fleches : bouger   Espace : porte   Tab : carte   Echap : fin  "
@@ -1347,6 +1401,9 @@ SousK:          RMB 1
 ValMur:         RMB 1
 ValSol:         RMB 1
 Tmp4:       RMB 4
+    IFNE    CARTE_MONO
+EtatTxt:    RMB 64                  ; mono : la rangée 19 en texte, avant entrelacement
+    ENDC
 Reste:      RMB 1                   ; rangées encore à recopier (l'IRQ décompte)
 NSale:      RMB 1
 PtrWant:    RMB 2                   ; tampon qu'on calcule

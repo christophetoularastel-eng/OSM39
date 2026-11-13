@@ -28,7 +28,7 @@ import verifie_fs as v          # noqa: E402
 import egofs_core               # noqa: E402
 
 ASM = os.path.join(RACINE, 'asm', 'ASM')
-CHAINES = 0xD000                # arguments (argv) en RAM commune
+CHAINES = 0xDB40                # arguments (argv) en RAM commune (hors de BIOS2 et de la pile)
 MAX_PAS = 80_000_000           # GLOUTON : ~16 M ; au-delà, ASM boucle
 
 
@@ -129,10 +129,7 @@ def assemble(carte, s, args, dossier=0):
     affiché, pas exécutés, machine)."""
     m = MachineAsm(carte.image, s)
     m.wr16(s['fs_dossier'], dossier)
-    rom, fin = s['table_function_rom'], s['table_function_rom_end']
-    t = s['table_function_ram']
-    for i in range(fin - rom):
-        m.mem[t + i] = m.mem[rom + i]
+    v.installe_bios(m)          # table des services, et BIOS2
     code = open(ASM, 'rb').read()
     m.banks[1][:len(code)] = code
     adr, ptrs = CHAINES, []

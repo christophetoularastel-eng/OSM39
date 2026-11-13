@@ -39,6 +39,12 @@
 ; ===================================================================
 
         include "../bios/hardware.inc"
+        ; Les etapes 1 a 8 sont ecrites pour la V4 (deux plans de 4 Ko) :
+        ; sur la mono, leurs boucles « plan couleurs » iraient jusqu'en
+        ; $A000 (l'ACIA). La mono a son etape : stage9_mono.
+        ifne    CARTE_MONO
+        error   "etapes 1-8 : banc V4 seulement (CARTE = mono) ; voir stage9_mono"
+        endc
 
 ; --- Attributs couleur (video/carto.txt:71-75) ------------------------
 ; MODIFICATION MATERIELLE du 29 septembre 2026. La carte a ete

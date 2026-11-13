@@ -28,6 +28,13 @@ make -C bios osm39.hex    # debug Intel-hex link
 ./deploy_sd.sh --no-build
 ```
 
+- **Target board: the file `CARTE`** (one word, `v4` or `mono`, versioned;
+  `v4` until the OSM39_mono board is in use). `update_includes.py` reads it
+  and writes the board's VRAM layout into `hardware.inc`; every program
+  depends on `hardware.inc`, so switching rebuilds the tree. `deploy_sd.sh`
+  prints the board (and, for `mono`, `PAS_MONO`, the programs not
+  converted yet: empty since 2026-11-13). Details in **Video / OSM39_mono**.
+
 - `dist/DEPLOY.md` gives, per SD file, the page, address and attributes to set
   in the OSMFS entry (the card is written on the PC with `tools/egofs/`). Addresses are **measured** from each program's `.map` (`.code`), never
   declared: `BASIC` loads at `$5A00`, `SHELL` at `$6000`, everything else at `$0000`. Pages are
@@ -116,6 +123,38 @@ make -C bios osm39.hex    # debug Intel-hex link
   - The sample loop is self-modifying: each frame rewrites operands. The
     sine x amplitude table is built at `$7000-$7FFF` at start-up.
   - After any change to either side, run `make -C test parole`.
+- `zmachine/` (ZMACHINE: Z-machine interpreter, versions 3/4/5/7/8, Infocom
+  and Inform games, stories up to 256 KB). OSMVISION application in
+  `/BIN` (attribute a, page 1); Enter on a `.Z3`/`.Z5`/`.Z8` runs `ZMACHINE
+  NAME` (`ExtTable` accepts two-letter extensions). Full screen 80 x 30.
+  - Version 3 (Zork I-III, released under MIT by Microsoft: `zork1.z3`
+    from `historicalsource/zork1/COMPILED`): `V3`/`Vieux`/`Decal`/`Base`
+    set at load; row 0 is the interpreter's status line (`Etat`, built
+    through `Sortie` with `VersEtat`), the windows start at `Base`.
+  - The single source is `tools/zmachine/zmachine.py` (decoder, objects,
+    text, dictionary, the exact screen grid, Quetzal); `--inc` writes
+    `zmachine/zmachine_data.inc` (never edit). Games and test suites are
+    NOT in the repo: `~/Documents/zmachine` (or `$ZMACHINE_JEUX`).
+  - Memory: story block b (256 bytes) at linear (b+1)*256 of pages 2-3
+    (blocks 0-254), beyond from the card; a 32-slot cache in page 1
+    (`$6000-$7FFF`, slots 0-2 pinned for the globals), write-back via
+    `FarWrite`. Y = Z PC pointer into its slot, U = Z stack. The code
+    must end before `ZONE` (`$3800`, Makefile check): ~240 bytes left;
+    big tables already live outside the code (`TABLES_CAR` `$6000`,
+    `AlphaT` `$5B20`), so the cache has 30 slots (`$6200-$7FFF`).
+  - Screen: shadow copy in page 1, dirty rows copied by `Irq_Z` (hooked in
+    `rvec_IRQ`, 3 rows per frame); rows 25-29 of OSMVISION saved and given
+    back by the IRQ; hardware cursor through `VRAM_PTR`. A row is marked
+    dirty AFTER it is written (marked before, the IRQ could copy it half
+    done and never again).
+  - No undo (`@save_undo` = -1). Saves are Quetzal, written in one
+    `FS_SaveFile` from page 2 (header put just before the dynamic memory,
+    Stks after it, the story bytes it covered re-read afterwards); name
+    asked as `Fichier : `, `.SAV` added. frotz reads them.
+  - Speed (emulator): 130-190 6309 instructions per Z instruction; slow on
+    big Inform games (Zork_LXIX ~30 000 Z instructions per turn).
+  - After any change to either side, run `make -C test zmachine`
+    (`zmachine-tout`: also praxix and three more games, ~10 min).
 - Any console program OSMVISION launches (Enter, Exécuter) runs in the
   Terminal window titled with its name (`Term_Ouvre`/`Term_Ferme`); SHELL
   opens the Terminal; only `PleinEcran` names (none since VI was removed on
@@ -288,6 +327,14 @@ error: rename the slot to `sys_<Handler>` rather than extending the allowlist.
   `bsc_FS_RenameFil` is truncated — grep `bsc_`, not the service name.
 - A feature only the boot path needs (splash, boot jingle) is a direct call, not
   a dispatch slot. Add a `sys_*` slot only when a user program must reach it.
+- **The contract of every slot** (inputs, outputs, registers destroyed) is
+  `test/contrat_services.py`; `docs/services.md` is generated from it
+  (`python3 test/verifie_contrat.py --doc`, never edit). A new or changed
+  service updates that table, with a scenario: `make -C test contrat` calls
+  every slot through the table with sentinel registers and fails on a
+  register changed outside the contract, an unbalanced stack, DP, the
+  caller's page not given back, or a stale `docs/services.md`. Most file
+  services destroy W (only `FS_ReadSector` keeps it), several destroy U.
 
 ## Conventions
 
@@ -348,9 +395,49 @@ script, rebuild, then update that doc. Never add a second map.
 - `osm39.filtered.srec` drops the `$DFF2..` records (RAM). Keep that filter.
   `srec2bin.py` maps `$E000-$FFFF` to an exact 8192-byte image.
 - **EPROM headroom is a budget**: after any BIOS change, read the `.code` end in
-  `bios/osm39.map`. Never compute it by hand.
+  `bios/osm39.map` (`make -C bios` prints it, and BIOS2's size). Never compute
+  it by hand.
+- **The BIOS is in two parts** (since 2026-11-13). The EPROM keeps what
+  boots and repairs (SD read, file lookup and load, keyboard, screen,
+  IRQ/NMI/TRAP, `FarRead`/`FarWrite`, SECOURS). `BIOS2` (`bios/ext.asm`,
+  section `.ext`, linked in the same `lwlink` run at `EXT_BASE` = `$CE00`,
+  up to `EXT_FIN` = `$DA00`) holds file writing (save, delete, rename,
+  attributes, `SetLoad`, `MkDir`, `ListRoot`, `Fs_WriteBlk`,
+  `SD_WriteBlock`), the Terminal console (`Console_Zone`, `Zone_IRQ`,
+  `Zone_Cls`) and the sound sequencer (`snd_play`, `snd_stop`, the jingle,
+  `Ay_Note`, the IRQ's `X_Audio`).
+  - `bios2.py` extracts `bios/BIOS2` from the S-record and writes its
+    length and sum into the EPROM image (`ExtLong`, `ExtSomme`).
+    `deploy_sd.sh` ships it as `/BIN/BIOS2`: an EPROM and its BIOS2 go
+    together (another BIOS2 is refused by the sum).
+  - At every boot (cold or after a TRAP) `main` loads it right after the
+    card (`Ext_Charge`), before the jingle. Without it the machine boots,
+    and the moved services answer C=1.
+  - The EPROM reaches BIOS2 only through 4-byte stubs keeping the old
+    names (`FS_SaveFile: jmp [ExtV+EXTV_SAVE]`); `ExtV` (BSS, offsets in
+    `bios/ext.inc`) gets defaults from `Ext_Defauts` at reset (`Sys_Absent`,
+    `Ext_Rien`, `UPDATE_CURSOR` for the Terminal IRQ) and the real
+    routines (`X_...`) from `Ext_Entree`. `verifie_ext.py` (run by the
+    Makefile) refuses any other EPROM -> BIOS2 reference: the linker
+    resolves them silently, and they would jump into nothing without BIOS2.
+  - Moving more code: wrap it in `section .ext`, rename its entry `X_name`,
+    put a stub and a new `EXTV_*` slot (keep `Ext_Def`/`Ext_Table` in the
+    same order, `EXTV_N` and `ExtV`'s size in step). Short branches across
+    sections do not assemble: use `JSR`/`JMP`.
+  - Measured: the stack never went below `$DDEB` in any verifier (~520
+    bytes from `$DFEF`), so `$DA00` leaves ~1 KB of margin. The system
+    heap shrank to 256 bytes (only the SHELL uses it).
+  - Verifiers install the whole BIOS through `verifie_fs.installe_bios(m)`
+    (service table, `ExtV` defaults, BIOS2 at the start of `.ext`, its
+    `Ext_Table`); `Machine` does it when created. System-RAM scratch areas
+    in verifiers live at `$DB00-$DDFF` (below their `$DF00` stack).
 
 ## Verifiers (`test/*.py`) — run them, don't reason instead
+
+`make -C test tout` runs them all (`test/tout.py`: the recipes are read from
+`test/Makefile`, builds once in order, then the scripts in parallel; ~5 min
+on 4 cores; logs in `test/tout/`; `tout-long` adds `zmachine-tout` and
+`asm-tout`). It checks the board in `CARTE` only.
 
 | script | proves | in `make -C test`? |
 |---|---|---|
@@ -360,19 +447,23 @@ script, rebuild, then update that doc. Never add a second map.
 | `verifie_negatifs.py` | the three above fail on 18 injected bugs, each with a distinct diagnostic | `make -C test negatifs` |
 | `verifie_fs.py` | the real BIOS, with 4 emulated RAM pages and an egofs SD image, loads and saves across pages 2→3, refuses page 4, restores the caller's page, never overlaps files | `make -C test fs` |
 | `verifie_asm.py` | the real `asm/ASM` on the real BIOS, sources and INCLUDEs on an OSMFS card: every binary byte-identical to lwasm (6309 test, `asm/test/*.asm`, MIRE, GLOUTON; `tout`: all apps and BRIQUES), entry page/address/attributes, error names file and line | `make -C test asm` (`asm-tout`: ~2 min) |
-| `verifie_demarrage.py` | the real BIOS from its reset vector: automatic boot, SECOURS (key, serial, `$AA` ignored), LOAD/RUN/BOOT, card without OSMVISION, TRAP report and warm restart, Ctrl+A; `cmd/MONITEUR` on that report (R, E, M, G) | `make -C test demarrage` |
+| `verifie_demarrage.py` | the real BIOS from its reset vector: automatic boot, SECOURS (key, serial, `$AA` ignored), LOAD/RUN/BOOT, card without OSMVISION, TRAP report and warm restart, Ctrl+A; BIOS2 loaded and installed, missing (boot still works, services absent), from another BIOS (refused by its sum), damaged by a program then reloaded at the warm restart; `cmd/MONITEUR` on that report (R, E, M, G) | `make -C test demarrage` |
 | `verifie_bureau.py` | the real OSMVISION on the real BIOS with scripted keys: copy/paste across folders (content, page, address, attributes), Ctrl+N, cut/paste, rename to a name that exists only at the root, Space-menu letters, paste over an existing name refused, sound icon (barred / with waves after M), `?` shortcut panel (text, file window untouched, second `?` gives back the exact screen, still there after the Space menu) | `make -C test bureau` |
 | `verifie_dossiers.py` | the real BIOS's folders: flat card unchanged, MkDir/ChDir/paths/`..`, two formatted buffers, list filtered by folder, root fallback for reads only, non-empty folder kept, move and cycle refusal; `CD`/`MKDIR`/`PWD`/`RM` binaries; OSMVISION's `Load_Directory`/`Draw_FileList` | `make -C test dossiers` |
 | `verifie_farcall.py` | the real BIOS's `FAR_CALL`/`FAR_CALLN`, at `$FFE0` and through `sys_Far_Call*`: callee in its page, registers and carry both ways, caller's page back, nesting, page 4 refused, every reserved slot returns C=1 | `make -C test farcall` |
 | `verifie_bbcbasic.py` | the real `bbcbasic/BBCBASIC` launched by the real OSMVISION on the real BIOS: arithmetic, FOR/PROC, RUN/LIST, SAVE+LOAD on OSMFS, SAVE twice = one entry, `*CAT`, an error and recovery, `*EXEC` of an LF text, BBCPLUS: free space, `*LOAD` of a lwasm routine + USR, `*SAVE` round trip, no `[`, graphics read back from VRAM (diagonal, filled triangle and colour, POINT, rectangle + GCOL 3, VDU 29 + relative PLOT), SOUND queue in `SND_BUF` (durations, flush, pitches), OPENOUT/PRINT#/BPUT#, OPENIN/INPUT#/BGET#/EOF#/EXT#, OPENUP/PTR#=, Escape from an endless loop (NMI flag), `*BYE` | `make -C test bbcbasic` |
-| `verifie_terminal.py` | the real BIOS console in a zone: real `PrintChar`, real VSYNC IRQ frame by frame; VRAM = a model (wrap, zone-only scroll, BS, `$0C`, ignored codes), nothing written outside, cursor, IRQ length | `make -C test terminal` |
+| `verifie_terminal.py` | the real BIOS console in a zone: real `PrintChar`, real VSYNC IRQ frame by frame; VRAM = a model (wrap, zone-only scroll, BS, `$0C`, ignored codes), nothing written outside, cursor, IRQ length; then full screen: `$0C`, 35 lines, hardware scroll (R12/R13 in cells) and cursor (R14/R15) | `make -C test terminal` |
+| `verifie_banc_mono.py` | bench stage 9 (`stage9_mono`) replayed alone: only VRAM, `$A120` and the 6845 written, the 4096 interleaved cells equal a separate model, page 0 / GRAPH 0, start `$FFFF`, cursor hidden, IRQ+FIRQ masked | `make -C test STAGE=stage9_mono` |
 | `verifie_minitel.py` | the real `apps/MINITEL` `Term_Octet` gives exactly `videotex.py`'s `Terminal`: logical screen and bytes sent back (MiniPavi capture, modem test page, random streams; PCE: the real phone capture, its 75 CRCs, blocks with a damaged block or a lost byte and the NACK/SYN recovery, NUL/DLE transparency, STATUS, STOP); then the whole app with a simulated modem (parity in its answers) and keyboard, and a MiniPavi-like server (START until answered, ENQROM, PCE with one damaged block): `ATE0&D0B2M1S91=6DT0972101721,,,,,` for 3615, window = `cellules40`, Ctrl+F = `cellules80`, desktop back around the window, Minitel keys with even parity, ACIA at `$95`, `+++`/`ATH` with guard silences, NO CARRIER, silent modem, exit restores rows 25-29 and `serie_brute` | `make -C test minitel` |
 | `verifie_donjon39.py` | the real `apps/DONJON39` with the VSYNC IRQ taken every frame (its `Irq_Donjon`, then the real BIOS handler) and raw PS/2 bytes: at rest, the VRAM view (glyphs and attributes) equals the model for the position/angle/map in memory (10 places, minimap included), every VRAM write inside the IRQ, early (<= 512 bytes per frame), walls not crossed, Esc returns with the key queue empty and `rvec_IRQ` restored; with a tricky `DONJON39.TXT` on the card: map and start = `texte_carte()`, Space opens the door ahead, it closes by itself, Tab toggles the minimap | `make -C test donjon39` |
 | `verifie_sdtest.py` | the real `cmd/SDTEST` against an SPI-level SDHC card model on the SD-KBD-SON registers: 80 clocks /CS high, CMD0/CMD8 CRCs, ACMD41 with HCS, OCR, CID, CSD capacity, sector 0, 200 compared reads (missing tokens counted), write + read-back + restore at LBA `$00100000` on O, nothing written on N, no card; spacing between transfers as a lower bound in distinct bus accesses (>= 150 slow, >= 9 fast; 30 slow turns fail) | `make -C test sdtest` |
-| `verifie_tele.py` | the real `cmd/TELE` driven by the real `tools/tele/tele.py` over a simulated line (NMI ring in, TDR out): ping, R/W in page 1 (direct), page 2 (FarRead/FarWrite, page restored) and system RAM, call with registers and carry, a BIOS service through the table, bad sum / unknown command / bad length refused, Q leaves raw mode and returns | `make -C test tele` |
+| `verifie_tele.py` | the real `cmd/TELE` driven by the real `tools/tele/tele.py` over a simulated line (NMI ring in, TDR out): ping, R/W in page 1 (direct), page 2 (FarRead/FarWrite, page restored) and system RAM, call with registers and carry, a BIOS service through the table, bad sum / unknown command / bad length refused, Q leaves raw mode and returns; `depose.py` creates then replaces a file on the emulated card (one entry, content, page, address, attributes read back by `egofs_core`), missing folder refused | `make -C test tele` |
 | `verifie_aytest.py` | the real `cmd/AYTEST` against a simulated AY: 28/28 read-backs on a sound chip, 26/28 with the two R9 faults shown when R9 reads 0; each listening step's registers and length (A, B, C at period 262, chord, noise, envelope), silence between steps and at the end, ports never outputs; the BIOS sequencer (`snd_play` + the IRQ's `AUDIO_UPDATE`) drives A and C frame by frame for the boot jingle and a score copied from page 1, then silence | `make -C test aytest` |
 | `verifie_ayjoue.py` | the real `cmd/AYJOUE` (`lib/ay_joue.asm`) with the VSYNC IRQ taken every frame and a simulated AY: register state frame by frame = `tools/ay/ay.py`'s model (a test song using the whole format, then KOROBEINIKI until Esc), ends by itself, `rvec_IRQ` restored, silence, frame writes inside the IRQ, `son_coupe` zeroes volumes, no argument / missing file / not a song refused | `make -C test ayjoue` |
 | `verifie_clavier.py` | the real BIOS with the keyboard 6850 simulated: Caps Lock toggles `kbd_verr`, case of a-z and é è à ç ù flipped, Shift+letter lowercase, digit row/punctuation/Ctrl/AltGr unchanged; the real `handler_IRQ` sends `$ED` then the LED byte two frames later (TDR, RTS low >= 100 instructions, RTS high), `kbd_muet` counted down, CR `$DC` at IRQ exit; the real `handler_NMI` drops the echo while muted and queues a key afterwards | `make -C test clavier` |
+| `verifie_horloge.py` | the real `cmd/HORLOGE` (`lib/horloge.asm`) against a pin-level 68B21 and MC146818: no card, VRT, clock not set, setting (BCD registers, SET during the writes, A = `$20`, B = `$02`), weekday of 48 dates vs Python, refused dates/times write nothing, bus rules (Motorola mode, AS/R/W only with DS low, no AD conflict), a read at any phase of the 23:59:59 -> 2027 update is never mixed, PIA left idle; the real BIOS `main` and `Hor_Init` on a freshly reset PIA write nothing to the chip (DS and R/W never change together) | `make -C test horloge` |
+| `verifie_zmachine.py` | the real `zmachine/ZMACHINE` on the real BIOS, games on an emulated card, VSYNC IRQ every frame, `sys_kbd_poll` fed with script lines: every character sent to the screen and the whole 80 x 30 shadow screen at each input = `tools/zmachine/zmachine.py`; VRAM catches up, writes only in the IRQ (or the BIOS spinner), <= 3 rows per frame; rows 25-29 and `rvec_IRQ` given back; a save on the card = the model's Quetzal file byte for byte, and restoring it gives the same screen (czech, dreamlands, zsnake with timeouts, Zork I v3 + its save, zork_285; `tout`: praxix, aventure, lieuxcommuns, Zork_LXIX) | `make -C test zmachine` |
+| `verifie_contrat.py` | every slot of `table_function_ram`, called through the table on the real BIOS (EPROM + BIOS2, emulated card, SD driver clobbering like the real one) with sentinel registers, success and failure paths: changed registers within `test/contrat_services.py`, stack, DP, page, carry, some outputs; two injected faults must be seen; `docs/services.md` up to date | `make -C test contrat` |
 | `verifie_parole.py` | the real `apps/PAROLE` binary, run in `asm/emu6809.py`, gives exactly the model's sine table, normalised text, frames and the AY writes of every sample (volume pairs = `tables_ay()`) | `make -C test parole` |
 
 - `test/video.asm` is a dead copy no stage includes (it does not assemble).
@@ -407,13 +498,51 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
   belongs in `bios/`.
 - The BIOS interrupts are still live: `prend_la_main` masks IRQ+FIRQ first and
   never restores CC.
-- One source file per stage (lwasm rejects `equ` in conditions). `test/TEST` is
+- One source file per stage. `test/TEST` is
   shared by all stages: check the printed `ETAPE =` line and the byte count.
+- Stages 1-8 are V4 only: `common.inc` refuses to assemble when `CARTE` is
+  `mono` (their colour-plane loops would run into `$A000`).
+  `stage9_mono` is the first-light test of the OSM39_mono board (interleaved
+  VRAM written explicitly, any EPROM): title, X red / O green alignment row,
+  8 x 8 colour grid, font page 1, all 256 page-0 glyphs, ruler, row 29.
+  It is checked by `verifie_banc_mono.py` instead of `verifie_remplissage.py`.
 - `ATT_TOURS` 600 ≈ 2 s (cycle count). Frame = 16 ms. `$A120` is write-only, so
   `attente` cannot be rewritten against a frame counter.
 
 ## Video
 
+- **OSM39_mono (`CARTE` = `mono`)**: same I/O map, attribute byte, font
+  EEPROM layout (A0-A3 row, A4-A11 code, A12 page) and 6845 setup as V4, but
+  the VRAM is **interleaved**: cell c = character at `$8000+2c`, colour at
+  `$8001+2c` (CPU A0 picks the RAM). `$A120` D3 = GRAPH (keep 0).
+  - `hardware.inc` constants: `CARTE_MONO` (0/1), `VRAM_PAS` (bytes per
+    cell, 1/2), `VRAM_LIGNE` (bytes per row, 80/160), `VRAM_COL_OFS`
+    (`$1000`/1), `VRAM_END`, `VRAM_COL`, `VRAM_COL_END` (bounds of
+    cell loops stepping `VRAM_PAS`: never `VRAM_END-VRAM_BASE` bytes from
+    `VRAM_COL`, that overruns into `$A000` on mono).
+  - The 6845 still counts cells (start address, cursor, `SCREEN_START_OFFSET`):
+    CPU byte offsets are halved before going to R12-R15.
+  - Code differing per board sits in `IFNE CARTE_MONO / ELSE / ENDC`
+    (lwasm and the board's ASM both handle an `equ` defined before the IF).
+    Rule: **a `v4` build is byte-identical to the code before mono** (BIOS,
+    OSM-VISION, all programs: check it with a reference build after any
+    change).
+  - Converted: everything. BIOS (console, zone, spinner, clear),
+    `lib/vram.asm`, `lib/vision.asm` (mono writes cells as char:attr `STD`
+    pairs, one pass, budget `MONO_CASE`), OSM-VISION and every app that
+    only draws through `vis_*` (EDIT, CALC, SON, PAROLE, MIRE...); the
+    direct writers since 2026-11-13: PONT/PONT2, ENVAHIS, GLOUTON, BRIQUES
+    (`lib/rowaddr.inc`), MINITEL, DONJON39 (its image buffers are
+    interleaved too in mono: `CEL`, `RANG_O`, one `TFM` per row), BBC
+    BASIC (graphics cell address, `TAB`, `POS`/`VPOS`), ZMACHINE. Proven
+    in mono by `donjon39`, `minitel`, `bbcbasic`, `zmachine`, `asm-tout`;
+    ENVAHIS, GLOUTON, BRIQUES, PONT have no screen verifier (assembly only).
+  - In a v4 build, keep forward references where the old code had them:
+    `LEAX VUE_L,X` (VUE_L defined later) is a 16-bit offset, a known
+    constant gives the 8-bit form and breaks byte identity (DONJON39's
+    `RANG_O equ VUE_L`).
+  - Verifiers read the screen through `test/carte.py` (`adr`, `adr_coul`,
+    `lit`, `pose`), which parses `hardware.inc`: run them once per board.
 - 68B45 CRTC at `$A100/$A101`. **V4 hardware (since 2026-10-10, the board
   carries "OSM39 V4.00")**: U126 A0 is wired to a12, so characters are at
   `$8000-$8FFF` and colours at `$9000-$9FFF`.
@@ -526,9 +655,16 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     a shortcut panel at the right of the desktop (columns 52-79, `AideOn`),
     redrawn after `Draw_Base_UI` (`Aide_Si`).
   - **Clouris** (the user's touch mouse: 6 nails + a palm plate at GND,
-    one 74HC14 per nail, outputs on AY port A, J104 of SD-KBD-SON; touch =
-    bit 1): IOA0 up, 1 right, 2 down, 3 left, 4 centre, 5 thumb click;
-    at rest R14 = `$C0`, `$FF` (nothing plugged) = no contact.
+    outputs on AY port A: J602 of OSM39_mono, J104 of SD-KBD-SON, same
+    pins, odd = port A: IOA0 17 up, IOA1 15 right, IOA2 13 down, IOA3 11
+    left, IOA4 9 centre, IOA5 7 thumb click; +5 V 1-2, GND 19-20).
+    Its board (KiCad `clouris/`, J7: 1 +5 V, 2-7 nails J1-J6 in that
+    order, 8 GND) puts a PNP (S9015; a BC516 Darlington on the schematic was
+    worse: floating base, too much gain) before each 74HC14 gate:
+    touch = bit **0**, rest and nothing plugged both read `$FF`.
+    `CLOU_INVERSE` (`lib/clouris.asm`, `cmd/cloutest.asm`) = 1 for it,
+    0 for the first hand-wired build (touch = 1, rest `$C0`). Wiring
+    table in the manual ("Brancher la Clouris").
     `lib/clouris.asm` `Clou_Lit` (once per frame: contact seen on 2
     frames, a step at once then every 3 frames after 12, edges for
     centre/thumb). OSMVISION's `Event_Loop` polls `sys_kbd_poll` (dropping
@@ -559,7 +695,7 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     games; `BASIC/` BBC BASIC texts (`bbcbasic/BAS/`, load with
     `*EXEC`); `DOC/` text quick references (`apps/EDIT.TXT`, `apps/CALC.TXT`,
     the full manual is `docs/manuel-edit-calc.md`: keep the three in step); `SRC/` sources, with `LIB/` and `BIOS/` for their INCLUDEs
-    (`CD SRC`, `ASM GLOUTON.ASM /GAMES/GLOUTON`); `MUSIQUE/` songs for AYJOUE; `BUDGET/` created empty
+    (`CD SRC`, `ASM GLOUTON.ASM /GAMES/GLOUTON`); `MUSIQUE/` songs for AYJOUE; `JEUX/` the Z-machine stories found in `~/Documents/zmachine` and its subfolders (not in the repo, skipped if absent); `BUDGET/` created empty
     (`DOSSIERS` in the script -> `dist/dossiers.txt`).
   - `egofs_deploy.py` erases the old copy of a manifest file that moved
     (same name at the root or in a folder the manifest fills), never in
@@ -664,6 +800,11 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
 - Every OSMFS block access goes through `Fs_ReadBlk`/`Fs_WriteBlk` (4 tries):
   a hand-wired card used to miss a sector. The data-token wait is 20 000
   reads (~400 ms), the write busy wait 40 000 (~0.8 s).
+  - `Fs_ReadBlk`/`Fs_WriteBlk` keep only B: the driver leaves X at the
+    end of `SD_BUFFER`, W = 0 and Y = its wait counter. Save what you
+    need around them (BIOS2 never loaded on the board because
+    `Ext_Charge` kept its copy pointer in Y). The verifiers' card model
+    (`Machine.sd()`) clobbers the same registers.
   - Diagnostics (with `MONITEUR`): `M C879` = last SD error code (`sd_err`),
     `C87A` = retries since boot (`sd_retry`).
   - A long transfer shows a spinner top-right (`L`/`E`, then `| / - \`).
@@ -690,6 +831,11 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
   loaded and all registers returned. TELE ends before `$1000`: test code goes
   in page 1 from `$1000`. SECOURS cannot be driven remotely: `read_line`
   reads the keyboard only (only `LOAD`'s hex comes from the line).
+  - `tools/tele/depose.py FILE /FOLDER/NAME [rw|rwx|rwxa] [page:addr]`
+    puts a PC file on the board's card through TELE (file in page 1 at
+    `$2000`, max 24 KB; Format_Filename_83, FS_DeleteFile if it exists,
+    FS_SaveFile, FS_SetLoad, FS_SetAttributes, entry read back). The folder
+    must exist.
 - The console (`PrintChar`) writes to the screen only, never to the serial
   line (since 2026-10-15): the line belongs to programs. In SECOURS, the PC
   terminal sees nothing; `LOAD` still reads the pasted hex.
@@ -724,12 +870,45 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     the LED byte. With it, letters only change case: a-z <-> A-Z and
     Latin-1 `$E0-$FE` <-> `$C0-$DE` (é è à ç ù -> É È À Ç Ù), not ÷ ×,
     not the digit row, not Ctrl or AltGr. Proven by `make -C test clavier`.
-  - The keyboard tables give accents in Latin-1 (é = `$E9`) while the
-    screen font is CP437 (é = `$82`): accented letters typed in EDIT are
-    not drawn as accents (known, not fixed).
+  - Keys give accents in Latin-1 (é = `$E9`), the font is CP437 (é =
+    `$82`). The keyboard stays Latin-1 (in CP437, `$80-$8B` are é à ç è ê:
+    they would collide with the special keys). `lib/vision.asm`
+    `Put_Text` (so `vis_Text`, `vis_Input`) translates `$A0-$FF` while
+    drawing, table `lib/latin_cp437.inc` from `video/latin_cp437.py`
+    (`--inc`, never edit; missing capitals fall back to their base
+    letter). `vis_Input` accepts `$A0-$FF` except with `INP_MAJ` (file
+    names stay ASCII). Files typed on the machine are Latin-1. The BIOS
+    console (`PrintChar`: SHELL, BBC BASIC, FORTH) does not translate.
+    MINITEL, PAROLE, ZMACHINE have their own tables.
   - A program that is busy for a frame (MINITEL) must use `sys_kbd_poll`:
     with one slot, a late reader lost make codes (keys came out one key
     late). Decoding in `keyboard.asm` is ordinary PS/2.
+- **Clock (MC146818) on the PIA connector** (V3 `J4`, mono `J102`; board
+  in the KiCad repo `RTC/`): PA0-7 = AD0-7, CA2 = AS, PB0 = DS, PB1 = R/W
+  (10k pull-ups), CA1 = /IRQ (10k pull-up), 18650 behind a Schottky,
+  charged off-board. The bus is too fast for the chip (tcyc >= 953 ns),
+  so `lib/horloge.asm` drives it by hand in Motorola mode (DS low when AS
+  falls); AS and R/W move only while DS is low; PA is an input only while
+  DS = 1 on a read. Time in BCD, 24 h, years 20xx; reads wait for UIP = 0
+  and repeat until two passes agree (`Hor_LitDate`); `cmd/HORLOGE` reads
+  or sets it (weekday computed). CRA keeps its IRQ bits at 0: the PIA's
+  IRQs go to FIRQ, whose handler is a bare `RTI`. `main` sets CRA `$34`
+  (CA2 output low; it was `$0C`, a CA2 input with its IRQ enabled), and
+  writes ORB = `$02` BEFORE DDRB = `$FF`: after a reset PB is an input,
+  the pull-ups hold DS = R/W = 1, and outputs with ORB = 0 dropped both
+  at once, a spurious write into the chip's last latched register
+  (register B -> `$FF`: clock frozen, "pas réglée") on every RESET.
+  `Hor_Init` selects ORB the same way before touching DDRB.
+  - Tried on the board (2026-11-08) with a DS1287 (1989) on a breadboard,
+    through TELE: reads, writes, setting, ticks in step with the PC, time
+    kept 35 min powered off. The DS1287 needs MOT (pin 1) at VCC (internal
+    ~20k pull-down = Intel mode), is inaccessible below 4.25 V and for
+    200 ms after power-up, and its VRT bit, once 0, stays 0 (so HORLOGE
+    always says the battery failed). The MC146818 did not tick there
+    (salvaged crystal, not proven). A badly soldered R/W gave "reads
+    right, every write ignored".
+- `bios/verifie_ext.py` (in the BIOS build): no EPROM code names a BIOS2
+  label except through `ExtV`.
 - `LDMD #$01` in `__start` enables native mode. `IT.asm` owns all handlers
   (VSYNC IRQ via 68B40, NMI, TRAP; `trap_active` guards recursion).
 - Read `docs/rapport-hd6309-natif.md` before changing interrupt or timing code.
@@ -799,7 +978,15 @@ CRT2, CRT3, power supply, SD-KBD-SON, OSM39_mono) are a SEPARATE repo in
 locks, freerouting files or gerber folders; the `gerber.zip` actually
 ordered is kept), remote `osm09-kicad.bare` on the same stick. Commit there
 after a schematic or PCB change. Push fails harmlessly when unplugged; run `git fsck` on the bare
-repo after re-plugging. `core.fileMode false` on the bare repo only. Never write
+repo after re-plugging.
+
+Second backup (since 2026-11-13): two PRIVATE GitHub repos, `osm39-prive`
+and `osm09-kicad-prive` (account `christophetoularastel-eng`). In both
+working repos `origin` has two push URLs (the stick, then GitHub), so a
+plain `git push` feeds both; the remote `github` reaches GitHub alone
+(`git push github master` when the stick is unplugged). `user.email` is the
+GitHub no-reply address in these two repos: GitHub refuses pushes exposing
+a private e-mail. `core.fileMode false` on the bare repo only. Never write
 into the old `CLE USB/OSM39V2` copy.
 
 Public mirror: `python3 tools/publie/publie.py` rebuilds
@@ -829,4 +1016,3 @@ not freshness. **Look at `git status` after a clean build.**
 - `test/Makefile` target `indexation` runs a script that does not exist.
 - `games/Makefile clean` references an undefined `$(SONDE_OBJ)`.
 - `update_includes.py`: six `page_copy_*` symbols, all "not found in map".
-- `bios/README.txt`: pre-lwtools commands.

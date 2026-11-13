@@ -58,7 +58,7 @@ $(TARGET_HEX): $(TARGET_EXE)
 
 
 # Règle générique pour assembler les .asm en .o (version mise à jour)
-%.o: %.asm ../bios/hardware.inc ../bios/sysfunc.inc ../lib/ui.inc ../lib/vis.inc ../lib/vision.asm ../lib/vram.asm ../lib/snd.asm ../lib/snd.inc ../lib/ascii.asm ../lib/rowaddr.inc
+%.o: %.asm ../bios/hardware.inc ../bios/sysfunc.inc ../lib/ui.inc ../lib/vis.inc ../lib/vision.asm ../lib/latin_cp437.inc ../lib/vram.asm ../lib/snd.asm ../lib/snd.inc ../lib/ascii.asm ../lib/rowaddr.inc
 	@echo "Assemblage de $<..."
 	$(AS) $(ASFLAGS) --list=$*.lst -o $@ $<
 

@@ -8,6 +8,7 @@
     export  cz_actif, cz_l, cz_h, cz_haut, cz_bas, cz_op, cz_n, cz_ptr, cz_cpt
     export  kbd_echap, gfx_tampon
     export  kbd_verr, kbd_led_dem, kbd_led_cpt, kbd_muet
+    export  ext_nom, ext_info, ext_ok, ExtV
     export  SCAN_CODE
     export  NEW_CODE
     export  key_on
@@ -280,4 +281,10 @@ kbd_verr:    RMB 1          ; octet des voyants : bit 2 = Verr. Maj
 kbd_led_dem: RMB 1          ; <>0 : voyants à envoyer
 kbd_led_cpt: RMB 1          ; <>0 : trames avant l'octet des voyants ($ED parti)
 kbd_muet:    RMB 1          ; <>0 : la NMI jette les octets du clavier
+; --- BIOS2, la seconde partie du BIOS (ext.asm) : son nom, son entrée de
+; répertoire, et <>0 une fois installée (ajoutés à la fin). ---
+ext_nom:     RMB 15
+ext_info:    RMB 14
+ext_ok:      RMB 1
+ExtV:        RMB 28         ; vecteurs vers BIOS2 (ext.inc : EXTV_*)
 __bss_end__:

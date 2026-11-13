@@ -28,6 +28,9 @@
 
         export video_init,video_clean, video_set_cursor_pos
         export video_wait_vsync,PUTCHARV,Console_Zone
+        export X_Console_Zone,X_Zone_Cls
+        include "ext.inc"
+        import  ExtV
         import cz_actif,cz_l,cz_h,cz_haut,cz_bas,cz_op,cz_n,cz_ptr
 
         import table_function_ram
@@ -192,6 +195,16 @@ video_clean:
 video_clean_loop:
         lda     CUR_PAGE                ; les 8 pages, l'une après l'autre
         sta     VRAM_CTRL
+        ifne    CARTE_MONO
+        ; --- mono : chaque case = espace puis attribut ---
+        ldx     #VRAM_BASE
+        lda     #$20
+        ldb     char_attribut
+vid_0_case:
+        std     ,x++
+        cmpx    #VRAM_END
+        bne     vid_0_case
+        else
         ; --- RAM couleur ($9000) : remplir d'attribut ---
         ldx     #VRAM_COL
         lda     char_attribut
@@ -207,6 +220,7 @@ vid_0_char:
         std     ,x++
         cmpx    #VRAM_END
         bne     vid_0_char
+        endc
 
         inc     CUR_PAGE
         lda     CUR_PAGE
@@ -324,6 +338,14 @@ sys_ClearScreen:
         STA     VRAM_CTRL
 
         LDX     #VRAM_BASE
+        ifne    CARTE_MONO
+        LDA     #$20            ; mono : espace et attribut, case par case
+        LDB     char_attribut
+Clear_Case_Loop:
+        STD     ,X++
+        CMPX    #VRAM_END
+        BNE     Clear_Case_Loop
+        else
         LDD     #$2020          ; D = Deux espaces d'un coup (plus rapide)
 Clear_Char_Loop:
         STD     ,X++
@@ -339,6 +361,7 @@ Clear_Color_Loop:
         STD     ,X++
         CMPX    #VRAM_COL_END
         BNE     Clear_Color_Loop
+        endc
 
         ; 7. Mise à jour matérielle du 68B45 (Début d'écran R12/R13 à 0)
         LDA     #12
@@ -352,6 +375,7 @@ Clear_Color_Loop:
 
         PULS    d,x,y,cc,pc     ; Restaure tout et réactive les interruptions
 
+    section .ext
 ; ===================================================================
 ; Console_Zone (service sys_Console_Zone) - la console dans un rectangle
 ; Entrée : A = colonne, B = rangée, E = largeur, F = hauteur (0..29),
@@ -362,7 +386,7 @@ Clear_Color_Loop:
 ; l'adresse de départ du 68B45 est remise à celle d'OSM-VISION ($FFFF).
 ; Préserve tout. C = 0.
 ; ===================================================================
-Console_Zone:
+X_Console_Zone:
         PSHS    d,x,y,u,cc
         PSHSW
         TSTE
@@ -381,6 +405,10 @@ Cz_Pose:
         MUL
         ADDB    3,S                     ; + colonne
         ADCA    #0
+        ifne    CARTE_MONO
+        LSLB                            ; case -> octets
+        ROLA
+        endc
         ADDD    #VRAM_BASE
         STD     cz_haut
         STD     cz_ptr
@@ -389,7 +417,7 @@ Cz_Pose:
         TFR     D,X
         LDB     cz_h
         DECB
-        LDA     #80
+        LDA     #VRAM_LIGNE
         MUL
         LEAX    D,X
         STX     cz_bas
@@ -418,7 +446,7 @@ Cz_Fin:
         RTS
 
 ; $0C en zone : on efface la zone (par l'IRQ), le curseur en haut à gauche
-Zone_Cls:
+X_Zone_Cls:
         PSHS    d,cc
         ORCC    #%01010000
         LDA     BUF_HEAD
@@ -432,6 +460,12 @@ Zone_Cls:
         LDA     #2
         STA     cz_op
         PULS    d,cc,pc
+    section .code
+Console_Zone:
+    jmp     [ExtV+EXTV_CZONE]
+Zone_Cls:
+    jmp     [ExtV+EXTV_ZONECLS]
+
 
 
 

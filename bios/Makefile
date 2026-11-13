@@ -14,10 +14,14 @@ TARGET_EPROM = osm39.bin
 # Fichier intermédiaire au format S-Record (contient les adresses)
 TARGET_LINKED = osm39.srec
 TARGET_DEBUG = osm39.hex
-SOURCES =  vectors.asm main.asm SD.asm keyboard.asm IT.asm ram.asm osmfs.asm filename.asm video.asm audio.asm farcall.asm
+SOURCES =  vectors.asm main.asm SD.asm keyboard.asm IT.asm ram.asm osmfs.asm filename.asm video.asm audio.asm farcall.asm ext.asm
 OBJECTS = $(SOURCES:.asm=.o)
 
-ASFLAGS = --format=obj --6309
+# BIOS2 (ext.asm, section .ext) : la seconde partie du BIOS, en RAM
+# système de EXT_BASE à EXT_FIN (exclu), sous la pile.
+EXT_BASE = 0xCE00
+EXT_FIN = 0xDA00
+ASFLAGS = --format=obj --6309 -DEXT_BASE=$(EXT_BASE) -DEXT_FIN=$(EXT_FIN)
 
 # Base address for EPROM
 EPROM_BASE = 0xe000
@@ -28,6 +32,7 @@ LDFLAGS = --format=srec --map=$(TARGET_LINKED:.srec=.map) \
           --section-base=.vectors=0xfff0 \
           --section-base=.romjmp=0xffe0 \
           --section-base=.ram_vectors=0xdff0 \
+          --section-base=.ext=$(EXT_BASE) \
           --section-base=.bss=0xc000
 
 LDFLAGSDEBUG = --format=ihex --map=$(TARGET_DEBUG:.hex=.map) \
@@ -35,10 +40,14 @@ LDFLAGSDEBUG = --format=ihex --map=$(TARGET_DEBUG:.hex=.map) \
           --section-base=.vectors=0x1FF0 \
           --section-base=.romjmp=0x1FE0 \
           --section-base=.ram_vectors=0xdff0 \
+          --section-base=.ext=$(EXT_BASE) \
           --section-base=.bss=0xc000
 
 # La règle par défaut : on veut le fichier EPROM final
 all: $(TARGET_EPROM)
+
+# BIOS2 sort avec l'image EPROM (même lien, voir bios2.py)
+BIOS2: $(TARGET_EPROM)
 
 # Étape 1b : Filtrer les vecteurs RAM (0xDFF2-0xDFFF) du S-Record
 $(TARGET_LINKED:.srec=.filtered.srec): $(TARGET_LINKED)
@@ -47,6 +56,7 @@ $(TARGET_LINKED:.srec=.filtered.srec): $(TARGET_LINKED)
 
 # Étape 1a : Édition de liens vers le format S-Record
 $(TARGET_LINKED): $(OBJECTS)
+	@$(PYTHON) verifie_ext.py $(SOURCES)
 	@echo "Édition de liens vers le format S-Record..."
 	$(LD) $(LDFLAGS) -o $@ $^
 
@@ -72,7 +82,7 @@ ram.map: ram.o
 # (~30 ms, ecriture nulle, 0 reassemblage). C'etait deja le comportement
 # d'origine pour hardware.inc. NE PAS "corriger" cela en faisant toucher les
 # fichiers : cela declencherait un rebuild complet a chaque `make`.
-hardware.inc sysfunc.inc &: ram.map vectors.asm $(GENERATOR)
+hardware.inc sysfunc.inc &: ram.map vectors.asm $(GENERATOR) ../CARTE
 	@echo "Génération de hardware.inc et sysfunc.inc à partir de ram.map..."
 	$(PYTHON) $(GENERATOR) ram.map vectors.asm hardware.inc sysfunc.inc
 
@@ -88,6 +98,7 @@ $(TARGET_EPROM): $(TARGET_LINKED:.srec=.filtered.srec) hardware.inc
 	    printf 'ERREUR : le code du BIOS finit en $$%04X, au-delà de $$FFE0\n' $$fin >&2; exit 1; \
 	fi; printf 'Fin du code BIOS : $$%04X (place libre jusqu a $$FFDF : %d octets)\n' $$((fin - 1)) $$((0xFFE0 - fin))
 	@python3 srec2bin.py $(TARGET_LINKED:.srec=.filtered.srec) $(TARGET_EPROM)
+	@python3 bios2.py $(TARGET_LINKED) $(TARGET_LINKED:.srec=.map) $(TARGET_EPROM) BIOS2 $(EXT_BASE) $(EXT_FIN)
 
 $(TARGET_DEBUG): $(OBJECTS)
 	@echo "Édition des liens vers le format hex intel..."
@@ -109,6 +120,6 @@ ram.o: ram.asm
 # Nettoyage
 clean:
 	@echo "Nettoyage du projet..."
-	rm -f $(OBJECTS) $(TARGET_LINKED) $(TARGET_LINKED:.srec=.filtered.srec) $(TARGET_EPROM) *.map ram.srec hardware.inc sysfunc.inc
+	rm -f $(OBJECTS) $(TARGET_LINKED) $(TARGET_LINKED:.srec=.filtered.srec) $(TARGET_EPROM) BIOS2 *.map ram.srec hardware.inc sysfunc.inc
 
 .PHONY: all clean

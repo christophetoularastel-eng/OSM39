@@ -14,6 +14,7 @@
 # --- Intermediaires BIOS (make -C bios) ---
 *.srec
 bios/osm39.bin
+bios/BIOS2
 
 # --- Binaires de sortie SANS extension (make) ---
 shell/SHELL
@@ -35,6 +36,7 @@ cmd/TELE
 cmd/AYTEST
 cmd/AYJOUE
 cmd/CLOUTEST
+cmd/HORLOGE
 tools/ay/morceaux/*.MUS
 asm/ASM
 osmvision/OSMVISION
@@ -49,6 +51,10 @@ apps/PAROLE
 apps/MINITEL
 apps/DONJON39
 apps/PONT
+zmachine/ZMACHINE
+zmachine/ZMACHINE.map
+zmachine/ZMACHINE.trop
+zmachine/zmachine.lst
 apps/PONT2
 apps/PONT3
 
@@ -92,3 +98,4 @@ tools/tele/essai_sd.o
 tools/manuel/.venv/
 docs/manuel/OSM39-manuel.pdf
 docs/manuel/images/
+test/tout/

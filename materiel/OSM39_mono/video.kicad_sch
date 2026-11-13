@@ -22551,7 +22551,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 445.008 134.366 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -22683,7 +22683,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 303.53 87.63 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -23706,7 +23706,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT175"
+		(property "Value" "74HC175"
 			(at 386.08 194.31 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25204,7 +25204,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 134.6117 83.82 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25507,7 +25507,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 430.5383 377.19 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -27449,7 +27449,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 327.6517 189.23 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -28200,7 +28200,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 523.24 300.99 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -30361,7 +30361,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "KM28C64A"
+		(property "Value" "AT28C64"
 			(at 259.9533 113.03 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -30896,7 +30896,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT86"
+		(property "Value" "74HC86"
 			(at 49.53 63.9064 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -31028,7 +31028,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 120.65 170.18 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -31821,7 +31821,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 165.1 41.91 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -32311,7 +32311,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 406.4 267.97 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -32704,7 +32704,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT86"
+		(property "Value" "74HC86"
 			(at 412.75 377.5964 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -33652,7 +33652,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 445.262 120.904 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -34050,7 +34050,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 120.65 119.38 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -35951,7 +35951,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 443.2217 96.52 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -36181,7 +36181,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 303.53 24.13 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -36509,7 +36509,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "74HCT166"
+		(property "Value" "74HC166"
 			(at 339.09 134.62 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -37808,7 +37808,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT86"
+		(property "Value" "74HC86"
 			(at 418.846 98.298 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -38352,7 +38352,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 394.9617 377.19 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -38739,7 +38739,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT86"
+		(property "Value" "74HC86"
 			(at 429.26 121.666 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -39319,7 +39319,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 384.81 102.87 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -39458,7 +39458,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "74HCT245"
+		(property "Value" "74HC245"
 			(at 186.69 267.97 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -39982,7 +39982,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT86"
+		(property "Value" "74HC86"
 			(at 420.878 137.414 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -42009,7 +42009,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "74HCT245"
+		(property "Value" "74HC245"
 			(at 243.84 267.97 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -42771,7 +42771,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 120.65 227.33 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -42994,7 +42994,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 521.97 287.274 0)
 			(show_name no)
 			(do_not_autoplace no)

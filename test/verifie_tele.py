@@ -25,6 +25,7 @@ import verifie_fs as v          # noqa: E402
 import verifie_asm as va        # noqa: E402
 import verifie_dossiers as vd   # noqa: E402
 import tele                     # noqa: E402
+import depose                   # noqa: E402
 
 HW = {}
 for ligne in open(os.path.join(RACINE, 'bios', 'hardware.inc')):
@@ -82,6 +83,8 @@ class LiaisonSimulee:
         pas = 0
         try:
             while m.pc != v.RETOUR:
+                if m.sd():              # la carte SD (comme v.appelle)
+                    continue
                 m.step()
                 pas += 1
                 if pas > 5_000_000:
@@ -114,9 +117,7 @@ def main():
     b = vd.Banc()
     m = Machine(b.image, b.s)
     s = b.s
-    rom, fin = s['table_function_rom'], s['table_function_rom_end']
-    for i in range(fin - rom):
-        m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
+    v.installe_bios(m)          # table des services, et BIOS2
     code = open(os.path.join(RACINE, 'cmd', 'TELE'), 'rb').read()
     verifie(len(code) < 0x1000, 'TELE tient sous $1000 (%d octets) : la page 1 reste au code d\'essai' % len(code))
     m.banks[1][:len(code)] = code
@@ -171,6 +172,45 @@ def main():
     m.entree += tele.trame('R', b'\x01\x20\x00')
     li.tourne()
     verifie(bytes(m.sortie) == b'E\x03', 'R de 3 octets au lieu de 4 : « E 03 »')
+
+    # tools/tele/depose.py : un fichier du PC posé sur la carte par les
+    # services du BIOS ; la carte relue par egofs_core (l'outil du PC)
+    sv = depose.services()
+
+    def service(nom, **reg):
+        p = s['table_function_ram'] + sv['sys_' + nom]
+        return t.appel((m.mem[p] << 8) | m.mem[p + 1], **reg)
+
+    t.ecrit(1, depose.CHAINE, b'DOC\0')
+    service('Format_Filename_83', x=depose.CHAINE, y=depose.NOM)
+    verifie(not service('FS_MkDir', x=depose.NOM)['c'], 'C : FS_MkDir crée DOC')
+    muet = lambda *a: None                  # noqa: E731
+    texte1 = b'PREMIER ESSAI\n' * 40
+    texte2 = bytes(range(32, 127)) * 70     # 6650 octets : 13 secteurs
+    try:
+        depose.depose(t, texte1, '/DOC/NOTE.TXT', dire=muet)
+        depose.depose(t, texte2, '/DOC/NOTE.TXT', 0x17, 1, 0x1234, dire=muet)
+        ok = True
+    except tele.ErreurTele as e:
+        ok = False
+        print('     ', e)
+    fichiers = b.core.list_files()
+    notes = [f for f in fichiers if f['path'] == 'DOC/NOTE.TXT']
+    relu = os.path.join(os.path.dirname(b.image), 'relu')
+    if len(notes) == 1:
+        b.core.extract_file(notes[0]['index'], relu)
+    verifie(ok and len(notes) == 1 and open(relu, 'rb').read() == texte2
+            and (notes[0]['page'], notes[0]['addr'], notes[0]['attr']) == (1, '0x1234', 0x17),
+            'depose.py : /DOC/NOTE.TXT posé puis remplacé, une seule entrée, '
+            'contenu, page, adresse, attributs (relu par egofs_core)')
+    try:
+        depose.depose(t, b'X', '/ABSENT/NOTE.TXT', dire=muet)
+        refuse = False
+    except tele.ErreurTele:
+        refuse = True
+    verifie(refuse and not any(f['name'] == 'NOTE.TXT' and f['path'] != 'DOC/NOTE.TXT'
+                               for f in b.core.list_files()),
+            'depose.py : dossier absent refusé, rien écrit')
 
     t.fin()
     verifie(li.fini and m.mem[s['serie_brute']] == 0 and 'TELE termine.' in m.texte.decode('latin-1'),

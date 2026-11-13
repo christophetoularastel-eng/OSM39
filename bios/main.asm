@@ -11,6 +11,7 @@
         export PrintCRLF, ls_cmd
         export  PrintFileName83,Pager,LoadandExec,FarRead,FarWrite
         import  FS_Mount
+        import  Ext_Charge, Ext_Defauts
 
         import table_function_ram
         import scan_keyboard
@@ -57,16 +58,27 @@ main:
 
         CLR     CRA
         CLR     DDRA
+        ; Port B : ORB d'abord, sorties ensuite. Après le reset, PB est en
+        ; entrée : les tirages de la carte horloge mettent DS et R/W à 1.
+        ; Passer en sorties avec ORB = 0 faisait tomber DS et R/W ensemble,
+        ; une écriture parasite dans le dernier registre adressé de la puce
+        ; (registre B -> $FF : horloge figée). Avec ORB = $02, seul DS tombe.
+        LDA     #%00000100  ; CRB : accès à ORB
+        STA     CRB
+        LDA     #%00000010  ; PB1 = R/W de l'horloge à 1, PB0 = DS à 0
+        STA     PIADRB
         CLR     CRB
         LDA     #%11111111  ; port B en sorties
         STA     DDRB
         LDA     #%00000100  ; Configure les registres de contrôle
                             ; pour un accès simple aux registres de données
         STA     CRB
-        LDA     #%00001100   ; Configuration du Registre de Contrôle A (CRA)
+        ; CRA : CA2 en sortie basse (b5 b4 = 11, b3 = 0), aucune IT. CA2 est
+        ; l'AS de la carte horloge (lib/horloge.asm) : en entrée avec son IT
+        ; ($0C d'avant), un front sur ce fil flottant lançait une FIRQ que
+        ; handler_FIRQ (un RTI) n'acquitte pas : la machine bouclait.
+        LDA     #%00110100
         STA     CRA
-        LDA     #%00000000
-        STA PIADRB
 
 ;TIMER initialisation
 
@@ -88,6 +100,7 @@ main:
         STA     CR1              ;   + bit1=0 → horloge externe C1
         LDA     #$40             ; bit0=0 : libération du reset → compteur actif
         STA     CR1
+        jsr     Ext_Defauts         ; vecteurs vers BIOS2 : sans lui, d'abord
         jsr     init_audio
 
         LDX     #input_buffer
@@ -150,6 +163,10 @@ Init_Fin:
 
         JSR SD_Select
         JSR FS_Mount
+        TST     sd_absente          ; la seconde partie du BIOS (ext.asm)
+        BNE     Ext_Sans
+        JSR     Ext_Charge
+Ext_Sans:
 
         ;ANDCC   #%10111111                     ;CLI les IT FIRQ active avec sauvegarde de tous les registres
 
@@ -315,6 +332,7 @@ boot_cmd:                           ; BOOT : une carte a pu être insérée depu
         JSR     Init_SD_Card
         BCS     Sans_Carte_Msg
         CLR     sd_absente
+        JSR     Ext_Charge
         LDS     #RAM_TOP
         LBRA    Boot_Loop
 Sans_Carte:

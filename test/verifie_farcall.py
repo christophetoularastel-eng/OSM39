@@ -106,10 +106,8 @@ def main():
             'page 4 refusée : C = 1, aucun appel, aucune bascule')
 
     # 5. par la table du BIOS : JSR [sys_Far_Call], puis un emplacement libre
-    rom, fin = s['table_function_rom'], s['table_function_rom_end']
-    t = s['table_function_ram']
-    for i in range(fin - rom):
-        m.mem[t + i] = m.rd8(rom + i)
+    v.installe_bios(m)          # table des services, et BIOS2
+    rom, fin, t = s['table_function_rom'], s['table_function_rom_end'], s['table_function_ram']
     verifie(fin - rom == s['table_function_ram_end'] - t,
             'table ROM et table RAM de même taille (réserve comprise)')
 

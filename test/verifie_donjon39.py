@@ -31,6 +31,7 @@ RACINE = os.path.dirname(ICI)
 sys.path.insert(0, ICI)
 sys.path.insert(0, os.path.join(RACINE, 'tools', 'donjon39'))
 import verifie_fs as v          # noqa: E402
+import carte                    # noqa: E402
 import verifie_asm as va        # noqa: E402
 import donjon39                   # noqa: E402
 
@@ -131,8 +132,7 @@ def relache(code, etendu=True):
 def photo(nom):
     def f(m):
         a = m.a_
-        vram = [(bytes(m.mem[0x8000 + (F_Y + r) * 80 + F_X:0x8000 + (F_Y + r) * 80 + F_X + 64]),
-                 bytes(m.mem[0x9000 + (F_Y + r) * 80 + F_X:0x9000 + (F_Y + r) * 80 + F_X + 64])) for r in range(20)]
+        vram = [carte.lit(m.mem, (F_Y + r) * 80 + F_X, 64) for r in range(20)]
         m.photos[nom] = (m.banks[1][a['PosX']] << 8 | m.banks[1][a['PosX'] + 1],
                          m.banks[1][a['PosY']] << 8 | m.banks[1][a['PosY'] + 1],
                          m.banks[1][a['Ang']] << 8 | m.banks[1][a['Ang'] + 1], vram, m.trame,
@@ -177,9 +177,7 @@ def main():
             open(chemin, 'wb').write(fichier)
             c.ajoute('DONJON39.TXT', chemin, page=1, adresse='0000', attr=0x06)
         m = Banc(c.image, s, a, script)
-        rom, fin = s['table_function_rom'], s['table_function_rom_end']
-        for i in range(fin - rom):
-            m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
+        v.installe_bios(m)          # table des services, et BIOS2
         m.wr16(0xDFF6, s['handler_IRQ'])
         m.mem[s['son_coupe']] = 0x4D
         m.mem[s['current_page']] = 1

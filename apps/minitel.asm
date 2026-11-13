@@ -534,13 +534,13 @@ Rd_Copie:
     TST     Mode
     BNE     Rd_80
     INCB                        ; fenêtre : rangée + ZONE_Y, colonne ZONE_X
-    LDA     #80
+    LDA     #VRAM_LIGNE
     MUL
-    ADDD    #VRAM_BASE+ZONE_X
+    ADDD    #VRAM_BASE+ZONE_X*VRAM_PAS
     LDW     #NCOL
     BRA     Rd_Dest
 Rd_80:
-    LDA     #80
+    LDA     #VRAM_LIGNE
     MUL
     ADDD    #VRAM_BASE
     LDW     #80
@@ -553,6 +553,15 @@ Rd_Dest:
     MUL
     ADDD    #RbChr
     TFR     D,X
+    IFNE    CARTE_MONO
+Rd_Cel:                         ; mono : caractère puis attribut, case par case
+    LDA     ,X
+    LDB     RB_ATT,X
+    STD     ,Y++
+    LEAX    1,X
+    DECW
+    BNE     Rd_Cel
+    ELSE
     TFM     X+,Y+
     LEAX    RB_ATT,X            ; X a avancé de la largeur : attributs
     LDD     RbLarg
@@ -562,6 +571,7 @@ Rd_Dest:
     LEAY    VRAM_COL_OFS,Y
     LDW     RbLarg
     TFM     X+,Y+
+    ENDC
     INC     RbK
     BRA     Rd_Copie
 Rd_Vide:
@@ -683,19 +693,29 @@ Pose_Curseur:
     TST     Mode
     BNE     Pc_80
     ADDB    #ZONE_Y             ; fenêtre : une cellule par case
-    LDA     #80
+    LDA     #VRAM_LIGNE
     MUL
     ADDB    Col
     ADCA    #0
-    ADDD    #VRAM_BASE+ZONE_X
+    IFNE    CARTE_MONO          ; mono : 2 octets par cellule
+    ADDB    Col
+    ADCA    #0
+    ENDC
+    ADDD    #VRAM_BASE+ZONE_X*VRAM_PAS
     BRA     Pc_Pose
 Pc_80:                          ; plein écran : deux cellules par case
-    LDA     #80
+    LDA     #VRAM_LIGNE
     MUL
     ADDB    Col
     ADCA    #0
     ADDB    Col
     ADCA    #0
+    IFNE    CARTE_MONO
+    ADDB    Col
+    ADCA    #0
+    ADDB    Col
+    ADCA    #0
+    ENDC
     ADDD    #VRAM_BASE
 Pc_Pose:
     STD     VRAM_PTR
@@ -745,6 +765,11 @@ Cadre:
     JSR     [VIS_TABLE+vis_Sync_End]
     JSR     [VIS_TABLE+vis_Sync_Begin]
     LDX     #BarreSauve
+    IFNE    CARTE_MONO
+    LDY     #VRAM_BASE+(SAUVE_RANG*VRAM_LIGNE)    ; mono : 2 rangées entrelacées
+    LDW     #2*VRAM_LIGNE
+    TFM     X+,Y+
+    ELSE
     LDY     #VRAM_BASE+(SAUVE_RANG*80)
     LDW     #160
     TFM     X+,Y+
@@ -752,6 +777,7 @@ Cadre:
     LDY     #VRAM_COL+(SAUVE_RANG*80)
     LDW     #160
     TFM     X+,Y+
+    ENDC
     JSR     [VIS_TABLE+vis_Sync_End]
     JSR     [VIS_TABLE+vis_Sync_Begin]
     LDA     #FEN_X
@@ -774,17 +800,30 @@ Cd_Fin:
     LBRA    Dessine_Barre
 
 ; Rangées 25-29 : sauvées au départ, rendues à la sortie. Un plan par trame.
+; v4 : un plan puis l'autre. mono : les 5 rangées entrelacées (800
+; octets), en deux moitiés : SAUVE_OCTETS par trame dans les deux cas.
 Sauve_Barre:
-    LDX     #VRAM_BASE+(SAUVE_RANG*80)
+    LDX     #VRAM_BASE+(SAUVE_RANG*VRAM_LIGNE)
     LDY     #BarreSauve
     BSR     Copie_Barre
+    IFNE    CARTE_MONO
+    LDX     #VRAM_BASE+(SAUVE_RANG*VRAM_LIGNE)+SAUVE_OCTETS   ; la seconde moitié
+    LDY     #BarreSauve+SAUVE_OCTETS
+    BRA     Copie_Barre
+    ELSE
     LDX     #VRAM_COL+(SAUVE_RANG*80)
     BRA     Copie_Barre
+    ENDC
 Rend_Barre:
     LDX     #BarreSauve
-    LDY     #VRAM_BASE+(SAUVE_RANG*80)
+    LDY     #VRAM_BASE+(SAUVE_RANG*VRAM_LIGNE)
     BSR     Copie_Barre
+    IFNE    CARTE_MONO
+    LDX     #BarreSauve+SAUVE_OCTETS
+    LDY     #VRAM_BASE+(SAUVE_RANG*VRAM_LIGNE)+SAUVE_OCTETS
+    ELSE
     LDY     #VRAM_COL+(SAUVE_RANG*80)
+    ENDC
 Copie_Barre:                    ; X -> Y, SAUVE_OCTETS, dans une trame
     JSR     [VIS_TABLE+vis_Sync_Begin]
     LDW     #SAUVE_OCTETS

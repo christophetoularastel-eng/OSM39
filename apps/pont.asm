@@ -89,10 +89,10 @@ AS_VisOk:
     LDX     #TxtEcrit
     LDB     #WIN_Y+6
     JSR     Show
-    LDA     #80
+    LDA     #VRAM_LIGNE
     LDB     #ROW_MSG
     MUL
-    ADDD    #VRAM_BASE+TX+2
+    ADDD    #VRAM_BASE+(TX+2)*VRAM_PAS
     TFR     D,Y
     JSR     [VIS_TABLE+vis_Sync_Begin]
     LDA     #2

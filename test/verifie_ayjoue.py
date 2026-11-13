@@ -110,9 +110,7 @@ def lance(fichiers, args, script=(), son_coupe=False):
     m = Machine(c.image, s, a, list(script) + [(4000, lambda m: (_ for _ in ()).throw(vdm.Fini()))])
     # les écritures d'AyJ_Demarre / AyJ_Arrete (silence) ne sont pas des trames
     m.zone_arret = set(range(a['AyJ_Arrete'], a['AyJ_Irq']))
-    rom, fin = s['table_function_rom'], s['table_function_rom_end']
-    for i in range(fin - rom):
-        m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
+    v.installe_bios(m)          # table des services, et BIOS2
     m.wr16(RVEC_IRQ, s['handler_IRQ'])
     m.mem[s['son_coupe']] = 0x4D if son_coupe else 0
     code = open(BIN, 'rb').read()

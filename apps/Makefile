@@ -85,7 +85,7 @@ parole.o: parole_data.inc
 # aussi la police). Le fichier généré est versionné : make ne le refait pas.
 glouton.o: glout_data.inc
 
-%.o: %.asm ../bios/hardware.inc ../bios/sysfunc.inc ../lib/ui.inc ../lib/vis.inc ../lib/vision.asm ../lib/vram.asm ../lib/snd.asm ../lib/snd.inc ../lib/str.asm
+%.o: %.asm ../bios/hardware.inc ../bios/sysfunc.inc ../lib/ui.inc ../lib/vis.inc ../lib/vision.asm ../lib/latin_cp437.inc ../lib/vram.asm ../lib/snd.asm ../lib/snd.inc ../lib/str.asm
 	$(AS) $(ASFLAGS) --list=$*.lst -o $@ $<
 	@# GARDE-FOU : le point d'entrée DOIT être à l'offset 0 (= $0000) :
 	@# OSM-VISION fait JSR sur l'adresse de l'entrée OSMFS. Un include

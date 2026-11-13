@@ -21,13 +21,14 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ICI)
 import verifie_fs as v          # noqa: E402
 import verifie_asm as va        # noqa: E402
+import carte                    # noqa: E402  (VRAM : v4 ou mono)
 import egofs_core               # noqa: E402
 
 RACINE = os.path.dirname(ICI)
 
-CHAINE = 0xD000                 # chaînes en RAM commune
-TAMPON1, TAMPON2 = 0xD100, 0xD120
-DONNEES = 0xD200
+CHAINE = 0xDD00                 # chaînes en RAM commune (hors de BIOS2 et de la pile)
+TAMPON1, TAMPON2 = 0xDD80, 0xDDA0
+DONNEES = 0x4000                # en page 0 (2 Ko pour FS_LoadFile ; BIOS2 occupe $CE00+)
 
 
 class Banc:
@@ -49,10 +50,7 @@ class Banc:
         sys.stdout = old
         self.m = va.MachineAsm(self.image, self.s)
         m = self.m
-        rom, fin = self.s['table_function_rom'], self.s['table_function_rom_end']
-        t = self.s['table_function_ram']
-        for i in range(fin - rom):
-            m.mem[t + i] = m.mem[rom + i]
+        v.installe_bios(m)          # table des services, et BIOS2
         m.mem[self.s['current_page']] = 0
 
     def appel(self, nom, **regs):
@@ -76,14 +74,14 @@ class Banc:
 
     def sauve(self, txt, donnees, tampon=TAMPON1):
         self.formate(txt, tampon)
-        self.m.mem[DONNEES:DONNEES + len(donnees)] = donnees
+        self.m.banks[0][DONNEES:DONNEES + len(donnees)] = donnees
         return self.appel('FS_SaveFile', a=0, x=tampon, y=DONNEES, u=len(donnees))
 
     def charge(self, txt, tampon=TAMPON1):
         self.formate(txt, tampon)
-        self.m.mem[DONNEES:DONNEES + 2048] = bytes(2048)
+        self.m.banks[0][DONNEES:DONNEES + 2048] = bytes(2048)
         ok = self.appel('FS_LoadFile', a=0, x=tampon, y=DONNEES)
-        return ok, bytes(self.m.mem[DONNEES:DONNEES + self.m.u])
+        return ok, bytes(self.m.banks[0][DONNEES:DONNEES + self.m.u])
 
     def mkdir(self, txt):
         self.formate(txt)
@@ -118,7 +116,7 @@ class Banc:
         m, s = self.m, self.s
         code = open(os.path.join(RACINE, 'cmd', prog), 'rb').read()
         m.banks[1][:len(code)] = code
-        adr, ptrs = 0xD300, []
+        adr, ptrs = 0xDDC0, []
         for a in [prog] + list(args):
             b = a.encode('ascii') + b'\0'
             m.mem[adr:adr + len(b)] = b
@@ -298,8 +296,8 @@ def main():
 
     # 10. OSM-VISION : sa liste (Load_Directory + tri + Draw_FileList)
     import re
-    carte = open(os.path.join(RACINE, 'osmvision', 'OSMVISION.map')).read()
-    ov = {n: int(a, 16) for n, a in re.findall(r'Symbol: (\S+) \(\S+\) = ([0-9A-F]{4})', carte)}
+    plan = open(os.path.join(RACINE, 'osmvision', 'OSMVISION.map')).read()
+    ov = {n: int(a, 16) for n, a in re.findall(r'Symbol: (\S+) \(\S+\) = ([0-9A-F]{4})', plan)}
     code = open(os.path.join(RACINE, 'osmvision', 'OSMVISION'), 'rb').read()
 
     def liste_ov(chemin):
@@ -312,7 +310,7 @@ def main():
         n = m.banks[0][ov['FileCount']]
         recs = [bytes(m.banks[0][ov['FileNames'] + 16 * i:ov['FileNames'] + 16 * i + 16]) for i in range(n)]
         v.appelle(m, ov['Draw_FileList'])
-        icones = [m.mem[0x8000 + (i + 7) * 80 + 12] for i in range(min(n, 16))]
+        icones = [m.mem[carte.adr((i + 7) * 80 + 12)] for i in range(min(n, 16))]
         return [(r[:15].decode('ascii').rstrip(), r[15]) for r in recs], icones
 
     b.sauve('/ZZFICH', b'z')

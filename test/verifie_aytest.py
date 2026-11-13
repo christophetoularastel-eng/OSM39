@@ -76,9 +76,7 @@ def lance(r9_mort):
     b = vd.Banc()
     m = Machine(b.image, b.s, r9_mort)
     s = b.s
-    rom, fin = s['table_function_rom'], s['table_function_rom_end']
-    for i in range(fin - rom):
-        m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
+    v.installe_bios(m)          # table des services, et BIOS2
     code = open(os.path.join(RACINE, 'cmd', 'AYTEST'), 'rb').read()
     m.banks[1][:len(code)] = code
     m.mem[s['current_page']] = 1

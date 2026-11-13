@@ -9,7 +9,7 @@ OBJCOPY = objcopy
 ASFLAGS = --format=obj --6309 -I../bios
 LDFLAGS = --format=raw --section-base=.code=0x0000
 
-all: TYPE CP MV RM SIZE CPU CD MKDIR PWD LS MONITEUR SDTEST TELE AYTEST AYJOUE CLOUTEST MORCEAUX
+all: TYPE CP MV RM SIZE CPU CD MKDIR PWD LS MONITEUR SDTEST TELE AYTEST AYJOUE CLOUTEST HORLOGE MORCEAUX
 
 TYPE: type.asm type.o
 	$(LD) $(LDFLAGS) --map=TYPE.map -o TYPE type.o
@@ -55,6 +55,12 @@ MORCEAUX: $(MORCEAUX_TXT:.txt=.MUS)
 %.MUS: %.txt ../tools/ay/ay.py
 	python3 ../tools/ay/ay.py $< -o $@
 
+HORLOGE: horloge.asm horloge.o
+	$(LD) $(LDFLAGS) --map=HORLOGE.map -o HORLOGE horloge.o
+
+horloge.o: horloge.asm ../lib/horloge.asm ../bios/hardware.inc ../bios/sysfunc.inc
+	$(AS) $(ASFLAGS) --list=$*.lst -o $@ $<
+
 CLOUTEST: cloutest.asm cloutest.o
 	$(LD) $(LDFLAGS) --map=CLOUTEST.map -o CLOUTEST cloutest.o
 
@@ -97,7 +103,7 @@ cpu.o: cpu.asm ../bios/hardware.inc ../bios/sysfunc.inc
 	$(AS) --format=obj --6309 -I../bios --list=cpu.lst -o $@ $<
 
 clean:
-	rm -f *.o *.lst *.map *.hex *.EXE TYPE CP MV RM SIZE CPU CD MKDIR PWD LS MONITEUR SDTEST TELE AYTEST AYJOUE CLOUTEST
+	rm -f *.o *.lst *.map *.hex *.EXE TYPE CP MV RM SIZE CPU CD MKDIR PWD LS MONITEUR SDTEST TELE AYTEST AYJOUE CLOUTEST HORLOGE
 	rm -f $(MORCEAUX_TXT:.txt=.MUS)
 
 .PHONY: all clean MORCEAUX

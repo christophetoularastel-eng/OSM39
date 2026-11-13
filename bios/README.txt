@@ -1,4 +1,12 @@
-lwasm -r -lmycpu6809.lst -omycpu6809.bin mycpu6809.asm
-mmake SUBTARGET=py09 SOURCES=homebrew/py09.cpp REGENIE=1
-minipro -u(-P) -p M28C64 -w osm09.bin
-sudo mkfs.vfat -F 16 -n "SD6809" /dev/mmcblk0p1
+BIOS d'OSM39 (HD6309) : l'EPROM de 8 Ko et sa seconde partie BIOS2.
+
+  make -C bios          -> osm39.bin (EPROM) et BIOS2 (/BIN/BIOS2 de la carte)
+  make -C bios osm39.hex
+
+Les deux vont ensemble : BIOS2 n'est chargé que si sa longueur et sa somme
+sont celles inscrites dans l'EPROM. ./deploy_sd.sh les copie dans
+dist/EPROM et dist/SD/BIN.
+
+Carte mémoire : docs/memory-map.md. Règles et pièges : AGENTS.md.
+hardware.inc et sysfunc.inc sont générés (update_includes.py) : ne pas
+les éditer.

@@ -151,15 +151,27 @@ class Banc(va.MachineAsm):
         return super().execute(op)
 
 
-def carte(dossier, avec_vision=True):
+def carte(dossier, avec_vision=True, bios2=True):
+    """Une carte comme deploy_sd.sh la fait : OSMVISION, et /BIN/BIOS2 (la
+    seconde partie du BIOS) ; bios2 = des octets : un autre BIOS2."""
     c = va.Carte(dossier)
     if avec_vision:
         c.ajoute('OSMVISION', os.path.join(RACINE, 'osmvision', 'OSMVISION'), page=0)
+    if bios2 is True:
+        c.ajoute('BIN/BIOS2', v.BIOS2, page=1, attr=0x06)
+    elif bios2:
+        chemin = os.path.join(dossier, 'bios2_autre')
+        open(chemin, 'wb').write(bios2)
+        c.ajoute('BIN/BIOS2', chemin, page=1, attr=0x06)
     return c
 
 
 def demarre(c, s, pas=5_000_000, **reglages):
     m = Banc(c.image, s)
+    # à froid, la RAM de BIOS2 ne contient rien : seul Ext_Charge peut l'y mettre
+    # (Machine l'y pose d'office pour les autres bancs)
+    base2 = min(int(x, 16) for x in re.findall(r'Section: \.ext \(\S+\) load at ([0-9A-F]+)', open(v.MAP).read()))
+    m.mem[base2:0xDA00] = bytes([0xFF]) * (0xDA00 - base2)
     for k, val in reglages.items():
         setattr(m, k, val)
     m.pc = m.rd16(0xFFFE)
@@ -206,6 +218,27 @@ def main():
     verifie(r == 'OSMVISION' and 'SECOURS>' not in t and m.trames >= 60,
             'reset sans touche : %d trames d\'attente, puis OSM-VISION lancé en page 0, $0000 (%s)' % (m.trames, r))
     verifie('une touche : SECOURS' in t, 'la bannière annonce le secours')
+    # 1b. BIOS2 (la seconde partie du BIOS) : chargé au démarrage
+    def ext_etat(m):
+        vec = [m.rd16(s['ExtV'] + 2 * i) for i in range(14)]
+        return m.mem[s['ext_ok']], vec
+    ok, vec = ext_etat(m)
+    verifie(ok == 1 and vec[0] == s['X_FS_SaveFile'] and vec[11] == s['X_Zone_IRQ'],
+            'BIOS2 sur la carte : chargé et installé (FS_SaveFile -> $%04X, l\'IRQ du Terminal -> $%04X)' % (vec[0], vec[11]))
+    d2 = os.path.join(d, 'sans_bios2')
+    os.makedirs(d2)
+    m2, r2, t2 = demarre(carte(d2, bios2=False), s)
+    ok, vec = ext_etat(m2)
+    verifie(r2 == 'OSMVISION' and ok == 0 and vec[0] == s['Sys_Absent'] and vec[11] == s['UPDATE_CURSOR'],
+            'carte sans BIOS2 : OSM-VISION lancé quand même, services de BIOS2 « absents », IRQ sans Terminal (%s)' % r2)
+    autre = bytearray(open(v.BIOS2, 'rb').read())
+    autre[len(autre) // 2] ^= 0x55
+    d3 = os.path.join(d, 'autre_bios2')
+    os.makedirs(d3)
+    m3, r3, t3 = demarre(carte(d3, bios2=bytes(autre)), s)
+    ok, vec = ext_etat(m3)
+    verifie(r3 == 'OSMVISION' and ok == 0 and vec[0] == s['Sys_Absent'],
+            'BIOS2 d\'un autre BIOS (un octet changé) : refusé (somme), OSM-VISION lancé (%s)' % r3)
     m, r, t = demarre(c, s, init_ratees=2)
     verifie(r == 'OSMVISION' and m.inits == 3 and 'absente' not in t,
             'carte lente à la mise sous tension : 2 échecs, prête au 3e essai, OSM-VISION lancé (%s)' % r)
@@ -250,6 +283,8 @@ def main():
     m.banks[1][0x2000:0x2008] = bytes([0x12, 0x12, 0x15, 0x99, 0x12, 0x12, 0x12, 0x12])
     m.pc, m.a, m.b, m.x, m.y, m.u, m.w, m.dp = 0x2003, 0x11, 0x22, 0x3344, 0x5566, 0x7788, 0x99AA, 0x00
     m.s = 0xDE00
+    base2 = min(int(x, 16) for x in re.findall(r'Section: \.ext \(\S+\) load at ([0-9A-F]+)', open(v.MAP).read()))
+    m.mem[base2:base2 + 64] = bytes(64)     # le programme planté a abîmé BIOS2
     m.interruption(0xFFF0)                  # vecteur TRAP du 6309
     m.texte = bytearray()
     m.touche_trap = True
@@ -267,6 +302,9 @@ def main():
     verifie('TRAP 6309  PC=2003' in t and 'PC-2 : 12159912' in t,
             'TRAP : « TRAP 6309  PC=2003 », octets à partir de PC-2 : 12 15 99 12')
     verifie(r == 'OSMVISION' and m.trames < 60, 'une touche : OSM-VISION relancé à chaud, sans fenêtre de secours (%d trame(s), %s)' % (m.trames, r))
+    corps2 = open(v.BIOS2, 'rb').read()
+    verifie(m.mem[s['ext_ok']] == 1 and bytes(m.mem[base2:base2 + len(corps2)]) == corps2,
+            'redémarrage à chaud : BIOS2 (abîmé par le programme) relu sur la carte et réinstallé')
     tf, ti = s['trap_frame'], s['trap_info']
     fr = bytes(m.mem[tf:tf + 14])
     verifie(fr[1] == 0x11 and fr[2] == 0x22 and fr[6:8] == b'\x33\x44' and fr[8:10] == b'\x55\x66'

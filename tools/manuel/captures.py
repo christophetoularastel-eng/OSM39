@@ -82,9 +82,7 @@ def scene(c, s, nom, touches, photo, rangees=30):
     for k, x in enumerate(touches):
         t.append(x if isinstance(x, tuple) else (20 + 4 * k, x))
     m = Machine(c.image, s, t, photo)
-    rom, fin = s['table_function_rom'], s['table_function_rom_end']
-    for i in range(fin - rom):
-        m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
+    v.installe_bios(m)          # table des services, et BIOS2
     m.wr16(0xDFF6, s['handler_IRQ'])
     m.wr16(0xDFFA, s['handler_NMI'])
     code = open(os.path.join(RACINE, 'osmvision', 'OSMVISION'), 'rb').read()

@@ -46,7 +46,9 @@ vis_Sync_End    equ 2
 ;     durer plusieurs trames. Preserve A, B, X, Y, U ; detruit W. ---
 vis_Window      equ 4
 
-; --- vis_Text : texte ASCII (page 0 du generateur).
+; --- vis_Text : texte de la page 0 du generateur : ASCII, et Latin-1
+;     ($A0-$FF, les accents du clavier) traduit en CP437 en dessinant
+;     (lib/latin_cp437.inc).
 ;     Entree : A = colonne, B = ligne, X = chaine (0 final),
 ;              E = attribut (bit 7 a 0 : page 0).
 ;     Ecrit les caracteres puis leurs attributs. Ne fait pas de VSYNC :
@@ -109,7 +111,8 @@ vis_Rect_Restore equ 20
 ;              eventuellement prerempli ; place pour longueur max + 1),
 ;              E = longueur max (1..78), F = options INP_*,
 ;              Y = crochet appele apres chaque modification, ou 0.
-;     Touches : imprimables ($20-$7E, filtrees par F), Retour arriere,
+;     Touches : imprimables ($20-$7E, et Latin-1 $A0-$FF sauf avec
+;     INP_MAJ ; filtrees par F), Retour arriere,
 ;     Entree, Echap. Le champ occupe longueur max + 1 colonnes.
 ;     Sortie : C = 1 si Echap ; sinon C = 0 et A = touche de sortie
 ;              ($0D, ou la touche de controle si INP_CTRL).

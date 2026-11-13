@@ -803,6 +803,9 @@ EC_Have:                    ; A = valeur voulue
     LDX     A,X
     LDA     EvX
     ASLA
+    IFNE    CARTE_MONO      ; mono : 2 octets par cellule
+    ASLA
+    ENDC
     TFR     A,B
     ABX
     LDB     WrCnt
@@ -836,13 +839,13 @@ AW_Cell:
     BNE     AW_Brick
     LDA     #CHAR_EMPTY
     STA     ,Y
-    STA     1,Y
+    STA     VRAM_PAS,Y
     BRA     AW_Col
 AW_Brick:
     LDA     #CHAR_BRICK_L
     STA     ,Y
     LDA     #CHAR_BRICK_R
-    STA     1,Y
+    STA     VRAM_PAS,Y
 AW_Col:
     PULS    A
     PSHS    X
@@ -850,7 +853,7 @@ AW_Col:
     LDA     A,X
     PULS    X
     STA     VRAM_COL_OFS,Y
-    STA     VRAM_COL_OFS+1,Y
+    STA     VRAM_COL_OFS+VRAM_PAS,Y
     DECB
     BNE     AW_Cell
     ANDCC   #%11101111

@@ -63,7 +63,7 @@ $(TARGET_HEX): $(TARGET_EXE)
 
 
 # Règle générique pour assembler les .asm en .o (version mise à jour)
-%.o: %.asm ../bios/hardware.inc ../bios/sysfunc.inc ../lib/ui.inc ../lib/vis.inc ../lib/vision.asm ../lib/clouris.asm ../lib/snd.inc ../lib/snd.asm ../lib/str.asm ../lib/vram.asm
+%.o: %.asm ../bios/hardware.inc ../bios/sysfunc.inc ../lib/ui.inc ../lib/vis.inc ../lib/vision.asm ../lib/latin_cp437.inc ../lib/clouris.asm ../lib/snd.inc ../lib/snd.asm ../lib/str.asm ../lib/vram.asm
 	@echo "Assemblage de $<..."
 	$(AS) $(ASFLAGS) --list=$*.lst -o $@ $<
 	@# GARDE-FOU : Vision_Start a $$0000 (BOOT y saute). Les applications

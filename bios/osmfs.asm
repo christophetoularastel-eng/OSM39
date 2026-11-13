@@ -23,6 +23,11 @@
     import  fs_slot_suiv, fs_slots, fr_fin, fr_dos, fr_nom15, fs_tmp
 
     export  FS_Mount
+    export  X_FS_SaveFile, X_FS_DeleteFile, X_FS_SetAttributes, X_FS_RenameFile
+    export  X_FS_MkDir, X_FS_SetLoad, X_FS_ListRoot
+    include "ext.inc"
+    import  ExtV
+    export  Fs_ReadBlk              ; (ext.asm : chargement de BIOS2)
     export  FS_FindEntry, FS_LoadFile
     export  FS_FindFirst, FS_FindNext
     export  FS_ListRoot
@@ -453,7 +458,8 @@ FC_Err:
 ; secteur. Rien avant le 3e secteur (plus de 1 Ko) : les petits fichiers
 ; ne font pas clignoter le coin. Les deux cellules sont sauvées au premier
 ; affichage et remises à la fin, erreur comprise. V4 : la couleur est
-; 4 Ko au-dessus du caractère ; la page vidéo est celle déjà affichée.
+; 4 Ko au-dessus du caractère ; mono : juste après (les deux cases font
+; 4 octets contigus). La page vidéo est celle déjà affichée.
 ; Les trois routines préservent tous les registres (et C).
 ; ===================================================================
 SPIN_DEBUT      equ 2           ; secteurs sans moulinet
@@ -478,7 +484,11 @@ Fs_Spin:
     inc     spin_on             ; premier affichage : on garde le dessous
     ldd     ,x
     std     spin_save
+    ifne    CARTE_MONO
+    ldd     2,x
+    else
     ldd     VRAM_COL_OFS,x
+    endc
     std     spin_save+2
 FSp_Draw:
     lda     spin_dir
@@ -487,10 +497,10 @@ FSp_Draw:
     anda    #3
     ldy     #Spin_Car
     lda     a,y
-    sta     1,x
+    sta     VRAM_PAS,x
     lda     #SPIN_ATTR
     sta     VRAM_COL_OFS,x
-    sta     VRAM_COL_OFS+1,x
+    sta     VRAM_COL_OFS+VRAM_PAS,x
 FSp_End:
     puls    cc,d,x,y,pc
 
@@ -502,7 +512,11 @@ Fs_Spin_End:
     ldd     spin_save
     std     ,x
     ldd     spin_save+2
+    ifne    CARTE_MONO
+    std     2,x
+    else
     std     VRAM_COL_OFS,x
+    endc
     clr     spin_on
 FSe_End:
     puls    cc,d,x,pc
@@ -513,6 +527,10 @@ Spin_Addr:
     ldd     SCREEN_START_OFFSET
     addd    #1+SPIN_COL
     anda    #$0F
+    ifne    CARTE_MONO
+    lslb                        ; case -> octets
+    rola
+    endc
     adda    #VRAM_BASE/256
     tfr     d,x
     rts
@@ -550,6 +568,7 @@ FRB_Loop:
 FRB_End:
     puls    b,pc
 
+    section .ext
 Fs_WriteBlk:
     pshs    b
     ldb     #SD_ESSAIS
@@ -568,6 +587,8 @@ FWB_Loop:
     bra     FWB_Loop
 FWB_End:
     puls    b,pc
+
+    section .code
 
 ; ===================================================================
 ; FS_FindFirst - Initialize directory scan
@@ -686,12 +707,13 @@ FindNext_Copy:
     andcc   #%11111110
     puls    d,x,y,u,pc
 
+    section .ext
 ; ===================================================================
 ; FS_ListRoot - List all files in root directory
 ; Entry: none
 ; Exit:  A=0
 ; ===================================================================
-FS_ListRoot:
+X_FS_ListRoot:
     pshs    u,y,x,d
     clr     BlockAddr
     clr     BlockAddr+1
@@ -762,6 +784,11 @@ List_Done_Error:
     orcc    #%00000001         ; Set Carry (Erreur)
     puls    u,y,x,d,pc
 
+    section .code
+FS_ListRoot:
+    jmp     [ExtV+EXTV_LISTROOT]
+
+    section .ext
 ; ===================================================================
 ; FS_SaveFile - Save data to new file
 ; Entry: X -> 15-byte filename (space-padded), Y -> source, U=size,
@@ -772,7 +799,7 @@ List_Done_Error:
 ; Exit:  carry=0 success, carry=1 error
 ; Note:  s_save_* 32-bit vars use [0:1]=low16, [2:3]=high16
 ; ===================================================================
-FS_SaveFile:
+X_FS_SaveFile:
     pshs    u,y,x,d
     pshs    a                   ; 0,s = page source en cours (avance)
     lda     #'E'
@@ -1093,7 +1120,7 @@ FFE_CopyName:
 ; Entry: X -> 15-byte filename
 ; Exit:  carry=0 success, carry=1 error
 ; ===================================================================
-FS_DeleteFile:
+X_FS_DeleteFile:
     pshs    y,x,d
     jsr     Fs_Exact
     bcs     Delete_Exit_Error
@@ -1133,6 +1160,12 @@ Delete_Exit_Error:
     orcc    #%00000001
     puls    y,x,d,pc
 
+    section .code
+FS_SaveFile:
+    jmp     [ExtV+EXTV_SAVE]
+FS_DeleteFile:
+    jmp     [ExtV+EXTV_DELETE]
+
 ; ===================================================================
 ; FS_GetAttributes - Read file attributes
 ; Entry: X -> 15-byte filename
@@ -1164,12 +1197,13 @@ GetAttr_Error:
     orcc    #%00000001
     puls    y,x,d,pc
 
+    section .ext
 ; ===================================================================
 ; FS_SetAttributes - Write file attributes
 ; Entry: X -> 15-byte filename, A = new attributes
 ; Exit:  carry=0 success, carry=1 error
 ; ===================================================================
-FS_SetAttributes:
+X_FS_SetAttributes:
     pshs    y,x,d
     jsr     Fs_Exact
     bcs     SetAttr_Error
@@ -1199,6 +1233,10 @@ SetAttr_Error:
     orcc    #%00000001
     puls    y,x,d,pc
 
+    section .code
+FS_SetAttributes:
+    jmp     [ExtV+EXTV_SETATTR]
+
 ; ===================================================================
 ; FS_GetNextCluster - Dummy (contiguous FS, no cluster chain)
 ; Entry: D = cluster (unused)
@@ -1217,6 +1255,7 @@ FS_ClusterToLBA_Offset:
     orcc    #%00000001
     rts
 
+    section .ext
 ; ===================================================================
 ; FS_RenameFile - Renomme et/ou déplace une entrée
 ; Entry: X -> ancien nom, Y -> nouveau nom (15 octets, Format_Filename_83)
@@ -1225,7 +1264,7 @@ FS_ClusterToLBA_Offset:
 ;        Un dossier ne se déplace pas dans lui-même (ni plus bas).
 ; Exit:  carry=0 success, carry=1 error
 ; ===================================================================
-FS_RenameFile:
+X_FS_RenameFile:
     pshs    u,y,x,d
     ; 1. dossier d'arrivée, d'après le nouveau nom
     tfr     y,x
@@ -1294,6 +1333,10 @@ Rename_Ecrit:
 Rename_Error:
     orcc    #%00000001      ; Carry = 1
     puls    u,y,x,d,pc
+
+    section .code
+FS_RenameFile:
+    jmp     [ExtV+EXTV_RENAME]
 
 ; ===================================================================
 ; Dossiers
@@ -1671,12 +1714,13 @@ fcd_fin:
 fcd_ret:
     puls    d,u,pc
 
+    section .ext
 ; ===================================================================
 ; FS_MkDir - Crée un dossier
 ; Entry: X -> nom (15 octets, Format_Filename_83 : "APPS" ou "APPS/JEUX")
 ; Exit:  carry=0 success ; carry=1 existe déjà, chemin introuvable, plein
 ; ===================================================================
-FS_MkDir:
+X_FS_MkDir:
     pshs    d,y,u
     jsr     Fs_Exact
     bcc     fmd_non             ; ce nom existe déjà ici
@@ -1693,6 +1737,10 @@ FS_MkDir:
 fmd_non:
     orcc    #%00000001
     puls    d,y,u,pc
+
+    section .code
+FS_MkDir:
+    jmp     [ExtV+EXTV_MKDIR]
 
 ; ===================================================================
 ; FS_Dossier - Lit ou change le dossier courant par son n°
@@ -1791,14 +1839,15 @@ RS_Err:
     orcc    #%00000001
     puls    u,y,x,d,pc
 
+    section .ext
 ; ===================================================================
 ; FS_SetLoad - Page et adresse de chargement d'un fichier
 ; Entry: X -> 15-byte filename, A = page, Y = adresse
 ; Exit:  carry=0 success, carry=1 error
 ; ===================================================================
-FS_SetLoad:
+X_FS_SetLoad:
     pshs    u,y,x,d
-    bsr     Fs_Entree
+    jsr     Fs_Entree
     bcs     SL_Err
     lda     0,s
     sta     DE_OFF_PAGE,x
@@ -1813,5 +1862,9 @@ SL_Err:
     orcc    #%00000001
     puls    u,y,x,d,pc
 
+
+    section .code
+FS_SetLoad:
+    jmp     [ExtV+EXTV_SETLOAD]
 
 	end

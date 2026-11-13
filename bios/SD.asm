@@ -218,6 +218,7 @@ SD_Fin:                         ; A = code, carte libérée
     JSR     SD_Deselect
     PULS    A,PC
 
+    section .ext
 ; -------------------------------------------------------------------
 ; SD_WriteBlock - SD_BUFFER -> secteur BlockAddr. CMD24, puis 8 x $FF
 ; écrits (R1 passe pendant ces octets, sans être lu : voir l'en-tête),
@@ -229,7 +230,7 @@ SD_WriteBlock:
     STA     ,X
     LDA     #$01
     STA     5,X
-    BSR     Sd_Adresse
+    JSR     Sd_Adresse
     JSR     SD_Select
     JSR     Spi_FF              ; garde
     LDB     #6
@@ -262,13 +263,13 @@ WB_Rep:
     DECB
     BNE     WB_Rep
     LDA     #$E3                ; rien : CMD24 refusé
-    BRA     SD_Fin
+    JMP     SD_Fin
 WB_RepLue:
     ANDA    #%00011111
     CMPA    #%00000101          ; données acceptées
     BEQ     WB_Occupee
     LDA     #$E4
-    BRA     SD_Fin
+    JMP     SD_Fin
 WB_Occupee:
     LDY     #40000              ; ~0,8 s (la norme : 250 ms, 500 en SDXC)
 Wait_Busy_Loop:
@@ -278,10 +279,12 @@ Wait_Busy_Loop:
     LEAY    -1,Y
     BNE     Wait_Busy_Loop
     LDA     #$E5
-    BRA     SD_Fin
+    JMP     SD_Fin
 Write_Success:
     CLRA
-    BRA     SD_Fin
+    JMP     SD_Fin
+
+    section .code
 
 CMD0_Packet:
     FCB     $40,$00,$00,$00,$00,$95

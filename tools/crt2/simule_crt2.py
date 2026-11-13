@@ -115,7 +115,7 @@ class Carte:
             elif 'KM62256' in u:
                 self.ram[ref] = bytearray(32768)
                 self.r62256(ref)
-            elif 'KM28C64' in u:
+            elif '28C64' in u:            # KM28C64A (CRT2), AT28C64 (mono)
                 self.eeprom(ref, police)
             elif u == 'MC6845':
                 self.crtc(ref)

@@ -44,8 +44,8 @@ E_Loop:
     BEQ     E_Fin
     STA     ,Y                  ; caractère
     LDA     #$0E                ; jaune, page 0 du générateur
-    STA     VRAM_COL_OFS,Y      ; sa couleur, 4 Ko plus haut (V4)
-    LEAY    1,Y
+    STA     VRAM_COL_OFS,Y      ; sa couleur (V4 : 4 Ko plus haut ; mono : l'octet suivant)
+    LEAY    VRAM_PAS,Y
     BRA     E_Loop
 E_Fin:
     ANDCC   #%11111110

@@ -34,6 +34,9 @@ SND_REARM    EQU 1      ; 1 = snd_play réactive les sorties O2/O3 (voir la note
 ; --- VARIABLES EN RAM (Si tu veux garder l'état) ---
 ; =========================================================
     export init_audio, boot_jingle, snd_play, snd_stop, Ay_Note, Ay_Silence
+    export X_boot_jingle, X_snd_play, X_snd_stop
+    include "ext.inc"
+    import  ExtV
     import video_wait_vsync
     import MUSIC_PTR, MUSIC_TIMER, SND_BUF
     section .code
@@ -55,10 +58,11 @@ init_audio:
     LDA #%10000011
     STA PTM_CR2
     JMP Ay_Silence
+    section .ext
 ; =========================================================
 ; BOOT_JINGLE : "Ta-Da-Daaa!", joué par le séquenceur (6840 et AY)
 ; =========================================================
-boot_jingle:
+X_boot_jingle:
     LDX #SONG_TADA_2V
     JSR snd_play
     LDE #55                 ; durée de la partition : 8 + 6 + 40 + 1 trames
@@ -104,7 +108,7 @@ SONG_TADA_2V:
 ;   sans copie. Au-delà de SND_BUF_SIZE octets la partition est tronquée
 ;   (marqueur de fin ajouté). Le son précédent est interrompu tout de suite.
 ; ---------------------------------------------------------
-snd_play:
+X_snd_play:
         pshs    d,x,y,u,cc
         orcc    #%00010000      ; section critique : copie puis démarrage atomiques
         cmpx    #$C000
@@ -151,7 +155,7 @@ snd_go:
 ;   dans toutes les pages) et exécute son AUDIO_STOP à la trame suivante
 ;   (17 ms au plus). Peut être appelé à tout moment, même si rien ne joue.
 ; ---------------------------------------------------------
-snd_stop:
+X_snd_stop:
         pshs    x,cc
         orcc    #%00010000
         clr     MUSIC_TIMER
@@ -204,6 +208,14 @@ an_vol:
         ste     AY_ADR
         sta     AY_DATA
         rts
+
+    section .code
+boot_jingle:
+    jmp     [ExtV+EXTV_JINGLE]
+snd_play:
+    jmp     [ExtV+EXTV_SNDPLAY]
+snd_stop:
+    jmp     [ExtV+EXTV_SNDSTOP]
 
 ; ---------------------------------------------------------
 ; Ay_Silence : mixeur = tons A et C, sans bruit, ports A et B en entrée

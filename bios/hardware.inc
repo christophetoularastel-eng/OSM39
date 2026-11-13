@@ -40,10 +40,13 @@ TIMER3      equ $A086
 ;VIDEO
 CRTC_RS     equ $A100
 CRTC_DATA   equ $A101
-;V4 : caracteres en $8000-$8FFF, couleurs en $9000-$9FFF (a12 choisit
-;la RAM, U126 de la carte CRT2). VRAM_CTRL ne garde que la page D0-D2.
 VRAM_CTRL   equ $A120
 VRAM_BASE   equ $8000
+;CARTE v4 : caracteres en $8000-$8FFF, couleurs en $9000-$9FFF (a12
+;choisit la RAM, U126 de la CRT2). VRAM_CTRL ne garde que la page D0-D2.
+CARTE_MONO  equ 0
+VRAM_PAS    equ 1
+VRAM_LIGNE  equ 80
 VRAM_END    equ $9000
 VRAM_COL    equ $9000
 VRAM_COL_END equ $A000

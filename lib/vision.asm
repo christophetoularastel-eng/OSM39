@@ -28,11 +28,17 @@ YIELD_WINDOW    equ 1           ; 1 = Draw_Window par petits lots (boîtes de di
 ; de l'écran, puis redescendre d'un palier.
 YIELD_CELLS     equ 480         ; octets-équivalents TFM par trame
 COUT_LIGNE      equ 32          ; surcoût d'une ligne, en octets-équivalents TFM
+MONO_CASE       equ 4           ; mono : une case au STD ,X++ (~12 cycles)
 SND_MUTED       equ $4D                 ; son_coupe = $4D : son coupé ; toute autre valeur : son actif
 ; V4 : caractères en $8000-$8FFF, couleurs en $9000-$9FFF. Un « plan »
 ; est le poids fort de son décalage : on l'ajoute au poids fort d'une
 ; adresse calculée depuis VRAM_BASE (Calc_Addr). $A120 ne porte plus que
 ; la page (0), posée par Sync_Begin.
+; Carte mono (CARTE_MONO) : la couleur suit le caractère (VRAM entrelacée).
+; Une case s'écrit d'un STD (caractère:attribut), une rangée de cases est
+; contiguë : les routines ont une version mono (IFNE CARTE_MONO) qui écrit
+; les deux à la fois, sans passe par plan. Coût compté dans WinAcc :
+; MONO_CASE octets-équivalents TFM par case écrite au STD.
 VRAM_P0_CHR     equ $00
 VRAM_P0_COL     equ VRAM_COL_OFS/256
 
@@ -152,6 +158,9 @@ Rect_Save:
 
 Rect_Save_U:                    ; U = tampon (avance)
     LDA     #VRAM_P0_CHR
+    IFNE    CARTE_MONO
+    BRA     Rect_Pass_Save              ; mono : une passe, les deux à la fois
+    ELSE
     BSR     Rect_Pass_Save
     IFNE    YIELD_RECT
     JSR     Sync_Yield                  ; un plan par trame au minimum
@@ -159,7 +168,9 @@ Rect_Save_U:                    ; U = tampon (avance)
     LDA     #VRAM_P0_COL
     BSR     Rect_Pass_Save
     RTS
+    ENDC
 
+    IFEQ    CARTE_MONO
 ; Remplit de couleur $00 (noir sur noir) le rectangle RectX/RectY/RectW/RectH
 Rect_Blank:
     CLR     WinAcc
@@ -194,6 +205,7 @@ RB_NoYield:
     DEC     RectCnt
     BNE     RB_Row
     RTS
+    ENDC
 
 Rect_Pass_Save:                 ; A = plan (VRAM_P0_xxx), U = tampon (avance)
     STA     WinPlane
@@ -209,15 +221,24 @@ RPS_Row:
     TFR     Y,D                         ; + plan (poids fort)
     ADDA    WinPlane
     TFR     D,Y
+    IFNE    CARTE_MONO
+    CLRE                                ; mono : la rangée de cases d'un bloc
+    LDF     RectW
+    ADDF    RectW
+    ELSE
     LDB     RectW
     CLRA
     TFR     D,W
+    ENDC
     TFM     Y+,U+
     PULS    B
     INCB
     IFNE    YIELD_RECT
     CLRE
     LDF     RectW
+    IFNE    CARTE_MONO
+    ADDF    RectW
+    ENDC
     ADDW    #COUT_LIGNE
     ADDW    WinAcc
     STW     WinAcc
@@ -239,6 +260,10 @@ Rect_Restore:
     PULS    U,PC
 
 Rect_Restore_U:                 ; U = tampon (avance)
+    IFNE    CARTE_MONO
+    LDA     #VRAM_P0_CHR                ; mono : chaque case revient entière
+    BRA     Rect_Pass_Rest
+    ELSE
     IFNE    YIELD_RECT
     JSR     Rect_Blank                  ; noir sur noir : la restauration ne se voit pas, puis les couleurs révèlent
     JSR     Sync_Yield
@@ -251,6 +276,7 @@ Rect_Restore_U:                 ; U = tampon (avance)
     LDA     #VRAM_P0_COL
     BSR     Rect_Pass_Rest
     RTS
+    ENDC
 
 ; vis_Rect_Save / vis_Rect_Restore (lib/vis.inc) : A = colonne, B = ligne,
 ; W = largeur*256+hauteur, X = tampon de l'application. Préservent
@@ -300,15 +326,24 @@ RPR_Row:
     TFR     Y,D                         ; + plan (poids fort)
     ADDA    WinPlane
     TFR     D,Y
+    IFNE    CARTE_MONO
+    CLRE                                ; mono : la rangée de cases d'un bloc
+    LDF     RectW
+    ADDF    RectW
+    ELSE
     LDB     RectW
     CLRA
     TFR     D,W
+    ENDC
     TFM     U+,Y+
     PULS    B
     INCB
     IFNE    YIELD_RECT
     CLRE
     LDF     RectW
+    IFNE    CARTE_MONO
+    ADDF    RectW
+    ENDC
     ADDW    #COUT_LIGNE
     ADDW    WinAcc
     STW     WinAcc
@@ -325,16 +360,43 @@ RPR_NoYield:
 
 ; ===================================================================
 ; Put_Text : A = colonne, B = ligne, X = chaîne (0 final), TextAttr = attribut
-; Texte ASCII (page 0 du générateur : l'attribut doit avoir le bit 7 à 0).
+; Texte de la page 0 du générateur (l'attribut doit avoir le bit 7 à 0) :
+; ASCII, et les lettres Latin-1 du clavier ($A0-$FF), traduites en CP437
+; (la police) par Lat_Cp.
 ; ===================================================================
 Put_Text:
     PSHS    U
     JSR     Calc_Addr
+    IFNE    CARTE_MONO
+    CLRF                                ; mono : caractère et attribut d'un STD
+VPT_Case:
+    LDA     ,X+
+    BEQ     VPT_Fin
+    CMPA    #$A0
+    BLO     VPT_Ascii
+    BSR     Lat_Cp
+VPT_Ascii:
+    LDB     TextAttr
+    STD     ,Y++
+    INCF
+    BRA     VPT_Case
+VPT_Fin:
+    TSTF                                ; sortie de la v4 : A = TextAttr, B = 0
+    BEQ     VPT_Vide                    ; (A = 0, B = 0 pour un texte vide)
+    LDA     TextAttr
+VPT_Vide:
+    CLRB
+    PULS    U,PC
+    ELSE
     LEAU    VRAM_COL_OFS,Y              ; U : les couleurs, 4 Ko plus haut
     CLRB
 VPT_Chr:
     LDA     ,X+
     BEQ     VPT_ChrDone
+    CMPA    #$A0
+    BLO     VPT_Ascii
+    BSR     Lat_Cp
+VPT_Ascii:
     STA     ,Y+
     INCB
     BRA     VPT_Chr
@@ -350,6 +412,16 @@ VPT_ChrDone:
 VPT_End:
     PULS    U
     RTS
+    ENDC
+
+; Lat_Cp : A = Latin-1 $A0-$FF -> A = CP437 (lib/latin_cp437.inc, tiré de
+; video/latin_cp437.py). Préserve les autres registres.
+Lat_Cp:
+    PSHS    X
+    SUBA    #$A0
+    LDX     #Tab_LatCp
+    LDA     A,X
+    PULS    X,PC
 
 ; vis_Text (lib/vis.inc) : comme Put_Text, mais l'attribut arrive en E,
 ; pour que l'application n'ait pas a connaitre l'adresse de TextAttr.
@@ -383,15 +455,87 @@ Vis_Fill:
     BEQ     VF_End
     TST     FillH
     BEQ     VF_End
+    IFNE    CARTE_MONO
+    BSR     Fill_Mono
+    ELSE
     LDA     FillChr
     LDB     #VRAM_P0_CHR
     BSR     Fill_Pass
     LDA     FillAttr
     LDB     #VRAM_P0_COL
     BSR     Fill_Pass
+    ENDC
 VF_End:
     PULS    D,X,Y,U,PC
 
+    IFNE    CARTE_MONO
+; mono : le rectangle FillX..FillH, caractère FillChr et attribut FillAttr
+; d'un STD par case. Détruit D, X, Y, W.
+Fill_Mono:
+    LDA     FillH
+    STA     FillCnt
+    CLR     WinAcc
+    CLR     WinAcc+1
+    LDB     FillY
+FM_Row:
+    PSHS    B
+    LDA     FillX
+    JSR     Calc_Addr
+    TFR     Y,X
+    LDA     FillChr
+    LDB     FillAttr
+    LDF     FillW
+    JSR     Mono_Rangee
+    LDB     FillW
+    JSR     Mono_Budget
+    PULS    B
+    INCB
+    DEC     FillCnt
+    BNE     FM_Row
+    RTS
+
+; Mono_Rangee : F cases (0 : rien) à partir de X, D = caractère:attribut.
+; X avance. Préserve D.
+Mono_Rangee:
+    TSTF
+    BEQ     MRg_Fin
+MRg_Case:
+    STD     ,X++
+    DECF
+    BNE     MRg_Case
+MRg_Fin:
+    RTS
+
+; Mono_Plan : F octets A, un sur deux, à partir de X (un seul plan : les
+; caractères si X est pair, les couleurs s'il est impair). X avance.
+Mono_Plan:
+    TSTF
+    BEQ     MPl_Fin
+MPl_Case:
+    STA     ,X++
+    DECF
+    BNE     MPl_Case
+MPl_Fin:
+    RTS
+
+; Mono_Budget : B cases viennent d'être écrites ; au-delà de YIELD_CELLS
+; octets-équivalents, on laisse passer une trame. Détruit D.
+Mono_Budget:
+    LDA     #MONO_CASE
+    MUL
+    ADDD    #COUT_LIGNE
+    ADDD    WinAcc
+    STD     WinAcc
+    CMPD    #YIELD_CELLS
+    BLO     MBu_Fin
+    CLR     WinAcc
+    CLR     WinAcc+1
+    JSR     Sync_Yield
+MBu_Fin:
+    RTS
+    ENDC
+
+    IFEQ    CARTE_MONO
 ; A = octet à écrire, B = plan (VRAM_P0_xxx). Détruit D, X, Y, W.
 Fill_Pass:
     STA     FillByte
@@ -428,6 +572,7 @@ FP_NoYield:
     DEC     FillCnt
     BNE     FP_Row
     RTS
+    ENDC
 
 ; ===================================================================
 ; vis_Input (lib/vis.inc) : ligne de saisie modale, partagée par
@@ -472,7 +617,7 @@ VI_Loop:
     CMPA    #$20
     BLO     VI_Ctrl
     CMPA    #$7E
-    BHI     VI_Loop
+    LBHI    VI_Latin
     LDB     InpFlags
     CMPA    #$20
     BNE     VI_NotSp
@@ -522,7 +667,7 @@ VI_Enter:
     BITB    #INP_NON_VIDE
     BEQ     VI_Out
     TST     InpLen
-    BEQ     VI_Loop
+    LBEQ    VI_Loop
 VI_Out:
     LDB     InpLen
     ANDCC   #%11111110                  ; C = 0 : validé (ou touche INP_CTRL)
@@ -531,6 +676,13 @@ VI_Esc:
     LDB     InpLen
     ORCC    #%00000001                  ; C = 1 : abandon
     PULS    X,Y,U,PC
+VI_Latin:                               ; lettres Latin-1 du clavier ($A0-$FF) :
+    CMPA    #$A0                        ; acceptées, sauf dans un nom de
+    LBLO    VI_Loop                     ; fichier (INP_MAJ)
+    LDB     InpFlags
+    BITB    #INP_MAJ
+    LBNE    VI_Loop
+    LBRA    VI_Add
 
 ; Le champ : texte, curseur '_', blancs jusqu'à InpMax+1 colonnes, fond
 ; COLOR_SEL. Entre Sync_Begin et Sync_End.
@@ -614,6 +766,8 @@ MB_Close:
 
 Txt_MsgHint:    FCN "Entree : continuer"
 
+    include "../lib/latin_cp437.inc"
+
 ; ===================================================================
 ; SONS : Snd_Err (vis_MsgBox), vis_Sound, vis_Sound_Stop
 ; ===================================================================
@@ -651,6 +805,153 @@ Sd_Off:                                 ; silence
 ; ===================================================================
 ; Primitive Graphique
 ; ===================================================================
+    IFNE    CARTE_MONO
+; Draw_Window, carte mono : A = colonne, B = ligne, W = largeur*256+hauteur,
+; Y = titre ou 0. Mêmes cases que la version v4 (ci-dessous), mais chaque
+; rangée s'écrit d'un trait, caractère et couleur ensemble (STD) : pas de
+; passe « noir sur noir », pas de second plan. Pile : 9,S ligne, 8,S
+; colonne, 7,S hauteur, 6,S largeur, 4,S titre.
+Draw_Window:
+    PSHS    D
+    TFR     W,D
+    PSHS    D
+    PSHS    Y
+    PSHS    X,U
+    CLR     WinAcc
+    CLR     WinAcc+1
+    LDA     8,S
+    LDB     9,S
+    JSR     Calc_Addr
+    TFR     Y,U                         ; U = coin haut gauche
+    ; --- rangée du haut ---
+    TFR     U,X
+    LDY     4,S
+    BEQ     DWm_Simple
+    LDA     #UI_TITLE_BAR               ; barre de titre sur toute la largeur
+    LDB     #COLOR_WIN
+    LDF     6,S
+    JSR     Mono_Rangee
+    LDA     #UI_CLOSE_BOX               ; case de fermeture, 2e colonne
+    STA     2,U
+    PSHS    X
+    TFR     U,X
+    LDB     8,S                         ; case de zoom, avant-dernière colonne
+    SUBB    #2                          ; (8,S : largeur, X est empilé)
+    ABX
+    ABX
+    LDA     #UI_ZOOM_BOX
+    STA     ,X
+    PULS    X
+    BRA     DWm_HautFin
+DWm_Simple:
+    LDA     #UI_TOP_L
+    LDB     #COLOR_WIN
+    STD     ,X++
+    LDA     #UI_HORIZ_TOP
+    LDF     6,S
+    SUBF    #2
+    JSR     Mono_Rangee
+    LDA     #UI_TOP_R
+    STD     ,X++
+DWm_HautFin:
+    LDA     #COLOR_SHADOW               ; la case à droite : couleur d'ombre
+    STA     1,X
+    LDB     6,S
+    JSR     Mono_Budget
+    ; --- rangées du milieu ---
+    LDB     7,S
+    SUBB    #2
+    BEQ     DWm_Bas
+    PSHS    B
+DWm_Milieu:
+    LEAU    VRAM_LIGNE,U
+    TFR     U,X
+    LDA     #UI_VERT_L
+    LDB     #COLOR_WIN
+    STD     ,X++
+    LDA     #UI_SPACE
+    LDF     7,S                         ; (7,S : largeur, le compteur est empilé)
+    SUBF    #2
+    JSR     Mono_Rangee
+    LDA     #UI_VERT_R
+    STD     ,X++
+    LDA     #UI_SHADOW
+    LDB     #COLOR_SHADOW
+    STD     ,X++
+    LDB     7,S
+    JSR     Mono_Budget
+    DEC     0,S
+    BNE     DWm_Milieu
+    LEAS    1,S
+DWm_Bas:
+    ; --- rangée du bas ---
+    LEAU    VRAM_LIGNE,U
+    TFR     U,X
+    LDA     #UI_BOT_L
+    LDB     #COLOR_WIN
+    STD     ,X++
+    LDA     #UI_HORIZ_BOT
+    LDF     6,S
+    SUBF    #2
+    JSR     Mono_Rangee
+    LDA     #UI_BOT_R
+    STD     ,X++
+    LDA     #UI_SHADOW
+    LDB     #COLOR_SHADOW
+    STD     ,X++
+    ; --- rangée d'ombre, décalée d'une colonne ---
+    LEAU    VRAM_LIGNE,U
+    LEAX    2,U
+    LDF     6,S
+    JSR     Mono_Rangee
+    LDB     6,S
+    JSR     Mono_Budget
+    ; --- titre : filet dessous, texte centré ---
+    LDY     4,S
+    BEQ     DWm_Fin
+    LDA     8,S                         ; filet : ligne+1, entre les montants
+    INCA
+    LDB     9,S
+    INCB
+    JSR     Calc_Addr
+    TFR     Y,X
+    LDA     #UI_HORIZ_TOP
+    LDF     6,S
+    SUBF    #2
+    JSR     Mono_Plan
+    LDY     4,S                         ; longueur du titre -> B
+    CLRB
+DWm_Long:
+    LDA     ,Y+
+    BEQ     DWm_LongOk
+    INCB
+    BRA     DWm_Long
+DWm_LongOk:
+    NEGB
+    ADDB    6,S                         ; B = (largeur - longueur) / 2
+    LSRB
+    PSHS    B
+    LDA     9,S                         ; colonne, ligne (B empilé : +1)
+    LDB     10,S
+    JSR     Calc_Addr
+    TFR     Y,X
+    PULS    B
+    ABX
+    ABX
+    LDY     4,S
+    LDB     #COLOR_TITLE
+DWm_Titre:
+    LDA     ,Y+
+    BEQ     DWm_Fin
+    STD     ,X++
+    BRA     DWm_Titre
+DWm_Fin:
+    PULS    X,U
+    PULS    Y
+    PULS    D
+    PULS    D
+    RTS
+    ELSE
 Draw_Window:
     PSHS    D
     TFR     W,D
@@ -930,6 +1231,7 @@ Done_Draw:
     PULS    D
     PULS    D
     RTS
+    ENDC
 
 
 ; Vis_Append - copie la chaîne X (sans le 0) à ,U+ (comme Append de

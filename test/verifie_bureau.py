@@ -22,10 +22,19 @@ RACINE = os.path.dirname(ICI)
 sys.path.insert(0, ICI)
 import verifie_fs as v          # noqa: E402
 import verifie_asm as va        # noqa: E402
+import carte                    # noqa: E402  (VRAM : v4 ou mono)
 
 HAUT, BAS, ENTREE, ECHAP, ESPACE = 0x80, 0x81, 0x0D, 0x1B, 0x20
 CTRL_C, CTRL_X, CTRL_V, CTRL_N = 0x03, 0x18, 0x16, 0x0E
-REPOS = 0xC0                    # R14, la Clouris branchée, aucun doigt (IOA6-7 libres : 1)
+REPOS = 0xC0                    # la Clouris branchée, aucun doigt (IOA6-7 libres : 1)
+ABSENTE = None                  # rien de branché : R14 = $FF (tirages de l'AY)
+# Les essais disent les clous touchés (bit à 1) ; la carte Clouris à
+# transistors PNP (lib/clouris.asm, CLOU_INVERSE = 1) donne un 0 par doigt posé :
+# R14 lu = contacts ^ $3F.
+
+
+def r14(contacts):
+    return 0xFF if contacts is ABSENTE else contacts ^ 0x3F
 
 
 class Fini(Exception):
@@ -56,6 +65,9 @@ class Bureau(va.MachineAsm):
                     t[0] = (self.port_a, n - 1)
         super().wr8(a, val)
 
+    def lit_port_a(self):
+        return r14(self.port_a)
+
     def step(self):
         s, pc = self.s_, self.pc
         if pc in (s['scan_keyboard'], s['kbd_poll']):
@@ -81,10 +93,7 @@ class Bureau(va.MachineAsm):
 
 def lance(c, s, touches, ov):
     m = Bureau(c.image, s, touches)
-    rom, fin = s['table_function_rom'], s['table_function_rom_end']
-    t = s['table_function_ram']
-    for i in range(fin - rom):
-        m.mem[t + i] = m.mem[rom + i]
+    v.installe_bios(m)          # table des services, et BIOS2
     code = open(os.path.join(RACINE, 'osmvision', 'OSMVISION'), 'rb').read()
     m.banks[0][:len(code)] = code
     m.mem[s['son_coupe']] = 0x4D                # son coupé (RAM système) : pas d'attente de partition
@@ -151,7 +160,7 @@ def main():
 
     # l'icône du son (barre d'état, page 1 $1C + $1D/$1E) et le panneau d'aide (?)
     def ecran(m):
-        return bytes(m.mem[0x8000:0x8000 + 2000]), bytes(m.mem[0x9000:0x9000 + 2000])
+        return carte.lit(m.mem, 0, 2000)
     st = 23 * 80 + 12 + 9
     m0, r = lance(c, s, [], ov)
     car, col = ecran(m0)
@@ -170,19 +179,37 @@ def main():
                                                  for r_ in range(25)),
             '? : la fenêtre des fichiers (colonnes 0-49) intacte')
     m, r = lance(c, s, [ord('?'), ord('?')], ov)
-    verifie(ecran(m) == ecran(m0) and m.banks[0][ov['AideOn']] == 0, '? puis ? : l\'écran redevient exactement celui du départ')
+    diff = [(i % 80, i // 80, p_) for p_ in (0, 1) for i in range(2000) if ecran(m)[p_][i] != ecran(m0)[p_][i]]
+    verifie(not diff and m.banks[0][ov['AideOn']] == 0,
+            '? puis ? : l\'écran redevient exactement celui du départ%s'
+            % (' (cases différentes (colonne, rangée, plan) : %s)' % diff[:6] if diff else ''))
     m, r = lance(c, s, [ord('?'), ESPACE, ECHAP], ov)
     car, col = ecran(m)
     verifie(ligne(6).startswith('Haut, Bas'), '? puis le menu Espace ouvert et fermé : le panneau est toujours là')
+
+    # Accents : le clavier donne du Latin-1, la police est en CP437 ; la saisie
+    # (vis_Input -> Put_Text) les traduit en dessinant. Un nom de fichier
+    # (INP_MAJ) les refuse : Renommer, « é » ne s'inscrit pas
+    m, r = lance(c, s, [9, 0xE9, 0xE8, 0xE0, 0xE7, 0xF9, 0xC9], ov)
+    car, col = ecran(m)
+    attendu = bytes([0x82, 0x8A, 0x85, 0x87, 0x97, 0x90])       # é è à ç ù É en CP437
+    verifie(attendu in car and not any(b in car for b in (0xE9, 0xE8, 0xE0, 0xE7, 0xF9, 0xC9)),
+            'Exécuter (Tab), « éèàçùÉ » tapé (Latin-1) : dessiné en CP437 (%s)'
+            % ' '.join('$%02X' % b for b in attendu))
+    m, r = lance(c, s, [ESPACE, ord('R')] + [8] * 15 + [0xE9, ord('Q'), ord('W')], ov)
+    car, col = ecran(m)
+    i = car.find(b'QW_')                         # ($82 ailleurs : les icônes, page 1)
+    verifie(i > 0 and car[i - 1] not in (0x82, 0xE9),
+            'Renommer (nom de fichier, INP_MAJ) : « é » refusé, « QW » inscrit')
 
     # la Clouris (R14) : un contact compte à la 2e trame, puis répétition
     # après 12 trames, un pas toutes les 3 ; pointeur parti de (30, 12)
     def tape(v, n=1):
         return [(v, 2), (REPOS, 2)] * n
     po = lambda m: (m.banks[0][ov['PtrX']], m.banks[0][ov['PtrY']])     # noqa: E731
-    m, r = lance(c, s, [(REPOS, 10), (0xFF, 10)], ov)
+    m, r = lance(c, s, [(REPOS, 10), (ABSENTE, 10)], ov)
     verifie(ecran(m) == ecran(m0) and m.banks[0][ov['PtrVu']] == 0,
-            'Clouris au repos ($C0), puis absente ($FF) : pas de pointeur, écran inchangé')
+            'Clouris au repos (R14 = $FF), puis absente ($FF) : pas de pointeur, écran inchangé')
     m, r = lance(c, s, tape(0xC2), ov)
     car, col = ecran(m)
     k = 12 * 80 + 31
@@ -325,10 +352,7 @@ def main():
                     raise Fini()
             orig()
         m.step = step
-        rom, fin = s['table_function_rom'], s['table_function_rom_end']
-        t = s['table_function_ram']
-        for i in range(fin - rom):
-            m.mem[t + i] = m.mem[rom + i]
+        v.installe_bios(m)          # table des services, et BIOS2
         code = open(os.path.join(RACINE, 'osmvision', 'OSMVISION'), 'rb').read()
         m.banks[0][:len(code)] = code
         m.mem[s['son_coupe']] = 0x4D
@@ -353,7 +377,7 @@ def main():
     c3.ajoute('VIEILLE', os.path.join(RACINE, 'apps', 'SON'), page=0, adresse='4000', attr=0x17)
     k = sorted(tries + ['VIEILLE']).index('VIEILLE')
     m, r = lance(c3, s, [BAS] * k + [ENTREE], ov)      # la boîte reste affichée
-    verifie('page 0' in bytes(m.mem[0x8000:0x9000]).decode('latin-1'),
+    verifie('page 0' in carte.lit(m.mem, 0, 4096)[0].decode('latin-1'),
             'une application en page 0 : « Application pour la page 0 : la reassembler. »')
 
     # Terminal (touche T) : le VRAI SHELL ($6000, page 0) dans une fenêtre,
@@ -384,9 +408,7 @@ def main():
                 zones.append((m.a, m.b, m.w >> 8, m.w & 255, m.y & 255))
             orig()
         m.step = step
-        rom, fin = s['table_function_rom'], s['table_function_rom_end']
-        for i in range(fin - rom):
-            m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
+        v.installe_bios(m)          # table des services, et BIOS2
         code = open(os.path.join(RACINE, 'osmvision', 'OSMVISION'), 'rb').read()
         m.banks[0][:len(code)] = code
         m.mem[s['son_coupe']] = 0x4D
@@ -442,8 +464,7 @@ def main():
             zones.append((m.a, m.b, m.w >> 8, m.w & 255, m.y & 255))
         orig()
     m.step = step5
-    for i in range(s['table_function_rom_end'] - s['table_function_rom']):
-        m.mem[s['table_function_ram'] + i] = m.mem[s['table_function_rom'] + i]
+    v.installe_bios(m)          # table des services, et BIOS2
     code = open(os.path.join(RACINE, 'osmvision', 'OSMVISION'), 'rb').read()
     m.banks[0][:len(code)] = code
     m.mem[s['son_coupe']] = 0x4D
@@ -458,7 +479,7 @@ def main():
     except Exception as e:      # noqa: BLE001
         r = 'PLANTE : %s' % e
     t = m.texte.decode('latin-1')
-    ecran = bytes(m.mem[0x8000:0x8000 + 2000]).decode('latin-1')
+    ecran = carte.lit(m.mem, 0, 2000)[0].decode('latin-1')
     verifie(zones[:1] == [(2, 3, 76, 20, 0x0A)] and len(zones) == 2 and zones[1][2] == 0 and r == 'fini'
             and m.mem[s['cz_actif']] == 0,
             'FORTH (Exécuter) : dans la fenêtre du Terminal, puis plein écran au retour (%s, %s)' % (zones, r))

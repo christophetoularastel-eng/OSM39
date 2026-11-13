@@ -7,9 +7,10 @@
 ;       include "../lib/vram.asm"
 ;
 ; Entree : A = colonne (0..79), B = ligne
-; Sortie : Y = VRAM_BASE + B*80 + A (plan caracteres)
-; Detruit : D. V4 : la couleur de la meme cellule est en
-; VRAM_COL_OFS,Y ($9000-$9FFF).
+; Sortie : Y = adresse du caractere de la cellule (v4 : VRAM_BASE + B*80
+; + A ; mono : VRAM_BASE + B*160 + A*2)
+; Detruit : D. La couleur de la meme cellule est en VRAM_COL_OFS,Y
+; (v4 : 4 Ko plus haut ; mono : l'octet suivant).
 ;
 ; Variante geometrie fixe : pour un bloc de lignes toujours aux memes
 ; coordonnees (plaque de jeu, panneau), une table d'adresses de ligne
@@ -20,10 +21,15 @@
 ; ===================================================================
 
 ; A = colonne, B = ligne  ->  Y = VRAM_BASE + B*80 + A   (détruit D)
+; Carte mono (VRAM entrelacée) : Y = VRAM_BASE + B*160 + A*2.
 Calc_Addr:
     PSHS    A
-    LDA     #80
+    LDA     #VRAM_LIGNE
     MUL
+    IFNE    CARTE_MONO
+    ADDB    ,S                          ; mono : la colonne compte double
+    ADCA    #0
+    ENDC
     ADDB    ,S+
     ADCA    #0
     ADDD    #VRAM_BASE

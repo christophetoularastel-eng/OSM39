@@ -29,7 +29,7 @@
 
 
 HEAP_START  EQU __bss_end__
-HEAP_SIZE   EQU $0700
+HEAP_SIZE   EQU $0100       ; le SHELL seul : un bloc de 16 octets, rendu aussitôt
 HEAP_END    EQU HEAP_START+HEAP_SIZE
 
 BLK_SIZE    EQU 0

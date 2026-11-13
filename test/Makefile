@@ -58,7 +58,7 @@ LDFLAGS = --format=raw --section-base=.code=0x0000
 # pourrait pas ecrire `if SPL_TEST = 3`. Un fichier par etape evite la
 # astuce ET evite qu'un binaire embarque 500 octets de table pour rien
 # quand on veut juste verifier l'ecriture video.
-STAGES = stage1_bandes stage2_rendu stage3_splash stage4_symptome stage5_fond stage6_mire stage7_bureau stage8_adresse
+STAGES = stage1_bandes stage2_rendu stage3_splash stage4_symptome stage5_fond stage6_mire stage7_bureau stage8_adresse stage9_mono
 STAGE ?= stage3_splash
 
 SRC = $(STAGE).asm
@@ -93,6 +93,7 @@ TABLE_stage5_fond   = table_fond
 TABLE_stage6_mire   =
 TABLE_stage7_bureau =
 TABLE_stage8_adresse =
+TABLE_stage9_mono =
 TABLE = $(TABLE_$(STAGE))
 
 # Les etapes qui rendent le splash passent par splash_draw. Avant
@@ -120,7 +121,14 @@ TABLE = $(TABLE_$(STAGE))
 ifneq ($(filter $(STAGE),stage2_rendu stage3_splash stage4_symptome stage5_fond),)
 VERIF = verifier
 endif
+# L'etape 9 (carte OSM39_mono, VRAM entrelacee) n'a pas les routines de
+# la V4 que verifie_remplissage.py connait : elle a son propre
+# verificateur, qui rejoue le binaire et compare les 4096 cases.
+ifeq ($(STAGE),stage9_mono)
+VERIF += banc_mono constantes
+else
 VERIF += remplissage constantes
+endif
 
 all: TEST.hex $(VERIF)
 
@@ -132,6 +140,9 @@ verifier: TEST.hex
 # c'est justement l'etape qui a fige la carte.
 remplissage: TEST.hex
 	@python3 verifie_remplissage.py $(STAGE).lst
+
+banc_mono: TEST.hex
+	@python3 verifie_banc_mono.py
 
 # Ni dependant de l'etape, ni de TEST : un controle REPO. lwasm 4.24
 # tronque silencieusement toute expression dont un operande est entoure
@@ -274,6 +285,19 @@ minitel:
 	@$(MAKE) -s -C ../apps MINITEL
 	@python3 verifie_minitel.py
 
+# ZMACHINE (zmachine/) : le VRAI binaire sur le VRAI BIOS, jeux sur une
+# carte émulée ; écran = le modèle tools/zmachine/zmachine.py à chaque
+# saisie ; sauvegarde Quetzal = celle du modèle. Jeux : ~/Documents/zmachine.
+zmachine:
+	@$(MAKE) -s -C ../bios
+	@$(MAKE) -s -C ../zmachine
+	@python3 verifie_zmachine.py
+
+zmachine-tout:
+	@$(MAKE) -s -C ../bios
+	@$(MAKE) -s -C ../zmachine
+	@python3 verifie_zmachine.py tout
+
 # DONJON39 (apps/donjon39.asm) : le VRAI binaire, trames et clavier PS/2
 # simulés ; à l'arrêt, la vue en VRAM = le modèle tools/donjon39/donjon39.py ;
 # écritures VRAM au début des trames ; murs infranchissables ; Echap.
@@ -298,6 +322,23 @@ farcall:
 
 clean:
 	rm -f *.o *.lst *.map TEST TEST.hex .stage
+	rm -rf tout
+
+# Le contrat des services du BIOS (test/contrat_services.py) : chaque
+# emplacement de la table appelé sur le vrai BIOS, registres témoins ;
+# docs/services.md doit être celui que donne la table (--doc).
+contrat:
+	@$(MAKE) -s -C ../bios
+	@python3 verifie_contrat.py
+
+# Tous les vérificateurs d'une commande (test/tout.py) : constructions une
+# fois, puis vérifications en parallèle, bilan, journaux dans test/tout/.
+# `tout-long` : zmachine-tout et asm-tout. Sur la carte de CARTE seulement.
+tout:
+	@python3 tout.py
+
+tout-long:
+	@python3 tout.py --long
 
 # Assembleur natif (asm/ASM) : le vrai ASM sur le vrai BIOS, sources et
 # INCLUDE sur une carte OSMFS ; chaque binaire identique à lwasm (GLOUTON,
@@ -343,6 +384,12 @@ aytest:
 	@$(MAKE) -s -C ../cmd
 	@python3 verifie_aytest.py
 
+# Horloge MC146818 sur le PIA : le vrai cmd/HORLOGE face à un PIA et une puce simulés.
+horloge:
+	@$(MAKE) -s -C ../bios
+	@$(MAKE) -s -C ../cmd
+	@python3 verifie_horloge.py
+
 # Lecteur de morceaux : le vrai cmd/AYJOUE (lib/ay_joue.asm), IRQ à chaque
 # trame, face au modèle de tools/ay/ay.py.
 ayjoue:
@@ -365,4 +412,4 @@ asm-tout:
 	@$(MAKE) -s -C ../bios
 	@python3 verifie_asm.py tout
 
-.PHONY: all clean send verifier remplissage negatifs indexation parole minitel terminal donjon39 fs farcall asm asm-tout dossiers demarrage bureau sdtest tele aytest ayjoue clavier FORCE
+.PHONY: all clean tout tout-long contrat send verifier remplissage banc_mono negatifs indexation parole minitel terminal donjon39 zmachine zmachine-tout fs farcall asm asm-tout dossiers demarrage bureau sdtest tele aytest ayjoue clavier horloge FORCE

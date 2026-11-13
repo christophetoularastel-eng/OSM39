@@ -113,7 +113,7 @@
   <tr><td>Stockage</td><td>Carte SD, avec son propre système de fichiers à dossiers (OSMFS)</td></tr>
   <tr><td>Clavier</td><td>AZERTY français, pavé numérique, voyants pilotés par le système</td></tr>
   <tr><td>Communication</td><td>Liaison série RS-232 à 115 200 bauds : modem Minitel, ordinateur hôte</td></tr>
-  <tr><td>Extension</td><td>Connecteur 48 broches à l'arrière ; entrées pour la Clouris, la souris tactile</td></tr>
+  <tr><td>Extension</td><td>Connecteur 48 broches à l'arrière (le bus du processeur) ; 16 lignes d'entrée-sortie sur l'AY, dont la Clouris, la souris tactile</td></tr>
 </table>
 
 <h2>Ce que vous pouvez faire</h2>
@@ -189,6 +189,21 @@
   <tr><td>SW101</td><td>sur la carte</td><td>le bouton de réinitialisation</td></tr>
 </table>
 
+<h3>Brancher la Clouris</h3>
+<p>La Clouris, la souris tactile, se branche sur le <strong>port A de l'AY-3-8910</strong>, c'est-à-dire sur les broches impaires de <strong>J602</strong> (sur la carte SD-KBD-SON, c'est J104, avec le même brochage). Son connecteur J7, huit broches, se relie ainsi :</p>
+<table>
+  <tr><th>J7 (Clouris)</th><th>Clou</th><th>J602</th><th>Ligne de l'AY</th></tr>
+  <tr><td>1</td><td>—</td><td>1 ou 2</td><td>+5 V</td></tr>
+  <tr><td>2</td><td>J1 : haut</td><td>17</td><td>IOA0</td></tr>
+  <tr><td>3</td><td>J2 : droite</td><td>15</td><td>IOA1</td></tr>
+  <tr><td>4</td><td>J3 : bas</td><td>13</td><td>IOA2</td></tr>
+  <tr><td>5</td><td>J4 : gauche</td><td>11</td><td>IOA3</td></tr>
+  <tr><td>6</td><td>J5 : centre</td><td>9</td><td>IOA4</td></tr>
+  <tr><td>7</td><td>J6 : clic, sous le pouce</td><td>7</td><td>IOA5</td></tr>
+  <tr><td>8</td><td>—</td><td>19 ou 20</td><td>masse</td></tr>
+</table>
+<p>Les broches 3 et 5 (IOA7, IOA6) restent libres, comme tout le port B (broches paires de 4 à 18). La plaque de paume est à la masse sur la carte de la Clouris. Au repos, chaque ligne est à 1 ; un doigt posé sur un clou la fait passer à 0. La commande <code>CLOUTEST</code> affiche l'état des six clous à chaque changement : c'est le moyen de vérifier le câblage. Dans OSM-VISION, les quatre clous de direction déplacent la flèche, le pouce ouvre ce qu'elle désigne et le centre ouvre le menu.</p>
+
 <h2>Les deux mémoires mortes</h2>
 <p>OSM39 a deux mémoires mortes de 8 Ko, toutes deux au format 28C64 :</p>
 <ul>
@@ -196,6 +211,7 @@
   <li><strong>la police</strong> (U515) contient les 512 caractères de 8 × 16 points : la page 0, l'alphabet complet, et la page 1, les cadres de fenêtres, les mosaïques du Minitel, les icônes et les dessins des jeux.</li>
 </ul>
 <p>Pour les mettre à jour, on les programme avec un programmeur d'EPROM (par exemple un TL866) à partir des fichiers <code>dist/EPROM/osm39.bin</code> et <code>dist/EPROM/font_osm39.bin</code>, produits par <code>deploy_sd.sh</code>. Le cavalier J103 permet aussi d'écrire le BIOS sans le retirer de la carte ; laissez-le en position protégée en temps normal, pour qu'un programme égaré ne puisse pas l'effacer.</p>
+<p>Le BIOS ne tient pas entier dans ses 8 Ko : sa <strong>seconde partie</strong>, le fichier <code>BIN/BIOS2</code> de la carte SD, contient l'écriture des fichiers, la console du Terminal et le son. Le BIOS la charge en mémoire à chaque démarrage, et ne l'accepte que si elle a été construite avec lui. Après avoir reprogrammé le BIOS, mettez donc aussi la carte à jour avec <code>egofs_deploy.py</code>.</p>
 </section>
 
 <!-- ================= 3. MISE EN ROUTE ================= -->
@@ -223,7 +239,7 @@ python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
 <p>L'interface graphique <code>egofs_gui.py</code> permet aussi de parcourir une carte, d'y ajouter ou d'en retirer des fichiers à la main.</p>
 
 <h2>Le démarrage</h2>
-<p>À la mise sous tension, OSM39 joue sa mélodie et affiche son nom. Pendant une seconde environ, il guette le clavier : si vous appuyez sur une touche, il ouvre le mode <strong>SECOURS</strong> (voir plus bas). Sinon, il charge OSM-VISION depuis la carte, et vous voilà devant le bureau.</p>
+<p>À la mise sous tension, OSM39 lit la carte SD, y charge la seconde partie de son BIOS, puis joue sa mélodie et affiche son nom. Pendant une seconde environ, il guette le clavier : si vous appuyez sur une touche, il ouvre le mode <strong>SECOURS</strong> (voir plus bas). Sinon, il charge OSM-VISION depuis la carte, et vous voilà devant le bureau.</p>
 <p>Le BIOS recharge OSM-VISION chaque fois que celui-ci rend la main : la machine retombe toujours sur ses pieds.</p>
 
 <h2>Le mode SECOURS</h2>
@@ -242,6 +258,7 @@ python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
   <tr><td><code>Carte SD absente ou muette</code></td><td>vérifiez la carte et son logement, puis tapez <code>BOOT</code>. Les cartes SD de première génération (SD v1, avant 2006) ne sont pas reconnues ; prenez une carte SDHC.</td></tr>
   <tr><td>SECOURS s'ouvre tout seul</td><td>OSM-VISION n'a pas été trouvé à la racine de la carte : refaites la carte avec <code>egofs_deploy.py</code>.</td></tr>
   <tr><td><code>TRAP 6309 PC=…</code></td><td>un programme a exécuté une instruction impossible. Appuyez sur une touche : la machine redémarre et garde un compte rendu, que la commande <code>MONITEUR</code> affiche avec <code>R</code>.</td></tr>
+  <tr><td>Pas de mélodie ni de son, le Terminal occupe tout l'écran, les sauvegardes échouent</td><td>la seconde partie du BIOS (<code>BIN/BIOS2</code>) manque ou ne va pas avec le BIOS : mettez la carte à jour avec <code>egofs_deploy.py</code>, à partir du même <code>deploy_sd.sh</code> que le BIOS programmé. Dans <code>MONITEUR</code>, <code>M CC50</code> affiche <code>01</code> quand elle est chargée.</td></tr>
   <tr><td>Écran noir</td><td>vérifiez le câble VGA ; l'écran doit accepter le 640 × 480 à 60 Hz.</td></tr>
 </table>
 </section>
@@ -605,6 +622,7 @@ ASM GLOUTON.ASM /GAMES/GLOUTON</pre>
   <tr><td>mémoire</td><td>copier entre pages, appeler dans une autre page</td></tr>
   <tr><td>noms</td><td><code>sys_Format_Filename_83</code> met un nom ou un chemin au format des services de fichiers ; à appeler avant tout service <code>FS_*</code></td></tr>
 </table>
+<p>Le détail de chaque service (registres d'entrée et de sortie, registres qu'il ne rend pas) est dans <code>docs/services.md</code>. Ne comptez pas sur W après un service de fichiers.</p>
 <p>Les adresses d'entrées-sorties et de la RAM du système viennent de <code>HARDWARE.INC</code> : n'écrivez jamais une adresse en dur, elle pourrait changer avec le BIOS.</p>
 
 <h2>Une application OSM-VISION</h2>
@@ -643,7 +661,9 @@ ASM GLOUTON.ASM /GAMES/GLOUTON</pre>
   <tr><td><code>$A140</code>, <code>$A148</code></td><td>carte SD : contrôle, données</td></tr>
   <tr><td><code>$A150-$A151</code></td><td>générateur de son AY-3-8910</td></tr>
   <tr><td><code>$A180-$A181</code></td><td>clavier PS/2 (68B50)</td></tr>
-  <tr><td><code>$C000-$DFFF</code></td><td>RAM du système : table des services, variables du BIOS</td></tr>
+  <tr><td><code>$C000-$CDFF</code></td><td>RAM du système : table des services, variables du BIOS</td></tr>
+  <tr><td><code>$CE00-$D9FF</code></td><td>seconde partie du BIOS, chargée de <code>BIN/BIOS2</code></td></tr>
+  <tr><td><code>$DA00-$DFFF</code></td><td>pile du système et vecteurs d'interruption</td></tr>
   <tr><td><code>$E000-$FFFF</code></td><td>BIOS en EEPROM ; <code>$FFE0</code> <code>FAR_CALL</code>, <code>$FFE3</code> <code>FAR_CALLN</code></td></tr>
 </table>
 
@@ -871,6 +891,7 @@ ASM GLOUTON.ASM /GAMES/GLOUTON</pre>
   <img src="images/police0.png" alt="Page 0 de la police : l'alphabet, les chiffres, les lettres accentuées et les cadres">
   <figcaption><b>Page 0 : le texte.</b> L'ASCII de <code>$20</code> à <code>$7E</code>, les lettres accentuées, les symboles et les traits de cadre.</figcaption>
 </figure>
+<p>Le clavier rend les lettres accentuées dans le codage Latin-1 (é = <code>$E9</code>), celui des fichiers que vous écrivez ; la police les range ailleurs (é = <code>$82</code>). EDIT, CALC, les saisies d'OSM-VISION et les applications les traduisent en les affichant. La console du Terminal (SHELL, BBC BASIC, FORTH) ne le fait pas : un é tapé y apparaît comme un autre signe. Les majuscules accentuées absentes de la police (À, È, Ê…) s'affichent sans accent.</p>
 <figure class="police">
   <img src="images/police1.png" alt="Page 1 de la police : les graphismes">
   <figcaption><b>Page 1 : les graphismes.</b> <code>$00-$06</code> trames et blocs ; <code>$07-$1B</code> et <code>$4F-$7F</code> les mosaïques du Minitel ; <code>$1C-$1F</code> les icônes d'OSM-VISION (haut-parleur, ondes, croix, pointeur) ; <code>$20-$2A</code> et <code>$40-$46</code> les cadres des fenêtres ; <code>$2B-$3F</code> et <code>$48-$4E</code> ENVAHIS ; <code>$88-$FF</code> GLOUTON.</figcaption>

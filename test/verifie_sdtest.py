@@ -261,9 +261,7 @@ def lance(carte, touches=()):
     b = vd.Banc()
     m = Banc(b.image, b.s, carte, touches)
     s = b.s
-    rom, fin = s['table_function_rom'], s['table_function_rom_end']
-    for i in range(fin - rom):
-        m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
+    v.installe_bios(m)          # table des services, et BIOS2
     code = open(os.path.join(RACINE, 'cmd', 'SDTEST'), 'rb').read()
     m.banks[1][:len(code)] = code
     m.mem[s['argc']] = 1
@@ -361,9 +359,7 @@ def main():
         b = vd.Banc()
         m = Banc(b.image, b.s, carte, [])
         s = b.s
-        rom, fin = s['table_function_rom'], s['table_function_rom_end']
-        for i in range(fin - rom):
-            m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
+        v.installe_bios(m)          # table des services, et BIOS2
         return m, s
 
     def appel(m, nom, lba=None, donnees=None):

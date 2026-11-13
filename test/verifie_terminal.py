@@ -9,6 +9,10 @@
 # texte rangé dans le rectangle, retour à la ligne au bord droit,
 # défilement de la zone seule, BS borné, $0C qui n'efface que la zone,
 # rien d'écrit hors du rectangle, curseur du 68B45 au bon endroit.
+# Puis la console plein écran (VSYNC_IRQ) : $0C, 35 lignes, défilement
+# par l'adresse de départ du 68B45 (R12/R13, en cases), curseur (R14/R15).
+# La VRAM est lue par test/carte.py : l'essai vaut pour les cartes v4 et
+# mono (fichier CARTE).
 # ===================================================================
 import os
 import sys
@@ -17,6 +21,7 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ICI)
 import verifie_demarrage as vd  # noqa: E402
 import verifie_fs as v          # noqa: E402
+import carte                    # noqa: E402
 
 HW = vd.HW
 X0, Y0, L, H = 2, 3, 76, 20      # la zone du Terminal d'OSM-VISION
@@ -74,8 +79,18 @@ def main():
     sv['PrintChar'] = -1                # le vrai PrintChar (pas le crochet de texte)
     m.s_ = sv
     fond = bytes((i * 7 + 1) & 0xFF for i in range(2400))
-    m.mem[0x8000:0x8000 + 2400] = fond
-    m.mem[0x9000:0x9000 + 2400] = fond[::-1]
+    carte.pose(m.mem, 0, fond, fond[::-1])
+    crtc = {'sel': 0, 'r': {}}
+    wr8 = m.wr8
+
+    def wr8_crtc(a, val):
+        a &= 0xFFFF
+        if a == HW['CRTC_RS']:
+            crtc['sel'] = val
+        elif a == HW['CRTC_DATA']:
+            crtc['r'][crtc['sel']] = val & 0xFF
+        wr8(a, val)
+    m.wr8 = wr8_crtc
     m.banks[0][0x7000:0x7002] = b'\x20\xfe'                         # BRA * : le programme interrompu
     m.page = 0
     pas_irq = []
@@ -106,10 +121,11 @@ def main():
             trame()
 
     def zone_vram():
-        return [''.join(chr(m.mem[0x8000 + (Y0 + r) * 80 + X0 + k]) for k in range(L)) for r in range(H)]
+        return [carte.lit(m.mem, (Y0 + r) * 80 + X0, L)[0].decode('latin-1') for r in range(H)]
 
-    def hors_zone(base, ref):
-        return all(m.mem[base + i] == ref[i] for i in range(2400)
+    def hors_zone(plan, ref):
+        ecran = carte.lit(m.mem, 0, 2400)[plan]
+        return all(ecran[i] == ref[i] for i in range(2400)
                    if not (Y0 <= i // 80 < Y0 + H and X0 <= i % 80 < X0 + L))
 
     appel(s['Console_Zone'], a=X0, b=Y0, w=(L << 8) | H, y=ATTR)
@@ -117,7 +133,7 @@ def main():
         trame()
     verifie(m.mem[s['cz_actif']] != 0 and all(l == ' ' * L for l in zone_vram()),
             'sys_Console_Zone : zone effacée par l\'IRQ (%d rangées)' % H)
-    attrs = {m.mem[0x9000 + (Y0 + r) * 80 + X0 + k] for r in range(H) for k in range(L)}
+    attrs = {b for r in range(H) for b in carte.lit(m.mem, (Y0 + r) * 80 + X0, L)[1]}
     verifie(attrs == {ATTR}, 'zone : attribut $%02X partout (%s)' % (ATTR, sorted(attrs)[:4]))
     mod = Modele()
     cas = [
@@ -139,16 +155,37 @@ def main():
             k = next(i for i in range(H) if obtenu[i] != attendu[i])
             detail = ' ; rangée %d : %r au lieu de %r' % (k, obtenu[k].rstrip(), attendu[k].rstrip())
         verifie(ok, 'zone : %s%s' % (nom, detail))
-    verifie(hors_zone(0x8000, fond) and hors_zone(0x9000, fond[::-1]),
+    verifie(hors_zone(0, fond) and hors_zone(1, fond[::-1]),
             'hors de la zone : rien n\'a changé (caractères et couleurs)')
     curseur = m.rd16(HW['VRAM_PTR'])
-    voulu = 0x8000 + (Y0 + mod.lig) * 80 + X0 + mod.col
+    voulu = carte.adr((Y0 + mod.lig) * 80 + X0 + mod.col)
     verifie(curseur == voulu, 'curseur : $%04X (attendu $%04X)' % (curseur, voulu))
     verifie(max(pas_irq) < 1200, 'IRQ : au plus %d instructions par trame' % max(pas_irq))
     appel(s['Console_Zone'], a=0, b=0, w=0, y=0)
     verifie(m.mem[s['cz_actif']] == 0, 'E = 0 : console plein écran')
 
-    print('\n%s : %d échec(s)' % ('ÉCHEC' if erreurs else 'OK', len(erreurs)))
+    # --- console plein écran : effacement, 35 lignes, défilement matériel ---
+    def r16(h, b):
+        return (crtc['r'].get(h, 0) << 8) | crtc['r'].get(b, 0)
+    appel(s['PrintChar'], a=0x0C)
+    car, col = carte.lit(m.mem, 0, 4096)
+    attr = m.mem[s['char_attribut']]
+    verifie(car == b' ' * 4096 and col == bytes([attr]) * 4096 and r16(12, 13) == 0xFFFF,
+            'plein écran : $0C efface les 4096 cases (espace, attribut $%02X), départ $FFFF' % attr)
+    lignes = ['L%02d %s' % (i, chr(0x41 + i % 26) * (i % 50)) for i in range(35)]
+    ecrit(''.join(l + '\r\n' for l in lignes))
+    depart = (-1 + 80 * (35 - 29)) & 0xFFFF            # 6 défilements de 80 cases
+    ok = all(carte.lit(m.mem, 80 * i, len(l))[0] == l.encode() for i, l in enumerate(lignes))
+    verifie(ok, 'plein écran : la ligne i est dans les cases 80 i... (35 lignes)')
+    vues = [carte.lit(m.mem, depart + 1 + 80 * r, 80)[0].decode('latin-1').rstrip() for r in range(29)]
+    verifie(r16(12, 13) == depart and vues == lignes[6:],
+            'plein écran : défilement, R12/R13 = $%04X (attendu $%04X), rangées 0-28 = lignes 6-34'
+            % (r16(12, 13), depart))
+    verifie(r16(14, 15) == 35 * 80 - 1 and m.rd16(HW['VRAM_PTR']) == carte.adr(35 * 80),
+            'plein écran : curseur R14/R15 = $%04X (attendu $%04X), VRAM_PTR = $%04X'
+            % (r16(14, 15), 35 * 80 - 1, m.rd16(HW['VRAM_PTR'])))
+
+    print('\n%s : %d échec(s) (carte %s)' % ('ÉCHEC' if erreurs else 'OK', len(erreurs), carte.NOM))
     return 1 if erreurs else 0
 
 

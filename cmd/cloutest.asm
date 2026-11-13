@@ -3,21 +3,29 @@
 ; Usage: CLOUTEST
 ; Charge: page 1, $0000
 ;
-; La Clouris : six clous et une plaque pour la paume (à la masse). Chaque
-; clou attaque une porte d'un 74HC14 (tirage 1 à 2,2 Mohm au +5 V, 100 k
-; en série) dont la sortie va sur le port A de l'AY (J104 de la carte
-; SD-KBD-SON) : doigt posé, l'entrée descend et le bit passe à 1.
-;   IOA0 haut (J104-17)  IOA1 droite (15)  IOA2 bas (13)
+; La Clouris : six clous et une plaque pour la paume (à la masse), sortie
+; sur le port A de l'AY : J602 de la carte OSM39_mono, ou J104 de la carte
+; SD-KBD-SON (même brochage).
+; CLOU_INVERSE = 1 (carte Clouris, KiCad clouris/) : chaque clou attaque par
+; 100 k la base d'un PNP (S9015 ; émetteur au +5 V), collecteur
+; tiré à la masse par 47 k vers une porte de 74HC14 : doigt posé = bit à 0,
+; repos = 1. Connecteur J7 de la carte : 1 +5 V, 2-7 clous J1-J6 (haut,
+; droite, bas, gauche, centre, pouce), 8 GND.
+; CLOU_INVERSE = 0 (premier montage) : clou -> 74HC14, tirage au +5 V,
+; doigt posé = bit à 1.
+;   IOA0 haut (J602-17)  IOA1 droite (15)  IOA2 bas (13)
 ;   IOA3 gauche (11)  IOA4 centre (9)  IOA5 clic gauche, le pouce (7)
 ;   IOA6-7 libres (5, 3 : lus à 1)  GND 19-20  +5 V 1-2
 ; Le port A est lu dans R14 (écrire 14 dans AY_ADR, lire AY_ADR) ; il doit
 ; être en entrée : bit 6 de R7 à 0 (le BIOS y met $3A, déjà bon).
 ; À chaque trame, R14 est relu ; à chaque changement, une ligne :
-;   R14 = 11000001  haut
+;   R14 = 11111110  haut       (les noms : les clous touchés)
 ; Échap pour sortir.
 ; ===================================================================
     include "../bios/hardware.inc"
     include "../bios/sysfunc.inc"
+
+CLOU_INVERSE    equ 1               ; 1 : carte à transistors PNP (doigt = 0)
 
     section .code
 
@@ -75,8 +83,11 @@ AE_Zero:
     LSLA
     DECB
     BNE     AE_Bit
-    LDX     #TabNoms            ; les noms des bits à 1, du bit 0 au bit 5
+    LDX     #TabNoms            ; les noms des clous touchés, du bit 0 au bit 5
     PULS    A
+    IFNE    CLOU_INVERSE
+    COMA                        ; doigt posé = bit à 0
+    ENDC
 AE_Nom:
     LSRA
     BCC     AE_Suivant

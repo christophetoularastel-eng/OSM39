@@ -1633,22 +1633,28 @@ CP_Panel:
 
 ; Case (TX,TY) : ses deux cellules en file.
 Tile_Render:
-    LDA     #80
+    LDA     #VRAM_LIGNE
     LDB     TY
     ADDB    #MZ_Y
     MUL
-    ADDD    #VRAM_BASE+MZ_X
+    ADDD    #VRAM_BASE+MZ_X*VRAM_PAS
     ADDB    TX
     ADCA    #0
     ADDB    TX
     ADCA    #0
+    IFNE    CARTE_MONO          ; mono : 2 octets par cellule
+    ADDB    TX
+    ADCA    #0
+    ADDB    TX
+    ADCA    #0
+    ENDC
     STD     CellAddr
     JSR     Tile_Content
     LDX     CellAddr
     LDA     C1
     LDB     CA
     JSR     Q_Put
-    LEAX    1,X
+    LEAX    VRAM_PAS,X
     LDA     C2
     LDB     CA
     JMP     Q_Put
@@ -1882,11 +1888,15 @@ QP_End:
 ; X = texte (0 final), A = colonne, B = ligne d'écran, attribut CurAttr.
 Q_Text:
     STA     TmpC
-    LDA     #80
+    LDA     #VRAM_LIGNE
     MUL
     ADDD    #VRAM_BASE
     ADDB    TmpC
     ADCA    #0
+    IFNE    CARTE_MONO          ; mono : 2 octets par cellule
+    ADDB    TmpC
+    ADCA    #0
+    ENDC
     STD     QtAddr
 QT_Loop:
     LDA     ,X+
@@ -1895,7 +1905,7 @@ QT_Loop:
     LDX     QtAddr
     LDB     CurAttr
     BSR     Q_Put
-    LEAX    1,X
+    LEAX    VRAM_PAS,X
     STX     QtAddr
     PULS    X
     BRA     QT_Loop
@@ -1939,10 +1949,10 @@ QPn_Vies:
     LDA     PanelDirty
     BITA    #P_VIES
     BEQ     QPn_Fin
-    LDA     #80                 ; adresse de la première icône
+    LDA     #VRAM_LIGNE         ; adresse de la première icône
     LDB     #PN_Y+10
     MUL
-    ADDD    #VRAM_BASE+PN_X
+    ADDD    #VRAM_BASE+PN_X*VRAM_PAS
     TFR     D,X
     CLR     TmpN
 QPn_VLoop:
@@ -1958,14 +1968,14 @@ QPn_VVide:
 QPn_VPut:
     PSHS    D
     JSR     Q_Put
-    LEAX    1,X
+    LEAX    VRAM_PAS,X
     LDD     ,S
     TSTA
     BEQ     QPn_V2
     INCA
 QPn_V2:
     JSR     Q_Put
-    LEAX    2,X                 ; une cellule d'écart
+    LEAX    2*VRAM_PAS,X        ; une cellule d'écart
     PULS    D
     INC     TmpN
     LDA     TmpN

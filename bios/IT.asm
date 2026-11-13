@@ -11,6 +11,9 @@
         import table_function_ram
         ;import reg_cmd
         import main
+        export X_Zone_IRQ, X_Audio, UPDATE_CURSOR
+        include "ext.inc"
+        import  ExtV
         import Ay_Note,Ay_Silence
         import NEW_CODE
         import SCAN_CODE
@@ -92,9 +95,9 @@ LOOP_CHAR:
 not_CR:
         cmpa    #$0a
         bne not_LF
-        leay    80,y
+        leay    VRAM_LIGNE,y
         ldu     vram_line_ptr
-        leau    80,u
+        leau    VRAM_LIGNE,u
         stu     vram_line_ptr
 
  CHECK_SCROLL:
@@ -102,6 +105,10 @@ not_CR:
         ; 1. Calcule la distance entre la ligne actuelle et le haut de l'écran
         LDD     vram_line_ptr
         SUBD    #VRAM_BASE              ; Offset absolu de la ligne actuelle
+        ifne    CARTE_MONO
+        LSRA                            ; octets -> cases (2 octets par case)
+        RORB
+        endc
         SUBD    SCREEN_START_OFFSET     ; Distance relative depuis le haut de l'écran visible
 
         CMPD    #2400                   ; A-t-on dépassé 30 lignes (2400 octets) ?
@@ -156,34 +163,34 @@ END_SCROLL:
 not_LF:
         cmpa    #08
         bne not_BS
-        leay    -1,y
+        leay    -VRAM_PAS,y
         bra other_char
 not_BS:
 ; --- GESTION DES FLÈCHES DIRECTIONNELLES ---
         cmpa    #$80            ; KEY_UP ?
         bne     not_UP
-        leay    -80,y           ; Recule d'une ligne
+        leay    -VRAM_LIGNE,y   ; Recule d'une ligne
         ldu     vram_line_ptr
-        leau    -80,u           ; Met à jour le début de ligne pour le CR
+        leau    -VRAM_LIGNE,u   ; Met à jour le début de ligne pour le CR
         stu     vram_line_ptr
         bra     other_char
 not_UP:
         cmpa    #$81            ; KEY_DOWN ?
         bne     not_DOWN
-        leay    80,y            ; Avance d'une ligne
+        leay    VRAM_LIGNE,y    ; Avance d'une ligne
         ldu     vram_line_ptr
-        leau    80,u            ; Met à jour le début de ligne pour le CR
+        leau    VRAM_LIGNE,u    ; Met à jour le début de ligne pour le CR
         stu     vram_line_ptr
         bra     other_char
 not_DOWN:
         cmpa    #$82            ; KEY_LEFT ?
         bne     not_LEFT
-        leay    -1,y            ; Recule d'un caractère
+        leay    -VRAM_PAS,y     ; Recule d'un caractère
         bra     other_char
 not_LEFT:
         cmpa    #$83            ; KEY_RIGHT ?
         bne     not_RIGHT
-        leay    1,y             ; Avance d'un caractère
+        leay    VRAM_PAS,y      ; Avance d'un caractère
         bra     other_char
 not_RIGHT:
 
@@ -195,7 +202,7 @@ not_RIGHT:
         leau    D,u
         lda     ,u
         STA     VRAM_COL_OFS,y
-        LEAY    1,y
+        LEAY    VRAM_PAS,y
 
 other_char:
         ; --- Avance dans le buffer ---
@@ -232,6 +239,7 @@ UPDATE_PTRS:
 
         LBRA    UPDATE_CURSOR
 
+    section .ext
 ; ===================================================================
 ; Zone_IRQ - la console dans le rectangle cz_* (video.asm, Console_Zone)
 ; 1. Un travail de rangées en cours (cz_op) passe d'abord, 2 rangées par
@@ -244,7 +252,7 @@ UPDATE_PTRS:
 ;    plus à gauche que la zone), $80-$83 et les autres codes < $20
 ;    ignorés ; au bord droit, retour à la ligne avant le caractère.
 ; ===================================================================
-Zone_IRQ:
+X_Zone_IRQ:
         LDA     CUR_PAGE
         STA     VRAM_CTRL
         TST     cz_op
@@ -272,6 +280,19 @@ Zi_Travail:
         LDA     cz_op
         CMPA    #1
         BNE     Zi_Efface
+        ifne    CARTE_MONO
+        ADDF    cz_l            ; mono : caractère et couleur se suivent,
+        LEAU    VRAM_LIGNE,X    ; une rangée = un bloc de 2 x largeur
+        TFM     U+,X+
+        BRA     Zi_Suivante
+Zi_Efface:
+        LDA     #$20            ; espace, attribut char_attribut
+        LDB     char_attribut
+Zi_EffCase:
+        STD     ,X++
+        DECF
+        BNE     Zi_EffCase
+        else
         LEAU    80,X            ; défilement : rangée suivante -> celle-ci
         TFM     U+,X+
         LDF     cz_l
@@ -288,16 +309,19 @@ Zi_Efface:
         LEAX    VRAM_COL_OFS,X
         LDU     #char_attribut
         TFM     U,X+
+        endc
 Zi_Suivante:
         LDX     cz_ptr
-        LEAX    80,X
+        LEAX    VRAM_LIGNE,X
         STX     cz_ptr
         DEC     cz_n
         DEC     cz_cpt
         BNE     Zi_Rangee
         LBRA    UPDATE_CURSOR
+        ifeq    CARTE_MONO
 Zi_Espace:
         FCB     $20
+        endc
 
 Zi_Texte:
         LDA     BUF_HEAD
@@ -328,7 +352,7 @@ Zi_PasLF:
         BNE     Zi_PasBS
         CMPY    vram_line_ptr
         BLS     Zi_Pris
-        LEAY    -1,Y
+        LEAY    -VRAM_PAS,Y
         BRA     Zi_Pris
 Zi_PasBS:
         CMPA    #$20
@@ -341,6 +365,9 @@ Zi_Ecrit:
         PSHS    D
         TFR     Y,D
         SUBD    vram_line_ptr
+        ifne    CARTE_MONO
+        LSRB                    ; octets -> colonne (< 80 : B suffit)
+        endc
         CMPB    cz_l
         PULS    D
         BLO     Zi_Pose
@@ -356,7 +383,7 @@ Zi_Pose:
         LEAU    D,U
         LDA     ,U
         STA     VRAM_COL_OFS,Y
-        LEAY    1,Y
+        LEAY    VRAM_PAS,Y
 Zi_Pris:
         INCB
 Zi_Compte:
@@ -375,9 +402,9 @@ Zi_Ligne:
         LDX     vram_line_ptr
         CMPX    cz_bas
         BEQ     Zi_Defile
-        LEAX    80,X
+        LEAX    VRAM_LIGNE,X
         STX     vram_line_ptr
-        LEAY    80,Y
+        LEAY    VRAM_LIGNE,Y
         ANDCC   #$FE
         RTS
 Zi_Defile:
@@ -391,11 +418,22 @@ Zi_Defile:
         ORCC    #$01
         RTS
 
+    section .code
+Zone_IRQ:
+    jmp     [ExtV+EXTV_ZONEIRQ]
+
 UPDATE_CURSOR:
         ; 1. Calcul de l'offset du curseur (X contient la nouvelle position)
         LDX     VRAM_PTR        ; Récupère la position actuelle
         TFR     X,D             ; Copie X dans l'accumulateur D (D = A:B)
+        ifne    CARTE_MONO
+        SUBD    #VRAM_BASE      ; octets -> cases, puis le -1 du 68B45
+        LSRA
+        RORB
+        SUBD    #1
+        else
         SUBD    #VRAM_BASE+1          ; Soustrait la base VRAM pour obtenir un offset de 0 à 4095[cite: 1]
+        endc
 
         ; À ce stade :
         ; A contient l'octet de poids fort (High Byte)
@@ -417,15 +455,16 @@ UPDATE_CURSOR:
  ; ---------------------------------------------------------
 ; MOTEUR AUDIO 2 VOIES (Exécuté à chaque VSYNC)
 ; ---------------------------------------------------------
-AUDIO_UPDATE:
+    section .ext
+X_Audio:
         LDX     MUSIC_PTR       ; Y a-t-il une musique chargée ?
-        BEQ     AUDIO_END       ; Si X = 0000, le séquenceur est à l'arrêt
+        BEQ     XA_Fin       ; Si X = 0000, le séquenceur est à l'arrêt
 
         TST     MUSIC_TIMER     ; Est-ce le moment de changer de note ?
         BEQ     AUDIO_READ_ROW  ; Si timer = 0, on lit la ligne suivante de la partition
 
         DEC     MUSIC_TIMER     ; Sinon, on décompte juste une frame...
-        BRA     AUDIO_END       ; ... et on quitte !
+        BRA     XA_Fin       ; ... et on quitte !
 
 AUDIO_READ_ROW:
         ; --- Lecture Voie 1 ---
@@ -447,7 +486,7 @@ AUDIO_READ_ROW:
         LDA     ,X+           ; Lit la durée (8 bits) et avance X de 1
         STA     MUSIC_TIMER     ; Recharge le compteur pour attendre
         STX     MUSIC_PTR       ; Sauvegarde la nouvelle position du pointeur
-        BRA     AUDIO_END
+        BRA     XA_Fin
 
 AUDIO_STOP:
         LDX     #$0000
@@ -470,6 +509,11 @@ AUDIO_STOP:
         ; $03 = %00000011 (Sortie OFF, Horloge E, Pointe CR1)
         ;LDA     #$03
         ;STA     PTM_CR2
+XA_Fin:
+        RTS
+    section .code
+AUDIO_UPDATE:
+        JSR     [ExtV+EXTV_AUDIO]     ; le séquenceur (BIOS2), ou rien
 AUDIO_END:
 
 

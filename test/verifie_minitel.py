@@ -34,6 +34,7 @@ RACINE = os.path.dirname(ICI)
 sys.path.insert(0, ICI)
 sys.path.insert(0, os.path.join(RACINE, 'tools', 'minitel'))
 import verifie_fs as v          # noqa: E402
+import carte                    # noqa: E402
 import verifie_asm as va        # noqa: E402
 import videotex                 # noqa: E402
 import modem                    # noqa: E402
@@ -241,7 +242,7 @@ class Banc(va.MachineAsm):
         super().step()
 
     def texte_vram(self, rangees=range(30)):
-        return '\n'.join(bytes(self.mem[0x8000 + r * 80:0x8000 + r * 80 + 80]).decode('latin-1') for r in rangees)
+        return '\n'.join(carte.lit(self.mem, r * 80, 80)[0].decode('latin-1') for r in rangees)
 
 
 class Fini(Exception):
@@ -256,7 +257,7 @@ def application(s_app, verifie):
 
     def photo(nom):
         def f(m):
-            vus[nom] = (bytes(m.mem[0x8000:0x8000 + 2400]), bytes(m.mem[0x9000:0x9000 + 2400]), m.texte_vram(), m.trame,
+            vus[nom] = carte.lit(m.mem, 0, 2400) + (m.texte_vram(), m.trame,
                         m.rd16(HW['VRAM_PTR']), m.r10[-1] if m.r10 else None)
         return f
     touches = [
@@ -274,16 +275,13 @@ def application(s_app, verifie):
         (10, ECHAP, None),                      # retour à OSM-VISION
     ]
     m = Banc(c.image, s, touches)
-    rom, fin = s['table_function_rom'], s['table_function_rom_end']
-    for i in range(fin - rom):
-        m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
+    v.installe_bios(m)          # table des services, et BIOS2
     m.mem[s['son_coupe']] = 0x4D
     m.mem[s['current_page']] = 1
     bureau = (bytes((i * 13) & 255 for i in range(2000)), bytes((i * 7 + 3) & 255 for i in range(2000)))
-    m.mem[0x8000:0x8000 + 2000], m.mem[0x9000:0x9000 + 2000] = bureau
+    carte.pose(m.mem, 0, bureau[0], bureau[1])
     barre = bytes((i * 7) & 255 for i in range(400))
-    m.mem[0x8000 + 2000:0x8000 + 2400] = barre
-    m.mem[0x9000 + 2000:0x9000 + 2400] = barre[::-1]
+    carte.pose(m.mem, 2000, barre, barre[::-1])
     code = open(BIN, 'rb').read()
     m.banks[1][:len(code)] = code
     m.page = 1
@@ -347,18 +345,18 @@ def application(s_app, verifie):
     verifie('ne repond pas' in vus.get('muet', (0, 0, '', 0, 0, 0))[2], 'modem muet 30 s : « Le modem ne repond pas »')
     if 'en ligne' in vus and 'plein' in vus:
         ptr, r10 = vus['en ligne'][4], vus['en ligne'][5]
-        voulu = 0x8000 + (e.lig + 1) * 80 + 20 + e.col
+        voulu = carte.adr((e.lig + 1) * 80 + 20 + e.col)
         verifie(e.curseur == 1 and r10 == 0x6D and ptr == voulu,
                 'curseur (CON) en fenêtre : R10 $%02X, VRAM_PTR $%04X (attendu $6D, $%04X : case %d,%d)'
                 % (r10 or 0, ptr, voulu, e.lig, e.col))
         ptr = vus['plein'][4]
-        voulu = 0x8000 + e.lig * 80 + 2 * e.col
+        voulu = carte.adr(e.lig * 80 + 2 * e.col)
         verifie(ptr == voulu, 'curseur en plein écran : VRAM_PTR $%04X (attendu $%04X)' % (ptr, voulu))
     verifie(m.r10 and m.r10[-1] == 0x2D, 'sortie : curseur caché (R10 $2D) pour le bureau')
     verifie(m.cr == [0x95, 0x95], 'ACIA : $95 (E/16 = 115200 bauds, comme un vrai modem) au départ et à la sortie (%s)'
             % ' '.join('$%02X' % o for o in m.cr))
     verifie(m.mem[s['serie_brute']] == 0, 'sortie : liaison série rendue à la console (serie_brute = 0)')
-    verifie(bytes(m.mem[0x8000 + 2000:0x8000 + 2400]) == barre and bytes(m.mem[0x9000 + 2000:0x9000 + 2400]) == barre[::-1],
+    verifie(carte.lit(m.mem, 2000, 400) == (barre, barre[::-1]),
             'sortie : rangées 25-29 rendues telles qu\'avant')
 
 

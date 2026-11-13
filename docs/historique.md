@@ -697,3 +697,247 @@ dist/EPROM et vérifie qu'elle contient ces glyphes).
   personne le lance. Ajoutés, et essayés dans `asm/test/test6309.asm`.
 - `tools/publie/publie.py` fabrique le dépôt public (GitHub) à partir de ce
   qui est commité : voir AGENTS.md, « Version control ».
+
+## 6 nov. 2026 — Horloge MC146818 sur le PIA
+
+- Petite carte RTC (dépôt KiCad, `RTC/`) sur le connecteur du PIA (J4 de
+  la V3, J102 de la mono) : AD0-7 sur PA, AS sur CA2, DS sur PB0, R/W sur
+  PB1, /IRQ sur CA1, 18650 rechargée à part. Le bus à 1,8432 MHz est trop
+  rapide pour la puce (tcyc ≥ 953 ns) : elle est menée à la main.
+- `lib/horloge.asm` (pilote), `cmd/HORLOGE` (lire, régler), prouvés par
+  `make -C test horloge` avant la première carte. Le vérificateur
+  attrape : AD laissé en sorties pendant une lecture, R/W qui bouge DS
+  haut, une seule lecture, et l'absence d'attente de UIP (deux lectures
+  pendant la mise à jour rendaient les mêmes octets faux).
+- `main` mettait CRA à `$0C` : CA2 en entrée avec son IT. Avec la carte,
+  CA2 est l'AS flottant de la puce ; un front lançait une FIRQ que
+  `handler_FIRQ` (un RTI) n'acquitte pas. CRA = `$34` (CA2 sortie basse)
+  et PB = `$02` (R/W à 1) ; taille de l'EPROM inchangée.
+
+## 8-9 nov. 2026 — Horloge : premier essai sur la carte, écriture parasite au RESET
+
+- DS1287 de 1989 sur plaque d'essai, piloté par TELE : lectures bonnes,
+  toutes les écritures ignorées -> R/W mal soudé (un cycle à la main,
+  DS = 1 avec R/W = 0, rendait encore la donnée). Ressoudé : réglage,
+  secondes au rythme du PC, heure gardée 35 min machine éteinte ; son bit
+  VRT reste à 0 (pile faible une fois, jamais remis à 1).
+- MC146818 : l'oscillateur ne démarre pas (quartz de récupération ?).
+- Une relecture (un autre Claude) a vu que `Hor_Init` écrivait PIADRB
+  avant de choisir ORB : après un reset (CRB = 0) cela tombe dans DDRB et
+  fait une écriture parasite. Sans effet ici (le BIOS laisse CRB = `$04`),
+  mais le même défaut était dans `main` : port B en sorties avec ORB = 0,
+  DS et R/W (tirés à 1 tant que PB est en entrée) tombaient ensemble ->
+  `$FF` dans le dernier registre adressé, à chaque RESET (registre B :
+  horloge figée, « pas réglée »). Corrigé dans les deux (ORB = `$02`
+  d'abord) ; `verifie_horloge.py` part d'un PIA remis à zéro, lance le
+  vrai `main` et `Hor_Init`, et refuse que DS et R/W changent ensemble
+  (l'ancien code échoue). EPROM +5 octets. Tirer DS à la masse sur la
+  carte (R1) rendrait ce genre d'erreur inoffensif.
+
+## 9 nov. 2026 — Carte OSM39_mono : un logiciel pour deux cartes (fichier `CARTE`)
+
+- Inventaire de la netlist de la mono (exportée de KiCad) contre le
+  logiciel : mêmes adresses d'entrées-sorties (ACIA `$A000`, PIA `$A040`,
+  6840 `$A080`, pages `$A0C0`, 68B45 `$A100`, verrou `$A120`, SD
+  `$A140/$A148`, AY `$A150`, clavier `$A180`), même octet d'attribut, même
+  rangement de l'EEPROM de police que `font_osm39.bin`. Seule différence :
+  la VRAM est entrelacée (caractère en `$8000+2c`, couleur en `$8001+2c`)
+  et `$A120` D3 = GRAPH.
+- Fichier `CARTE` (`v4` / `mono`) lu par `update_includes.py` :
+  `CARTE_MONO`, `VRAM_PAS`, `VRAM_LIGNE`, bornes des boucles. BIOS,
+  `lib/vram.asm`, `lib/vision.asm` et OSM-VISION convertis par
+  `IFNE CARTE_MONO`. Une construction `v4` reste octet pour octet celle
+  d'avant (38 binaires comparés à une référence).
+- Trouvé en route : `Draw_Base_UI` remplissait `VRAM_END-VRAM_BASE` octets
+  depuis `VRAM_COL` ; sur la mono, cela aurait écrit en `$A000` (l'ACIA).
+  `verifie_bureau.py` l'a vu (panneau `?`), corrigé.
+- Vérificateurs : `test/carte.py` lit la disposition dans `hardware.inc` ;
+  `terminal` (nouvel essai plein écran : R12/R13, R14/R15), `fs`
+  (moulinet), `bureau`, `dossiers` passent sur les deux cartes, ainsi que
+  `demarrage`, `farcall`, `tele`, `clavier`, `aytest` et `asm-tout` (l'ASM
+  de la machine identique à lwasm aussi pour la mono). BIOS mono : 336
+  octets libres (v4 : 291).
+- Banc : `stage9_mono` (premier écran de la mono, sans BIOS) et
+  `verifie_banc_mono.py` ; les étapes 1-8 refusent de s'assembler en mono.
+- `tools/crt2/simule_crt2.py` ne reconnaissait la police que sous le nom
+  `KM28C64` : avec l'`AT28C64` de la mono, `simule_mono.py` concluait à
+  tort à un mode texte cassé. Corrigé. Il reste dans le modèle un décalage
+  d'une case entre dessin et couleur, identique sur la CRT2 (qui affiche
+  juste) : limite du modèle de temps, pas un défaut de la mono.
+- AGENTS.md disait « lwasm rejette les equ dans les conditions » : faux
+  pour `IFNE`/`IFEQ`/`IF x>1` sur un equ défini avant (mesuré, et utilisé
+  partout désormais) ; seule la forme du commentaire de `test/Makefile`
+  (`if SPL_TEST = 3`) n'a pas été réessayée.
+- Pas encore convertis (écrivent la VRAM en direct) : MIRE, MINITEL, PONT,
+  ENVAHIS, GLOUTON, DONJON39, BRIQUES, graphismes de BBC BASIC
+  (`PAS_MONO` dans `deploy_sd.sh`).
+
+## 12 nov. 2026 — Clouris : carte à transistors PNP, polarité inversée
+
+- La carte de la Clouris (KiCad `clouris/`) met un PNP (BC516 Darlington sur le schéma, S9015 monté : il marche
+  mieux, gain plus faible ;
+  émetteur au +5 V, 100 k vers le clou, collecteur tiré à la masse par
+  47 k) avant chaque porte du 74HC14 : doigt posé = bit à 0, repos = 1.
+  Le premier montage (clou -> 74HC14) donnait l'inverse : AGENTS.md disait
+  « touch = bit 1, at rest R14 = `$C0` ».
+- `lib/clouris.asm` et `cmd/cloutest.asm` : `CLOU_INVERSE` (1 par défaut,
+  0 pour l'ancien montage). En inversé, `COMA` suffit : une Clouris
+  absente ($FF) devient « aucun contact » sans test.
+- `verifie_bureau.py` écrit les essais en clous touchés et les convertit
+  (`r14()`) ; avec `CLOU_INVERSE = 0`, quatre essais échouent (vérifié).
+- Le manuel n'avait pas le brochage : section « Brancher la Clouris »
+  (J7 -> J602), et la ligne « Extension » ne met plus la Clouris sur le
+  connecteur 48 broches.
+- La base n'a pas de résistance vers l'émetteur ; elle flotte au repos.
+  Avec le Darlington, le secteur suffisait presque ; le S9015 est franc.
+  Le S9015 est E-B-C, le BC516 C-B-E : sur l'empreinte du BC516, le
+  monter retourné.
+
+## 12 nov. 2026 — ZMACHINE : interpréteur Z-machine (v4, v5, v7, v8)
+
+- Modèle de référence d'abord (`tools/zmachine/zmachine.py`, commité le
+  12 nov.) : czech identique à `czech.out5`, praxix complet sauf
+  `multiundo`, jeux comparés à dfrotz (écarts expliqués : ligne d'état
+  absente de dfrotz, hasard, menus d'aide selon l'interpréteur).
+- Changements du modèle pour le 6309 : pas d'annulation (`@save_undo`
+  rend -1, bit 4 de Flags 2 à 0 : pas de place pour une copie de la
+  mémoire dynamique) ; sauvegardes Quetzal (UMem à l'écriture, UMem ou
+  CMem à la lecture ; frotz relit les nôtres, nous relisons les siennes,
+  vérifié dans les deux sens) ; graine du hasard = `vsync_tick` ; le
+  script est un flux de touches (l'ancien jetait le reste d'une ligne
+  après `@read_char` : dreamlands divergeait) ; `Flags 2` : le modèle
+  effaçait les bits images/souris/son dans l'octet `$10` au lieu de `$11` ;
+  alphabet personnalisé lu en ZSCII.
+- 6309 (`zmachine/`) : cache de 32 blocs de 256 octets en page 1 (3
+  épinglés pour les globales), jeu en pages 2-3 (`FarRead`/`FarWrite`),
+  au-delà de 64 Ko lu sur la carte ; copie d'écran recopiée par l'IRQ.
+  Pièges rencontrés : `FCC "/\\"` donne deux barres (lwasm n'échappe
+  pas) ; `PULS B,X` après un appel écrasait l'octet bas de l'opérande ;
+  `NOps` non remis à 0 pour `EXT` (`@save` croyait avoir une table).
+- Mesure dans l'émulateur : 130-190 instructions 6309 par instruction Z.
+  Estimation (pas mesurée sur la carte) : aventure ~1,5 s par tour,
+  Zork_LXIX ~8 s.
+
+## 13 nov. 2026 — ZMACHINE : version 3 (Zork I)
+
+- Zork I-III publiés sous MIT (dépôts `historicalsource`) ; `zork1.z3`
+  (release 119) est dans `COMPILED/`. Les `.thl` trouvés d'abord étaient
+  des fichiers d'indices pour « The Hint Library » (Windows 95).
+- Modèle : v3 ajoutée ; il traitait aussi mal la v4 (locales initiales
+  de l'en-tête de routine, saisie au format v1-4, `not` en 1OP 15, `pop`
+  en 0OP 9, save/restore en 0OP). Comparé à dfrotz sur Zork I : identique ;
+  sauvegardes croisées avec frotz dans les deux sens.
+- Fenêtre 1 : le modèle et le binaire la coupaient à sa hauteur ; Z-Snake
+  dessine sans `@split_window` (seul un « carré blanc » paraissait sur la
+  carte, le 12 nov.) : coupée au bord de l'écran, comme frotz. Le banc
+  sait maintenant laisser s'écouler un délai (`None` dans le script).
+- 6309 : course avec l'IRQ de recopie : `Rang_Vide` marquait la rangée
+  sale avant de la remplir (la ligne d'état restait fausse en VRAM) ;
+  marquée après. Place : tables de caractères sorties du code (cache à
+  30 créneaux).
+
+## 13 nov. 2026 — Seconde sauvegarde : dépôts privés sur GitHub
+
+- La clé USB était le seul dépôt distant (logiciel et KiCad sur la même
+  clé) ; le miroir public exclut BBC BASIC, basic69 et les polices.
+- `osm39-prive` et `osm09-kicad-prive` (privés) ; `origin` pousse vers la
+  clé puis GitHub. Premier envoi refusé (« email privacy restrictions ») :
+  option du compte décochée le temps de l'envoi, et `user.email` local mis
+  à l'adresse no-reply pour la suite.
+
+## 13 nov. 2026 — Carte mono : tous les programmes convertis
+
+- `PAS_MONO` est vide : PONT/PONT2, ENVAHIS, GLOUTON, BRIQUES
+  (`lib/rowaddr.inc`), MINITEL, DONJON39, BBC BASIC convertis ; MIRE n'avait
+  rien à faire (tout par `vis_*`, la sauvegarde d'écran fait 2 octets par
+  case dans les deux formats).
+- Les 12 binaires v4 restent identiques à l'octet (sommes MD5 avant et
+  après). Un piège : `LEAX VUE_L,X` (VUE_L défini plus bas) était en forme
+  longue ; la constante `RANG_O`, connue d'avance, donnait la forme courte.
+- `verifie_donjon39.py`, `verifie_minitel.py`, `verifie_bbcbasic.py` lisaient
+  la VRAM à des adresses v4 écrites en dur : ils passent par `carte.py`.
+- Pas encore fait (proposé dans la revue du projet) : une bibliothèque
+  commune « copie d'écran + rangées sales + IRQ » ; chaque programme garde
+  son propre mécanisme.
+
+## 13 nov. 2026 — Le BIOS en deux parties : EPROM + BIOS2 sur la carte
+
+- L'EPROM était pleine (291 octets libres). L'écriture de fichiers, la
+  console du Terminal et le séquenceur de son passent dans BIOS2
+  (`bios/ext.asm`, section `.ext`), chargé en `$CE00` à chaque démarrage :
+  1 875 octets libres dans l'EPROM, 1 944 octets de BIOS2 (place : 1 128).
+- Ma première proposition plaçait BIOS2 en `$D340-$D9FF` en annonçant
+  2,75 Ko : c'était 1,7 Ko. Le tas système (1 792 octets, le SHELL n'en
+  prend que 19) a été réduit à 256 octets pour libérer `$CE00`.
+- Pile mesurée dans 13 vérificateurs avant de fixer `EXT_FIN` : jamais
+  sous `$DDEB` (sonde sur S dans `verifie_fs.Machine.step`).
+- Les vérificateurs utilisaient `$CF00`, `$D000-$D3xx` comme brouillon en
+  RAM système : déplacés en `$DB00-$DDFF` (et en page 0 pour les 2 Ko de
+  `verifie_dossiers`). Les 17 copies de la table des services passent par
+  `installe_bios()`. Premier essai : `Machine` installait BIOS2 en
+  exécutant du code avant que les bancs dérivés soient prêts ; il recopie
+  désormais les tables (`Ext_Def`, `Ext_Table`).
+- Pas encore essayé sur la carte : il faut graver l'EPROM et poser
+  `/BIN/BIOS2` ensemble.
+
+
+## 13 nov. 2026 — BIOS2 jamais chargé sur la carte : Y détruit par le pilote SD
+
+- Sur la carte, le premier BIOS en deux parties ne chargeait jamais BIOS2
+  (`ext_ok` = 0, vecteurs par défaut, `$CE00` vierge) : plus de Terminal en
+  fenêtre, plus de son. `Ext_Charge` gardait l'adresse de copie dans Y, et
+  `SD_ReadBlock` se sert de Y pour attendre le jeton (`LDY #20000`) :
+  `Fs_ReadBlk` ne sauve que B. La copie partait vers `$4Exx`, la somme
+  échouait. Corrigé : `pshs y` / `puls y` autour de `Fs_ReadBlk`. Prouvé
+  sur la carte par TELE (le nouvel `Ext_Charge` lancé depuis la RAM), puis
+  EPROM reflashée : `M CC50` = 01.
+- Les vérificateurs ne pouvaient pas le voir : `Machine.sd()` servait
+  `SD_ReadBlock` en Python sans toucher aux registres, et `demarrage`
+  partait d'une RAM où `installe_bios` avait déjà posé BIOS2. Le modèle
+  rend maintenant les registres du vrai pilote (X au bout de `SD_BUFFER`,
+  W = 0, Y = compteur d'attente entamé), et un démarrage à froid remplit
+  la zone BIOS2 de `$FF`. L'ancien `ext.asm` y échoue avec les valeurs
+  photographiées sur la carte (`F76F`, `ECD1`) ; les 18 vérificateurs
+  passent avec le nouveau.
+- Effet de bord de l'essai à chaud : OSM-VISION écrit `SND_PTR` lui-même ;
+  sans BIOS2, le pointeur d'un ancien bip était resté, et le séquenceur
+  installé à chaud l'a relu dans la page de TELE (ronflement A et C,
+  période `$FFF`). Impossible au démarrage normal (BSS remis à zéro).
+
+## 13 nov. 2026 — Cartographie mémoire refaite
+
+`docs/memory-map.md` décrivait encore, à côté de BIOS2 : un démarrage sur
+le moniteur (`BRA Monitor`, `BOOT` pour lancer le SHELL), des champs page
+et adresse OSMFS « écrits par personne » (FS_SetLoad, egofs_deploy et
+OSM-VISION les écrivent), ASM limité à 8 Ko de source (il lit secteur par
+secteur), VI (retiré), un octet de couleur avec clignotement et inversion
+(V3), `fload.o` dans l'EPROM, un BSS finissant en `$CC33` et des modules
+EPROM mesurés le 10 oct. Réécrit d'après `bios/osm39.map` : BSS complète
+jusqu'à `ExtV`, BIOS2 module par module, EPROM, cartes `v4` et `mono`,
+AY et horloge dans les périphériques, chaîne de démarrage actuelle.
+Le manuel parle maintenant de BIOS2 (mémoires mortes, démarrage,
+dépannage avec `M CC50`, annexe A) ; `bios/README.txt` ne donne plus de
+commandes d'avant lwtools.
+
+## 13 nov. 2026 — Contrat des services mesuré, `make -C test tout`
+
+- Les en-têtes des services ne disaient presque rien des registres
+  détruits. `test/verifie_contrat.py` les mesure tous (registres témoins,
+  appel par la table) : W perdu par tous les services de fichiers sauf
+  `FS_ReadSector`, U par `FS_DeleteFile`/`FS_GetAttributes`/
+  `FS_SetAttributes`, `PrintHexChar` ne rend pas A, etc. Le contrat est
+  `test/contrat_services.py`, `docs/services.md` en est tiré.
+- `make -C test tout` remplace la boucle à la main sur les cibles :
+  21 vérificateurs en ~6 min sur 4 cœurs.
+
+## 13 nov. 2026 — Les accents tapés s'affichent (Latin-1 traduit en CP437)
+
+- AGENTS.md disait « accented letters typed in EDIT are not drawn as
+  accents (known, not fixed) ». Le clavier reste en Latin-1 : en CP437,
+  `$80-$8B` sont é à ç è ê, les codes des touches spéciales. `Put_Text`
+  (`lib/vision.asm`, donc `vis_Text` et `vis_Input`) traduit `$A0-$FF` en
+  dessinant (`lib/latin_cp437.inc`, de `video/latin_cp437.py`) ;
+  `vis_Input` refusait tout au-delà de `$7E`, il accepte maintenant les
+  lettres Latin-1 sauf avec `INP_MAJ` (noms de fichiers). La console du
+  BIOS ne traduit pas (il faudrait reflasher). Prouvé par `make -C test
+  bureau` (Exécuter, Renommer).

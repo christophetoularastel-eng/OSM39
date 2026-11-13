@@ -5,6 +5,8 @@
 # Usage   : ./deploy_sd.sh [--no-build]
 # Sortie  : dist/EPROM/osm39.bin   -> BIOS à graver en EPROM
 #           dist/EPROM/font_osm39.bin -> police (EPROM des caractères)
+#           (BIN/BIOS2 sur la carte : la seconde partie du BIOS, construite
+#            avec osm39.bin ; l'une ne va pas sans l'autre)
 #           dist/SD/<NOM>          -> fichiers à écrire sur la carte SD
 #           dist/DEPLOY.md         -> récapitulatif : pour chaque fichier,
 #                                     page, adresse et attributs à poser
@@ -17,6 +19,11 @@
 set -eu
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+# La carte visée (fichier CARTE : v4 ou mono) : tout est construit pour elle.
+CARTE="$(tr -d '[:space:]' < "$ROOT/CARTE")"
+# Carte mono : programmes dont l'écran n'est pas encore converti à la VRAM
+# entrelacée (vide depuis le 13 nov. 2026 : tous le sont).
+PAS_MONO=""
 DIST="$ROOT/dist"
 EPROM="$DIST/EPROM"
 SDDIR="$DIST/SD"
@@ -28,6 +35,7 @@ if [ "${1:-}" != "--no-build" ]; then
     make -C "$ROOT"
     make -C "$ROOT/games"
     make -C "$ROOT/apps"
+    make -C "$ROOT/zmachine"
 else
     echo "== Construction ignorée (--no-build) =="
 fi
@@ -81,6 +89,8 @@ cmd/TELE              BIN/TELE   1  cmd/TELE.map             rwx
 cmd/AYTEST            BIN/AYTEST 1  cmd/AYTEST.map           rwx
 cmd/AYJOUE            BIN/AYJOUE 1  cmd/AYJOUE.map           rwx
 cmd/CLOUTEST          BIN/CLOUTEST 1  cmd/CLOUTEST.map       rwx
+cmd/HORLOGE           BIN/HORLOGE 1  cmd/HORLOGE.map         rwx
+bios/BIOS2            BIN/BIOS2  1  -                        rw
 asm/ASM               BIN/ASM    1  asm/ASM.map              rwx
 games/BRIQUES          GAMES/BRIQUES 1  games/BRIQUES.map         rwxa
 apps/MIRE             APPS/MIRE   1  apps/MIRE.map            rwxa
@@ -97,6 +107,7 @@ apps/SON              APPS/SON    1  apps/SON.map             rwxa
 apps/PAROLE           APPS/PAROLE 1  apps/PAROLE.map          rwxa
 apps/PONT             APPS/PONT   1  apps/PONT.map            rwxa
 apps/MINITEL          APPS/MINITEL 1  apps/MINITEL.map         rwxa
+zmachine/ZMACHINE     BIN/ZMACHINE 1 zmachine/ZMACHINE.map    rwxa
 apps/PONT2            APPS/PONT2  2  apps/PONT2.map           rw
 apps/PONT3            APPS/PONT3  3  apps/PONT3.map           rw
 asm/test/hello.asm    SRC/HELLO.ASM 1  -                        rw
@@ -110,6 +121,7 @@ lib/vis.inc           LIB/VIS.INC    1  -                    rw
 lib/snd.inc           LIB/SND.INC    1  -                    rw
 lib/str.asm           LIB/STR.ASM    1  -                    rw
 lib/vision.asm        LIB/VISION.ASM 1  -                    rw
+lib/latin_cp437.inc   LIB/LATIN_CP437.INC 1  -               rw
 lib/vram.asm          LIB/VRAM.ASM   1  -                    rw
 lib/snd.asm           LIB/SND.ASM    1  -                    rw
 "
@@ -176,12 +188,38 @@ echo "$MANIFEST" | while read -r src nom page map attr; do
     echo "$nom $page $adr $(attr_hex "$attr" | tr -d '$')" >> "$DIST/manifest.txt"
 done
 
+# Fictions interactives pour ZMACHINE : pas dans le dépôt (droits des
+# auteurs) ; prises dans ~/Documents/zmachine (ou $ZMACHINE_JEUX) si le
+# dossier existe (et ses sous-dossiers), vers JEUX/ (noms en majuscules,
+# 15 caractères au plus).
+JEUX_Z="${ZMACHINE_JEUX:-$HOME/Documents/zmachine}"
+if [ -d "$JEUX_Z" ]; then
+    n=0
+    for f in $(find "$JEUX_Z" -maxdepth 2 -type f -iname '*.z[358]' | sort); do
+        [ -f "$f" ] || continue
+        nom="$(basename "$f" | tr '[:lower:]' '[:upper:]')"
+        if [ ${#nom} -gt 15 ]; then echo "   (jeu $nom ignoré : plus de 15 caractères)"; continue; fi
+        mkdir -p "$SDDIR/JEUX"
+        cp "$f" "$SDDIR/JEUX/$nom"
+        echo "JEUX/$nom 1 0000 06" >> "$DIST/manifest.txt"
+        n=$((n + 1))
+    done
+    [ $n -gt 0 ] && echo "JEUX" >> "$DIST/dossiers.txt"
+    echo "== $n fiction(s) interactive(s) de $JEUX_Z dans JEUX/"
+fi
+
 # Nom chargé par BOOT : lu dans le BIOS, pas recopié ici.
 KERNEL=$(grep -E '^KERNEL_FILENAME:' "$ROOT/bios/main.asm" | sed -E 's/.*FCC +"([^ "]*) *".*/\1/')
 
 # --- 6. Récapitulatif de déploiement ---
 {
     echo "# Déploiement OSM39"
+    echo
+    echo "**Carte : $CARTE** (fichier \`CARTE\` ; BIOS et programmes construits pour elle)."
+    if [ "$CARTE" = mono ] && [ -n "$PAS_MONO" ]; then
+        echo
+        echo "Pas encore convertis à la VRAM entrelacée (écran brouillé) : $PAS_MONO"
+    fi
     echo
     echo "Date de génération : $(date)"
     echo
@@ -252,6 +290,9 @@ KERNEL=$(grep -E '^KERNEL_FILENAME:' "$ROOT/bios/main.asm" | sed -E 's/.*FCC +"(
 } > "$DIST/DEPLOY.md"
 
 echo
-echo "== Déploiement prêt dans $DIST =="
+echo "== Déploiement prêt dans $DIST (carte $CARTE) =="
+if [ "$CARTE" = mono ] && [ -n "$PAS_MONO" ]; then
+    echo "  ATTENTION : pas encore convertis pour la mono : $PAS_MONO"
+fi
 echo "  BIOS EPROM : $EPROM/osm39.bin"
 echo "  Carte SD   : $SDDIR/ (voir dist/DEPLOY.md)"

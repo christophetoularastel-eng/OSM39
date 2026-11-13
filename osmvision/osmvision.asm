@@ -53,9 +53,9 @@ MAX_LINES       equ 1024        ; lignes indexées en mode texte
 ASCII_SPACE     equ $20         ; espace en page 0 (le code $00 y affiche un (c))
 ARROW_UP        equ $42         ; flèche haut  (page 1 du générateur : attribut bit 7 = 1)
 ARROW_DN        equ $43         ; flèche bas   (idem)
-UPMARK_POS      equ VRAM_BASE+7*80+47     ; première ligne de la liste, colonne de droite
-DNMARK_POS      equ VRAM_BASE+23*80+47    ; bas de la fenêtre, colonne de droite
-STATUS_POS      equ VRAM_BASE+23*80+12    ; "sel/total" en bas à gauche
+UPMARK_POS      equ VRAM_BASE+(7*80+47)*VRAM_PAS     ; première ligne de la liste, colonne de droite
+DNMARK_POS      equ VRAM_BASE+(23*80+47)*VRAM_PAS    ; bas de la fenêtre, colonne de droite
+STATUS_POS      equ VRAM_BASE+(23*80+12)*VRAM_PAS    ; "sel/total" en bas à gauche
 
     section .code
 
@@ -582,19 +582,31 @@ DN_RowsOk:
 DN_Loop:
     LDB     DrawRow             ; Y = VRAM_BASE + (ligne+7)*80 + 12
     ADDB    #7
-    LDA     #80
+    LDA     #VRAM_LIGNE
     MUL
-    ADDD    #VRAM_BASE+12
+    ADDD    #VRAM_BASE+12*VRAM_PAS
     TFR     D,Y
     LDD     #(ICO_FILE_L*256)+ICO_FILE_R    ; l'icône suit la ligne (dossier ?)
     TST     15,U
     BEQ     DN_Ico
     LDD     #(ICO_DIR_L*256)+ICO_DIR_R
 DN_Ico:
+    IFNE    CARTE_MONO
+    STA     ,Y                  ; mono : les deux cases de l'icône
+    STB     VRAM_PAS,Y
+    LEAY    3*VRAM_PAS,Y
+    LDB     #15                 ; copie les 15 caractères du nom
+DN_Car:
+    LDA     ,U+
+    STA     ,Y++
+    DECB
+    BNE     DN_Car
+    ELSE
     STD     ,Y
     LEAY    3,Y
     LDW     #15
     TFM     U+,Y+               ; copie 15 octets du nom
+    ENDC
     LEAU    1,U                 ; les drapeaux
     INC     DrawRow
     LDA     DrawRow
@@ -608,17 +620,25 @@ Color_Row:
     PSHS    B
     TFR     A,B
     ADDB    #7
-    LDA     #80
+    LDA     #VRAM_LIGNE
     MUL
-    ADDD    #VRAM_COL+15
+    ADDD    #VRAM_COL+15*VRAM_PAS
     TFR     D,Y
     PULS    A
+    IFNE    CARTE_MONO
+    LDB     #15                         ; mono : une couleur sur deux octets
+CR_Case:
+    STA     ,Y++
+    DECB
+    BNE     CR_Case
+    ELSE
     LDW     #15
     STA     FillByte
     LDD     #FillByte
     TFM     D,Y+
     LDA     FillByte                    ; sortie identique a l'ancienne boucle : A = octet, B = 0
     CLRB
+    ENDC
     RTS
 
 Quit_Vision:
@@ -1572,6 +1592,16 @@ AO_Search:
     LDA     1,X
     CMPA    1,Y
     BNE     AO_Next
+    LDA     2,Y                 ; extension de deux lettres (« Z5 ») : finie
+    CMPA    #$20                ; par une espace, ou par la fin du champ
+    BNE     AO_Trois            ; (le point était le 13e : B = 3)
+    CMPB    #3
+    BEQ     AO_Trouve
+    LDA     2,X
+    CMPA    #$20
+    BEQ     AO_Trouve
+    BRA     AO_Next
+AO_Trois:
     LDA     2,X
     CMPA    2,Y
     BNE     AO_Next
@@ -1635,11 +1665,21 @@ ExtTable:
     FCC     "MUS"
     FDB     Prog_AyJoue
     FCB     0
+    FCC     "Z3 "                       ; fictions interactives (Z-machine)
+    FDB     Prog_ZMachine
+    FCB     0
+    FCC     "Z5 "
+    FDB     Prog_ZMachine
+    FCB     0
+    FCC     "Z8 "
+    FDB     Prog_ZMachine
+    FCB     0
     ; .BAS : pas d'association pour l'instant (BASIC se pilote depuis son propre prompt)
     FCB     0                   ; fin de table
 Prog_Edit:      FCN "EDIT"          ; éditeur fenêtré (apps/edit.asm)
 Prog_Calc:      FCN "CALC"          ; tableur (apps/calc.asm) : la feuille en argument
 Prog_AyJoue:    FCN "AYJOUE"        ; morceau pour l'AY (cmd/ayjoue.asm, tools/ay/ay.py)
+Prog_ZMachine:  FCN "ZMACHINE"      ; interpréteur Z-machine (zmachine/, le jeu en argument)
 
 ; ------------------------------------------------------------ Editer
 Act_Edit:
@@ -2594,9 +2634,18 @@ VO_Row:
     ADDB    #VIEW_TY
     JSR     Calc_Addr
     LEAY    VRAM_COL_OFS,Y              ; plan couleurs
+    IFNE    CARTE_MONO
+    LDA     ColorByte                   ; mono : une couleur sur deux octets
+    LDB     #VIEW_COLS
+VO_Case:
+    STA     ,Y++
+    DECB
+    BNE     VO_Case
+    ELSE
     LDX     #ColorByte
     LDW     #VIEW_COLS
     TFM     X,Y+                        ; remplit avec l'octet pointé par X
+    ENDC
     INC     ViewI
     LDA     ViewI
     CMPA    #VIEW_ROWS
@@ -2805,8 +2854,17 @@ VB_Row:
     ADDB    #VIEW_TY
     JSR     Calc_Addr
     LDX     VBPtr
+    IFNE    CARTE_MONO
+    LDB     #VIEW_COLS                  ; mono : un caractère sur deux octets
+VB_Case:
+    LDA     ,X+
+    STA     ,Y++
+    DECB
+    BNE     VB_Case
+    ELSE
     LDW     #VIEW_COLS
     TFM     X+,Y+
+    ENDC
     STX     VBPtr
     INC     ViewI
     LDA     ViewI
@@ -3071,11 +3129,15 @@ SC_Done:
     PULS    X,U
     DEC     ScrCnt
     BEQ     SC_End
+    IFNE    CARTE_MONO
+    BRA     SC_Next                     ; mono : les 2000 cases font 4000 octets d'un bloc
+    ELSE
     LDA     ScrCnt
     CMPA    #4
     BNE     SC_Next
     LDX     #VRAM_COL                   ; 2e plan : les couleurs
     BRA     SC_Next
+    ENDC
 SC_End:
     RTS
 
@@ -3200,7 +3262,7 @@ AE_Rang:
 AE_Case:
     STA     ,Y
     STB     VRAM_COL_OFS,Y
-    LEAY    1,Y
+    LEAY    VRAM_PAS,Y
     DECE
     BNE     AE_Case
     PULS    B
@@ -3452,9 +3514,9 @@ DFL_RowsOk:
 DFL_Loop:
     LDB     DrawRow             ; Y = VRAM_BASE + (ligne+7)*80 + 12
     ADDB    #7
-    LDA     #80
+    LDA     #VRAM_LIGNE
     MUL
-    ADDD    #VRAM_BASE+12
+    ADDD    #VRAM_BASE+12*VRAM_PAS
     TFR     D,Y
 
     LDD     #(ICO_FILE_L*256)+ICO_FILE_R
@@ -3462,19 +3524,31 @@ DFL_Loop:
     BEQ     DFL_Ico
     LDD     #(ICO_DIR_L*256)+ICO_DIR_R
 DFL_Ico:
+    IFNE    CARTE_MONO
+    STA     ,Y                  ; mono : les deux cases de l'icône
+    STB     VRAM_PAS,Y
+    LEAY    3*VRAM_PAS,Y
+    LDB     #15                 ; les 15 caractères du nom
+DFL_Car:
+    LDA     ,U+
+    STA     ,Y++
+    DECB
+    BNE     DFL_Car
+    ELSE
     STD     ,Y
 
     LEAY    3,Y
     LDW     #15
     TFM     U+,Y+
+    ENDC
     LEAU    1,U                 ; les drapeaux
 
-    LEAY    VRAM_COL_OFS-18,Y   ; début de la ligne, plan couleurs
+    LEAY    VRAM_COL_OFS-18*VRAM_PAS,Y   ; début de la ligne, plan couleurs
     LDA     #COLOR_ICON
     STA     ,Y
-    STA     1,Y
+    STA     VRAM_PAS,Y
     LDA     #COLOR_WIN
-    STA     2,Y
+    STA     2*VRAM_PAS,Y
 
     LDA     DrawRow
     CMPA    DrawSel
@@ -3484,11 +3558,19 @@ DFL_Ico:
 DFL_NotSel:
     LDA     #COLOR_TEXT
 DFL_SetColor:
-    LEAY    3,Y
+    LEAY    3*VRAM_PAS,Y
+    IFNE    CARTE_MONO
+    LDB     #15                 ; mono : une couleur sur deux octets
+DFL_Coul:
+    STA     ,Y++
+    DECB
+    BNE     DFL_Coul
+    ELSE
     LDW     #15
     STA     FillByte
     LDD     #FillByte
     TFM     D,Y+
+    ENDC
 
     INC     DrawRow
     LDA     DrawRow
@@ -3520,7 +3602,11 @@ DS_NoUp:
 DS_NoDn:
     STA     DNMARK_POS
 
+    IFNE    CARTE_MONO
+    LDY     #TmpStr             ; mono : le texte d'abord en mémoire
+    ELSE
     LDY     #STATUS_POS
+    ENDC
     LDA     Selection
     INCA
     BSR     Put3
@@ -3552,6 +3638,23 @@ DS_Snd:
     ; Le texte du statut est en page 0 du générateur (ASCII) : attribut bit 7 = 0.
     ; Les cases de la fenêtre sont en $8F (page 1), il faut donc les recolorer.
     ; (Les flèches $42/$43 gardent COLOR_WIN, bit 7 = 1 -> page 1.)
+    IFNE    CARTE_MONO
+    LDX     #TmpStr             ; mono : les 13 cases, caractère et couleur
+    LDY     #STATUS_POS
+    LDB     #COLOR_TEXT
+    LDE     #13
+DS_Case:
+    LDA     ,X+
+    STD     ,Y++
+    DECE
+    BNE     DS_Case
+    LDA     #COLOR_TEXT|$80             ; l'icône du son est en page 1
+    STA     STATUS_POS+VRAM_COL_OFS+9*VRAM_PAS
+    STA     STATUS_POS+VRAM_COL_OFS+10*VRAM_PAS
+    LDA     #COLOR_TEXT                 ; sortie de la v4 : A = attribut, B = 0
+    CLRB
+    RTS
+    ELSE
     LDX     #STATUS_POS+VRAM_COL_OFS
     LDA     #COLOR_TEXT
     LDW     #13
@@ -3564,6 +3667,7 @@ DS_Snd:
     LDA     FillByte                    ; sortie identique a l'ancienne boucle : A = octet, B = 0
     CLRB
     RTS
+    ENDC
 
 ; A (0..255) -> 3 caractères à ,Y+ (zéros de tête remplacés par des espaces)
 Put3:
@@ -3609,6 +3713,13 @@ Draw_Base_UI:
     CLRA                        ; page vidéo 0
     STA     VRAM_CTRL
     LDX     #VRAM_BASE
+    IFNE    CARTE_MONO
+    LDD     #(UI_DESKTOP_PAT*256)+COLOR_DESK    ; mono : motif et couleur, case par case
+DBU_Case:
+    STD     ,X++
+    CMPX    #VRAM_END
+    BNE     DBU_Case
+    ELSE
     LDA     #UI_DESKTOP_PAT
     LDW     #VRAM_END-VRAM_BASE
     STA     FillByte
@@ -3621,6 +3732,7 @@ Draw_Base_UI:
     STA     FillByte
     LDD     #FillByte
     TFM     D,X+
+    ENDC
 
     LDA     #1                  ; pas d'attente VSYNC dans cette fenêtre-là
     STA     NoYield

@@ -1650,11 +1650,11 @@ Diff_Row:
     LDD     RowOff
     ADDD    #DispA
     STD     DRowA
-    LDA     #80                 ; adresse VRAM du début de la rangée
+    LDA     #VRAM_LIGNE         ; adresse VRAM du début de la rangée
     LDB     CurFR
     ADDB    #F_Y
     MUL
-    ADDD    #VRAM_BASE+F_X
+    ADDD    #VRAM_BASE+F_X*VRAM_PAS
     STD     VRow
     CLRB                        ; colonne
 DF_Loop:
@@ -1697,6 +1697,9 @@ DF_Chg:
     TFR     D,X
     LDB     ,S
     CLRA
+    IFNE    CARTE_MONO
+    LSLD                        ; mono : 2 octets par case
+    ENDC
     ADDD    VRow
     STD     ,X
     INC     QCount

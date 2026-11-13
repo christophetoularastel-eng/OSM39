@@ -32,11 +32,13 @@ sys.path.insert(0, os.path.join(RACINE, 'asm'))
 sys.path.insert(0, os.path.join(RACINE, 'tools', 'egofs'))
 import emu6809                  # noqa: E402
 import egofs_core               # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import carte                    # noqa: E402  (disposition de la VRAM : v4 ou mono)
 
 BIN = os.path.join(RACINE, 'bios', 'osm39.bin')
 MAP = os.path.join(RACINE, 'bios', 'osm39.map')
 RETOUR = 0xDFF0 - 0x10          # adresse de retour sentinelle (RAM commune)
-NOM = 0xCF00                    # nom de fichier (15 octets) en RAM commune
+NOM = 0xDB00                    # nom de fichier (15 octets) en RAM commune (hors de BIOS2)
 PAGER = 0xA0C0
 AY_ADR = 0xA150                 # AY-3-8910 : choix du registre, et relecture
 
@@ -65,6 +67,7 @@ class Machine(emu6809.CPU6809):
         self.ay_reg = 0                 # registre choisi de l'AY (AY_ADR)
         self.port_a = 0xFF              # R14 : port A (la Clouris), rien de branché
         self.mem[0xE000:0x10000] = open(BIN, 'rb').read()
+        installe_bios(self)             # comme au démarrage : table, vecteurs, BIOS2
 
     def lit_port_a(self):
         return self.port_a
@@ -553,6 +556,7 @@ class Machine(emu6809.CPU6809):
             if lecture:
                 self.mem[buf:buf + 512] = bytes([0xA5]) * 512
             self.a = code
+            self.detruit(lecture)
             self.pc = (self.rd8(self.s) << 8) | self.rd8(self.s + 1)
             self.s += 2
             return True
@@ -564,9 +568,48 @@ class Machine(emu6809.CPU6809):
             else:
                 f.write(bytes(self.mem[buf:buf + 512]))
         self.a = 0                              # succès
+        self.detruit(lecture)
         self.pc = (self.rd8(self.s) << 8) | self.rd8(self.s + 1)
         self.s += 2
         return True
+
+    def detruit(self, lecture):
+        """Les registres que le vrai pilote (bios/SD.asm) laisse : X au bout
+        de SD_BUFFER, W = 0, B usé, Y = le compteur d'attente (jeton : 20000
+        moins les tours ; fin d'écriture : 40000 moins les tours). La carte
+        ne répond jamais au premier tour : Y n'est pas sa valeur de départ."""
+        self.x = (self.s_['SD_BUFFER'] + 512) & 0xFFFF
+        self.w = 0
+        self.b = 0x09
+        self.y = (20000 if lecture else 40000) - 37
+
+
+BIOS2 = os.path.join(RACINE, 'bios', 'BIOS2')
+
+
+def installe_bios(m, ext=True):
+    """Ce que fait le BIOS au démarrage, sans exécuter de code (les bancs
+    dérivés ne sont pas encore prêts quand Machine s'initialise) : la table
+    des services recopiée de l'EPROM ; les vecteurs ExtV par défaut (la
+    table Ext_Def de l'EPROM, comme Ext_Defauts) ; puis la seconde partie
+    (bios/BIOS2) posée au début de la section .ext et ses vecteurs (la
+    table Ext_Table de BIOS2, comme Ext_Entree)."""
+    s = m.s_
+    rom, fin = s['table_function_rom'], s['table_function_rom_end']
+    for i in range(fin - rom):
+        m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
+    n = 2 * 14
+    m.mem[s['ExtV']:s['ExtV'] + n] = m.mem[s['Ext_Def']:s['Ext_Def'] + n]
+    m.mem[s['ext_ok']] = 0
+    if not ext or not os.path.exists(BIOS2):
+        return
+    corps = open(BIOS2, 'rb').read()
+    if not corps:
+        return
+    base = min(int(x, 16) for x in re.findall(r'Section: \.ext \(\S+\) load at ([0-9A-F]+)', open(MAP).read()))
+    m.mem[base:base + len(corps)] = corps
+    m.mem[s['ExtV']:s['ExtV'] + n] = m.mem[s['Ext_Table']:s['Ext_Table'] + n]
+    m.mem[s['ext_ok']] = 1
 
 
 def appelle(m, adr, max_pas=50_000_000):
@@ -648,7 +691,7 @@ def main():
     m = Machine(image, s)
     alea = random.Random(1985)
     m.wr16(s['SCREEN_START_OFFSET'], 0xFFFF)   # comme video_clean : écran en haut
-    COIN = 0x8000 + 78                          # cellules du moulinet (rangée 0)
+    COIN, COIN2 = carte.adr(78), carte.adr(79)  # cellules du moulinet (rangée 0)
     m.mem[0x8000:0xA000] = bytes(alea.randrange(256) for _ in range(0x2000))
     ecran = bytes(m.mem[0x8000:0xA000])
 
@@ -658,8 +701,10 @@ def main():
     attendu = lineaire(m, 2, 0, 40000)
     ok = save(m, 'GROS40K', 2, 0x0000, 40000)
     verifie(ok, 'FS_SaveFile de 40 000 octets, pages 2 puis 3')
-    verifie((COIN, ord('E')) in m.vram_ecrits and bytes(m.mem[0x8000:0xA000]) == ecran,
-            'moulinet : « E » pendant l\'enregistrement, écran intact après')
+    verifie((COIN, ord('E')) in m.vram_ecrits and (carte.adr_coul(78), 0x1F) in m.vram_ecrits
+            and (carte.adr_coul(79), 0x1F) in m.vram_ecrits and bytes(m.mem[0x8000:0xA000]) == ecran,
+            'moulinet : « E » blanc sur bleu pendant l\'enregistrement, écran intact après (carte %s)'
+            % carte.NOM)
     verifie(m.page == 0, 'page de l\'appelant rétablie après l\'enregistrement')
     f = {x['name']: x for x in core.list_files()}
     chemin = os.path.join(tmp, 'relu')
@@ -685,7 +730,7 @@ def main():
     ok, taille = load(m, 'GROS40K', 2, 0x0000)
     verifie(ok and taille == 40000, 'FS_LoadFile de 40 000 octets (U = taille)')
     verifie(lineaire(m, 2, 0, 40000) == attendu, 'relu octet pour octet, à cheval sur les pages 2 et 3')
-    car = [v for a, v in m.vram_ecrits if a == COIN + 1]
+    car = [v for a, v in m.vram_ecrits if a == COIN2]
     verifie(set(car) >= set(b'|/-\\') and (COIN, ord('L')) in m.vram_ecrits,
             'moulinet : « L » et | / - \\ en haut à droite pendant le chargement')
     verifie(bytes(m.mem[0x8000:0xA000]) == ecran, 'moulinet : écran intact après le chargement')
@@ -719,9 +764,9 @@ def main():
             and m.page == 1, 'petit FS_LoadFile en page 3, appelant en page 1 rétabli')
 
     # 7. mémoire commune (Y >= $8000) : copie directe
-    m.mem[0xD000:0xD000 + 300] = bytes(300)
-    ok, taille = load(m, 'PETIT2', 0, 0xD000)
-    verifie(ok and bytes(m.mem[0xD000:0xD000 + 300]) == m.banks[1][0x1000:0x1000 + 300],
+    m.mem[0xDC00:0xDC00 + 300] = bytes(300)
+    ok, taille = load(m, 'PETIT2', 0, 0xDC00)
+    verifie(ok and bytes(m.mem[0xDC00:0xDC00 + 300]) == m.banks[1][0x1000:0x1000 + 300],
             'chargement en mémoire commune ($D000, zone libre)')
 
     # 8. 32 768 octets pile (page 2 entière) puis un fichier derrière

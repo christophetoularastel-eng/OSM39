@@ -106,6 +106,43 @@ symbols = [
     "cz_op",
 ]
 
+# ------------------------------------------------------- the board (CARTE)
+# The file CARTE at the root of the repository says which board the whole
+# tree is built for: "v4" (CRT2 video board, char and colour planes 4 KB
+# apart) or "mono" (OSM39_mono: VRAM interleaved, char at even addresses,
+# colour at the next odd one). Everything that touches the VRAM uses these
+# names, so a v4 build stays byte-identical to the code written before mono.
+CARTE_FICHIER = Path(__file__).resolve().parent.parent / "CARTE"
+CARTE = CARTE_FICHIER.read_text(encoding="utf-8").split()[0].lower()
+if CARTE == "v4":
+    VRAM_CARTE = [
+        (";CARTE v4 : caracteres en $8000-$8FFF, couleurs en $9000-$9FFF (a12", None),
+        (";choisit la RAM, U126 de la CRT2). VRAM_CTRL ne garde que la page D0-D2.", None),
+        ("CARTE_MONO  equ 0", None),
+        ("VRAM_PAS    equ 1", None),
+        ("VRAM_LIGNE  equ 80", None),
+        ("VRAM_END    equ $9000", None),
+        ("VRAM_COL    equ $9000", None),
+        ("VRAM_COL_END equ $A000", None),
+        ("VRAM_COL_OFS equ $1000", None),
+    ]
+elif CARTE == "mono":
+    VRAM_CARTE = [
+        (";CARTE mono : VRAM entrelacee, case c = caractere en $8000+2c, couleur", None),
+        (";en $8001+2c (A0 choisit la RAM). Les boucles de cases avancent de", None),
+        (";VRAM_PAS ; VRAM_END et VRAM_COL_END bornent ces boucles. VRAM_CTRL :", None),
+        (";page D0-D2, D3 = GRAPH (mode graphique : a laisser a 0).", None),
+        ("CARTE_MONO  equ 1", None),
+        ("VRAM_PAS    equ 2", None),
+        ("VRAM_LIGNE  equ 160", None),
+        ("VRAM_END    equ $A000", None),
+        ("VRAM_COL    equ $8001", None),
+        ("VRAM_COL_END equ $A001", None),
+        ("VRAM_COL_OFS equ 1", None),
+    ]
+else:
+    sys.exit(f"erreur: {CARTE_FICHIER} dit '{CARTE}' ; attendu v4 ou mono")
+
 # RAM and ROM hardware addresses. These are fixed by the board, not by any
 # symbol table, so they are written out literally.
 hardware_equ = [
@@ -148,14 +185,9 @@ hardware_equ = [
     (";VIDEO", None),
     ("CRTC_RS     equ $A100", None),
     ("CRTC_DATA   equ $A101", None),
-    (";V4 : caracteres en $8000-$8FFF, couleurs en $9000-$9FFF (a12 choisit",None),
-    (";la RAM, U126 de la carte CRT2). VRAM_CTRL ne garde que la page D0-D2.", None),
     ("VRAM_CTRL   equ $A120", None),
     ("VRAM_BASE   equ $8000", None),
-    ("VRAM_END    equ $9000", None),
-    ("VRAM_COL    equ $9000", None),
-    ("VRAM_COL_END equ $A000", None),
-    ("VRAM_COL_OFS equ $1000", None),
+] + VRAM_CARTE + [
     (";Passerelle entre pages (bios/farcall.asm), table de sauts FIXE en EPROM", None),
     ("FAR_CALL    equ $FFE0", None),
     ("FAR_CALLN   equ $FFE3", None),
