@@ -39,10 +39,17 @@ depuis une carte SD formatée dans un système de fichiers maison (OSMFS).
   CPU, carte vidéo CRT2, carte SD-clavier-son) : tout le logiciel de ce
   dépôt y est essayé.
 - **OSM39_mono** (`materiel/OSM39_mono`) réunit tout sur une seule carte.
-  Elle est routée et commandée, **pas encore montée ni essayée**. Sa vidéo
-  diffère (caractère et couleur entrelacés, mode graphique) : le logiciel
-  devra être adapté quand elle arrivera. Utilisez ses fichiers en
-  connaissance de cause.
+  Elle est montée et **fonctionne** depuis le 15 novembre 2026, avec tout
+  le logiciel (VRAM entrelacée : construire avec `mono` dans le fichier
+  `CARTE`). **Deux corrections** sont nécessaires sur la carte : elles sont
+  dans le schéma, mais **le circuit imprimé n'est pas encore repris** ; sur
+  une carte faite avec le circuit imprimé actuel, il faut les câbler :
+  1. qualifier `/8000-9FFF` par E : la porte libre U103 (74HC32, broches
+     9-10 -> 8) fait « sortie de U106 (broche 4) OU ~E (U101 broche 10) »,
+     et sa sortie remplace celle de U106 vers U501 (1, 2) et U517 (2, 4, 9) ;
+     sans elle, de la neige dès qu'un programme tourne en RAM basse ;
+  2. relier l'OE (broche 22) de l'EPROM de police U515 à la masse ; sans
+     elle, les couleurs sont en avance d'une case.
 
 ## Construire le logiciel
 
@@ -125,9 +132,12 @@ the user manual are in French.
   tools to build the SD card, drive the machine over the serial line and
   simulate the boards from their KiCad netlists.
 - **Status**: the software runs on the multi-board machine (CPU, CRT2
-  video, SD-keyboard-sound). **OSM39_mono**, the single-board version in
-  `materiel/OSM39_mono`, is routed and ordered but **not yet built or
-  tested**; its video differs and the software will need adapting.
+  video, SD-keyboard-sound) and, since 2026-11-15, on **OSM39_mono**, the
+  single-board version in `materiel/OSM39_mono` (build with `mono` in the
+  `CARTE` file). Two fixes are in its schematic but **not yet in the PCB**:
+  wire them on a board made from the current PCB (qualify `/8000-9FFF`
+  with E through the spare U103 gate; tie the font EEPROM U515 OE to
+  ground). Details above, in French.
 - **Build**: lwtools 4.24, `objcopy`, `python3`; `make`, then
   `./deploy_sd.sh` fills `dist/` (EPROM images, SD card contents).
   `make -C test <name>` runs the verifiers (real binaries in a 6309

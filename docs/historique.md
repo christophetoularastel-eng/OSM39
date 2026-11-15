@@ -941,3 +941,39 @@ commandes d'avant lwtools.
   lettres Latin-1 sauf avec `INP_MAJ` (noms de fichiers). La console du
   BIOS ne traduit pas (il faudrait reflasher). Prouvé par `make -C test
   bureau` (Exécuter, Renommer).
+
+## 14 nov. 2026 — La date et l'heure dans la barre d'état d'OSM-VISION
+
+- Le MC146818 changé, la carte RTC marche. OSM-VISION lit l'horloge une
+  fois par seconde (avant l'attente de trame) et écrit `JJ/MM/AAAA HH:MM`
+  après l'icône du son, juste après la trame ; rien sans carte.
+- Le banc de `verifie_fs` rendait au port A du PIA le dernier octet écrit :
+  selon le hasard des écritures, une horloge absente pouvait passer pour
+  présente. Il rend maintenant `$FF` (les tirages). Le PIA et la puce de
+  `verifie_horloge.py` sont devenus un mixin (`PiaRtc`), que le bureau
+  utilise aussi.
+
+## 15 nov. 2026 — Premier allumage de la carte OSM39_mono ; NEIGE
+
+- 450 mA, démarrage, BIOS2, OSM-VISION, jeux, ZMACHINE, BBC BASIC : tout
+  tourne, la VRAM entrelacée est juste partout.
+- De la neige dans les applications, pas dans OSM-VISION au repos. Écartés
+  par mesure : le moment de l'IRQ de trame (même câblage que la CRT2,
+  fenêtre de 34 lignes contre 35 en V4), les 74HC157. `cmd/NEIGE` montre
+  que tout accès à la RAM U105 (`$0000-$7FFF`) perturbe l'image, et non
+  les entrées-sorties ni la RAM système ; la logique du schéma est juste :
+  cause électrique, à chercher sur la carte.
+
+## 15 nov. 2026 — La carte OSM39_mono fonctionne : les deux corrections
+
+- La neige ne venait pas de la RAM U105 ni de la diaphonie (couper le
+  tronçon d'A15 vers U302 n'a rien changé) : U106, validé par A15 à travers
+  l'inverseur U101, décodait `$8000-$9FFF` une dizaine de ns au retour des
+  cycles morts `$FFFF` vers `$0000-$1FFF` (`NEIGE` mode D : la même boucle
+  en `$4000` est propre). Corrigé en qualifiant `/8000-9FFF` par E (U103).
+  La V4 a le même décodage ; le fond de panier filtrait l'impulsion.
+- La couleur en avance d'une case n'était pas une course de vitesse
+  (échanger le 6845 n'a rien changé) : l'OE de l'EPROM de police sur
+  `~LOAD`, plus le retard des 74HC157 du mode graphique. OE à la masse.
+- Schéma KiCad corrigé (`483890c` du dépôt KiCad) ; circuit imprimé à
+  reprendre.

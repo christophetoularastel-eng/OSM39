@@ -89,6 +89,7 @@ cmd/TELE              BIN/TELE   1  cmd/TELE.map             rwx
 cmd/AYTEST            BIN/AYTEST 1  cmd/AYTEST.map           rwx
 cmd/AYJOUE            BIN/AYJOUE 1  cmd/AYJOUE.map           rwx
 cmd/CLOUTEST          BIN/CLOUTEST 1  cmd/CLOUTEST.map       rwx
+cmd/NEIGE             BIN/NEIGE    1  cmd/NEIGE.map          rwx
 cmd/HORLOGE           BIN/HORLOGE 1  cmd/HORLOGE.map         rwx
 bios/BIOS2            BIN/BIOS2  1  -                        rw
 asm/ASM               BIN/ASM    1  asm/ASM.map              rwx

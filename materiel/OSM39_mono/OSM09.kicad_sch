@@ -5,9 +5,10 @@
 	(uuid "35768814-4c6b-4ec1-9a3c-26a964f959f3")
 	(paper "A3")
 	(title_block
-		(title "OSM09")
-		(date "2025-02-16")
+		(title "OSM39")
+		(date "2026-11-15")
 		(rev "V2")
+		(comment 1 "validation par ~E de l'ccés à la VRAM")
 	)
 	(lib_symbols
 		(symbol "74xx:74HC00"
@@ -11321,12 +11322,6 @@
 		(uuid "0b544375-2942-4fa2-931c-2bb8d93e3f6b")
 	)
 	(junction
-		(at 147.32 242.57)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "0ca46af1-6c9b-4841-84a0-49a3b07704f3")
-	)
-	(junction
 		(at 269.24 78.74)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -11401,7 +11396,7 @@
 		(uuid "6e2d9949-920f-43a5-989d-25f482ba2669")
 	)
 	(no_connect
-		(at 162.56 242.57)
+		(at 147.32 242.57)
 		(uuid "8b169134-107a-4a5f-90a2-b1339d2eea25")
 	)
 	(no_connect
@@ -14603,16 +14598,6 @@
 	)
 	(wire
 		(pts
-			(xy 147.32 240.03) (xy 147.32 242.57)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "745b14fe-83b5-4ca4-b215-dc3176cc0bb0")
-	)
-	(wire
-		(pts
 			(xy 153.67 128.27) (xy 148.59 128.27)
 		)
 		(stroke
@@ -15660,16 +15645,6 @@
 			(type default)
 		)
 		(uuid "b1e79379-4f2e-4282-aee1-3ceee1f0be6d")
-	)
-	(wire
-		(pts
-			(xy 147.32 242.57) (xy 147.32 245.11)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b2eb6440-99ed-44f5-b4e2-eed2a25d4782")
 	)
 	(bus
 		(pts
@@ -16911,6 +16886,16 @@
 		)
 		(uuid "03f41beb-3a19-4f0b-8667-9c97f9168bc2")
 	)
+	(label "~{E}"
+		(at 149.86 227.33 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "042da40b-b67a-47f6-93ca-294fc0ee1860")
+	)
 	(label "A5"
 		(at 181.61 39.37 180)
 		(effects
@@ -17270,6 +17255,16 @@
 			(justify left bottom)
 		)
 		(uuid "226ec7b3-a54c-40d3-b5db-03f1b5b399c0")
+	)
+	(label "~{8000-9FFF}"
+		(at 162.56 198.12 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "236b23df-c3bc-4e9e-9579-8a9f059353b1")
 	)
 	(label "D[0..7]"
 		(at 166.37 143.51 180)
@@ -17781,16 +17776,6 @@
 		)
 		(uuid "525469ce-6184-4d3c-bd65-7a282d61a9ba")
 	)
-	(label "8000-9FFF"
-		(at 162.56 198.12 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "5360b16c-eb71-453e-8105-1fa287455a09")
-	)
 	(label "Q"
 		(at 355.6 167.64 180)
 		(effects
@@ -18220,6 +18205,16 @@
 			(justify left bottom)
 		)
 		(uuid "7dfbd5a7-8e84-4e7e-bd43-74c032c30777")
+	)
+	(label "~{8000-9FFF}"
+		(at 149.86 222.25 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "7eda206f-5511-4fc9-bbdc-bef459c2be20")
 	)
 	(label "A[0..15]"
 		(at 193.04 67.31 180)
@@ -19070,6 +19065,16 @@
 			(justify left bottom)
 		)
 		(uuid "c691a1a8-d11e-4301-8903-6033fd0e5602")
+	)
+	(label "8000-9FFF"
+		(at 165.1 224.79 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "c9c097d6-411e-4fce-ae3c-56fcdb9b7aad")
 	)
 	(label "A11"
 		(at 181.61 54.61 180)
@@ -27059,7 +27064,7 @@
 	)
 	(symbol
 		(lib_id "Library:74LS32")
-		(at 154.94 242.57 0)
+		(at 157.48 224.79 0)
 		(unit 3)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -27070,7 +27075,7 @@
 		(fields_autoplaced yes)
 		(uuid "f5604de3-586a-46e7-9af2-2e018e687edc")
 		(property "Reference" "U103"
-			(at 154.94 233.68 0)
+			(at 157.48 215.9 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -27080,7 +27085,7 @@
 			)
 		)
 		(property "Value" "74HC32"
-			(at 154.94 236.22 0)
+			(at 157.48 218.44 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -27090,7 +27095,7 @@
 			)
 		)
 		(property "Footprint" "Package_DIP:DIP-14_W7.62mm_LongPads"
-			(at 154.94 242.57 0)
+			(at 157.48 224.79 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -27101,7 +27106,7 @@
 			)
 		)
 		(property "Datasheet" "http://www.ti.com/lit/gpn/sn74LS32"
-			(at 154.94 242.57 0)
+			(at 157.48 224.79 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -27112,7 +27117,7 @@
 			)
 		)
 		(property "Description" "Quad 2-input OR"
-			(at 154.94 242.57 0)
+			(at 157.48 224.79 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)

@@ -32,6 +32,10 @@ CIBLES = ['bbcbasic', 'zmachine', 'asm', 'bureau', 'minitel', 'donjon39',
           'tele', 'clavier', 'horloge', 'aytest', 'ayjoue', 'sdtest',
           'contrat', 'constantes', 'negatifs']
 LONGUES = {'zmachine': 'zmachine-tout', 'asm': 'asm-tout'}
+# Carte mono : le banc V4 (étapes 1-8) refuse de s'assembler, donc pas de
+# negatifs ; à sa place le banc de premier allumage, stage9_mono.
+MONO_SANS = ['negatifs']
+MONO_EN_PLUS = {'banc_mono': ['make -s STAGE=stage9_mono TEST.hex', 'python3 verifie_banc_mono.py']}
 
 
 def recettes():
@@ -93,12 +97,15 @@ def main():
         if absentes:
             print('absentes de test/Makefile, sautées : ' + ' '.join(absentes))
         cibles = [c for c in cibles if c in toutes]
+    carte = open(os.path.join(RACINE, 'CARTE')).read().strip()
+    if carte == 'mono' and not o.cibles:
+        cibles = [c for c in cibles if c not in MONO_SANS] + list(MONO_EN_PLUS)
+    toutes.update(MONO_EN_PLUS)
     if o.long:
         cibles = [LONGUES.get(c, c) for c in cibles]
     for c in cibles:
         if c not in toutes:
             sys.exit('cible inconnue dans test/Makefile : %s' % c)
-    carte = open(os.path.join(RACINE, 'CARTE')).read().strip()
     print('Carte : %s ; %d cibles, %d en parallèle' % (carte, len(cibles), o.j))
 
     # 1. les constructions, une fois chacune, dans l'ordre

@@ -159,9 +159,12 @@ class Rtc:
         self.prev = (as_, ds, rw)
 
 
-class Machine(va.MachineAsm):
-    def __init__(self, image, s):
-        super().__init__(image, s)
+class PiaRtc:
+    """Le PIA (68B21) et la carte RTC, à mettre devant une machine de
+    verifie_fs (class M(PiaRtc, Machine)) : rd8/wr8 passent la main au reste.
+    pia_init() après le constructeur de la machine ; rtc = Rtc() : la carte."""
+
+    def pia_init(self):
         self.rtc = None                 # None : pas de carte
         self.ora = self.ddra = self.orb = 0
         self.ddrb, self.cra, self.crb = 0xFF, 0x34, 0x04
@@ -222,6 +225,12 @@ class Machine(va.MachineAsm):
         else:
             return super().wr8(a, v_)
         self.bouge()
+
+
+class Machine(PiaRtc, va.MachineAsm):
+    def __init__(self, image, s):
+        super().__init__(image, s)
+        self.pia_init()
 
 
 def main():

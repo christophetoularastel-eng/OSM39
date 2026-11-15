@@ -338,6 +338,7 @@ python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
 
 <h2>Le son</h2>
 <p>Le petit haut-parleur de la barre d'état montre si le son est en marche ou coupé. La touche <kbd>M</kbd> coupe et rétablit le son, pour OSM-VISION comme pour toutes les applications.</p>
+<p>Si la carte d'horloge est branchée sur le connecteur du PIA, la date et l'heure s'affichent à droite du haut-parleur (<code>14/11/2026 18:32</code>), relues chaque seconde. Sans carte, cet endroit reste vide. L'horloge se règle avec la commande <code>HORLOGE</code>.</p>
 
 <h2>L'aide</h2>
 <p>Vous ne vous souvenez plus d'une touche ? Frappez <kbd>?</kbd> : le panneau des raccourcis s'ouvre à droite du bureau. Il reste affiché pendant que vous travaillez, et revient même après une application ; frappez de nouveau <kbd>?</kbd> pour le refermer.</p>
@@ -392,6 +393,8 @@ python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
   <tr><td><code>TYPE nom</code></td><td>afficher un fichier texte, page par page</td></tr>
   <tr><td><code>SIZE nom</code></td><td>la taille d'un fichier</td></tr>
   <tr><td><code>CPU</code></td><td>reconnaître le processeur : 6809 ou HD6309</td></tr>
+  <tr><td><code>NEIGE</code></td><td>banc d'essai de l'affichage : où tombe la fenêtre de retour de trame, et quels accès du processeur perturbent l'image</td></tr>
+  <tr><td><code>HORLOGE [JJ/MM/AAAA HH:MM[:SS]]</code></td><td>afficher la date et l'heure de la carte d'horloge, ou les régler</td></tr>
   <tr><td><code>MONITEUR</code></td><td>examiner et modifier la mémoire, lire le compte rendu du dernier incident</td></tr>
   <tr><td><code>SDTEST</code></td><td>tester la carte SD en détail</td></tr>
   <tr><td><code>AYTEST</code></td><td>tester le générateur de son, voix par voix</td></tr>

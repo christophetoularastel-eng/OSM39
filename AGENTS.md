@@ -448,7 +448,7 @@ on 4 cores; logs in `test/tout/`; `tout-long` adds `zmachine-tout` and
 | `verifie_fs.py` | the real BIOS, with 4 emulated RAM pages and an egofs SD image, loads and saves across pages 2→3, refuses page 4, restores the caller's page, never overlaps files | `make -C test fs` |
 | `verifie_asm.py` | the real `asm/ASM` on the real BIOS, sources and INCLUDEs on an OSMFS card: every binary byte-identical to lwasm (6309 test, `asm/test/*.asm`, MIRE, GLOUTON; `tout`: all apps and BRIQUES), entry page/address/attributes, error names file and line | `make -C test asm` (`asm-tout`: ~2 min) |
 | `verifie_demarrage.py` | the real BIOS from its reset vector: automatic boot, SECOURS (key, serial, `$AA` ignored), LOAD/RUN/BOOT, card without OSMVISION, TRAP report and warm restart, Ctrl+A; BIOS2 loaded and installed, missing (boot still works, services absent), from another BIOS (refused by its sum), damaged by a program then reloaded at the warm restart; `cmd/MONITEUR` on that report (R, E, M, G) | `make -C test demarrage` |
-| `verifie_bureau.py` | the real OSMVISION on the real BIOS with scripted keys: copy/paste across folders (content, page, address, attributes), Ctrl+N, cut/paste, rename to a name that exists only at the root, Space-menu letters, paste over an existing name refused, sound icon (barred / with waves after M), `?` shortcut panel (text, file window untouched, second `?` gives back the exact screen, still there after the Space menu) | `make -C test bureau` |
+| `verifie_bureau.py` | the real OSMVISION on the real BIOS with scripted keys: copy/paste across folders (content, page, address, attributes), Ctrl+N, cut/paste, rename to a name that exists only at the root, Space-menu letters, paste over an existing name refused, sound icon (barred / with waves after M), `?` shortcut panel (text, file window untouched, second `?` gives back the exact screen, still there after the Space menu), accents typed in Exécuter drawn in CP437 and refused in Renommer, the date and time in the status bar with `verifie_horloge`'s PIA + MC146818 model (none without the card, a minute rollover, a non-BCD digit as `-`, nothing written to the chip) | `make -C test bureau` |
 | `verifie_dossiers.py` | the real BIOS's folders: flat card unchanged, MkDir/ChDir/paths/`..`, two formatted buffers, list filtered by folder, root fallback for reads only, non-empty folder kept, move and cycle refusal; `CD`/`MKDIR`/`PWD`/`RM` binaries; OSMVISION's `Load_Directory`/`Draw_FileList` | `make -C test dossiers` |
 | `verifie_farcall.py` | the real BIOS's `FAR_CALL`/`FAR_CALLN`, at `$FFE0` and through `sys_Far_Call*`: callee in its page, registers and carry both ways, caller's page back, nesting, page 4 refused, every reserved slot returns C=1 | `make -C test farcall` |
 | `verifie_bbcbasic.py` | the real `bbcbasic/BBCBASIC` launched by the real OSMVISION on the real BIOS: arithmetic, FOR/PROC, RUN/LIST, SAVE+LOAD on OSMFS, SAVE twice = one entry, `*CAT`, an error and recovery, `*EXEC` of an LF text, BBCPLUS: free space, `*LOAD` of a lwasm routine + USR, `*SAVE` round trip, no `[`, graphics read back from VRAM (diagonal, filled triangle and colour, POINT, rectangle + GCOL 3, VDU 29 + relative PLOT), SOUND queue in `SND_BUF` (durations, flush, pitches), OPENOUT/PRINT#/BPUT#, OPENIN/INPUT#/BGET#/EOF#/EXT#, OPENUP/PTR#=, Escape from an endless loop (NMI flag), `*BYE` | `make -C test bbcbasic` |
@@ -543,6 +543,28 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     `RANG_O equ VUE_L`).
   - Verifiers read the screen through `test/carte.py` (`adr`, `adr_coul`,
     `lit`, `pose`), which parses `hardware.inc`: run them once per board.
+  - **The board works** (first power-up 2026-11-15, 450 mA) with two
+    modifications, wired on the board and drawn in the KiCad schematic
+    (commit `483890c`); the PCB is NOT updated yet:
+    1. `/8000-9FFF` qualified by E: U103 (74HC32, gate 9/10 -> 8) =
+       U106 pin 4 OR `~E` (U101 pin 10), to U501 1-2 and U517 2-4-9.
+       U106 (74LS139) is enabled by A15 through the U101 inverter while
+       A14/A13 come direct: back from an A15 = 1 cycle (the 6309's `$FFFF`
+       dead cycles) to `$0000-$1FFF`, it decoded `$8000-$9FFF` for ~10 ns;
+       through `~VCRAM-SELECT` that reset U522 (BLANK): dark dashes
+       whenever code ran low in RAM (every application). The V4 has the
+       same decode (OSM09_V3 U5 + U1), filtered by J6 and the backplane.
+    2. Font EEPROM U515 OE to GND (it was `~LOAD`: one pixel, shorter
+       than its tOE): through the graphic-mode 74HC157s U507/U509 (never
+       soldered on the V4) the 166 loaded the previous glyph, so colours
+       were exactly one cell ahead. CRT2 has the same latent OE gating.
+  - `cmd/NEIGE` (both boards) is the bench that found them: white screen,
+    IRQ masked, it polls the 68B40's frame flag itself and reads the VRAM
+    after a delay set in lines (window after the frame signal: 34 lines
+    on mono, 35 on V4). Modes: A waits in page-1 RAM, B in system RAM
+    (`gfx_tampon`), C reads page-1 RAM for 3/4 of the frame, D the same
+    loop at `$4000` (A14 = 1: no false decode). `stage9_mono` row 3 (X red,
+    O green) checks the colour alignment.
 - 68B45 CRTC at `$A100/$A101`. **V4 hardware (since 2026-10-10, the board
   carries "OSM39 V4.00")**: U126 A0 is wired to a12, so characters are at
   `$8000-$8FFF` and colours at `$9000-$9FFF`.
@@ -654,6 +676,13 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     `UI_HP` + `UI_HP_ONDES`, or `UI_HP_MUET` after M). `?` opens or closes
     a shortcut panel at the right of the desktop (columns 52-79, `AideOn`),
     redrawn after `Draw_Base_UI` (`Aide_Si`).
+    With the RTC card, the status bar also shows `JJ/MM/AAAA HH:MM` at
+    row 23, column 25 (`HOR_COL`): `Hor_Lecture`, before the frame wait,
+    every 60 frames, `Hor_Etat` first (no card: port A reads `$FF` and
+    `Hor_LitDate` would wait for UIP = 0 forever), then `Hor_LitDate`;
+    `Hor_Affiche`, right after the wait, writes it (the Clouris pointer
+    on that row is removed first); `Draw_Status` redraws it. Read only:
+    nothing is ever written to the chip.
   - **Clouris** (the user's touch mouse: 6 nails + a palm plate at GND,
     outputs on AY port A: J602 of OSM39_mono, J104 of SD-KBD-SON, same
     pins, odd = port A: IOA0 17 up, IOA1 15 right, IOA2 13 down, IOA3 11

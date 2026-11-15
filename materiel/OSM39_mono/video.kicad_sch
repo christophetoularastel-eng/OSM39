@@ -4,6 +4,10 @@
 	(generator_version "10.0")
 	(uuid "a6df50fe-c7ce-4d56-9035-b6c43be372b8")
 	(paper "A2")
+	(title_block
+		(date "2026-11-15")
+		(comment 1 "OE de l'eprom caractère est mis à 0 et plus à~LOAD")
+	)
 	(lib_symbols
 		(symbol "74xx:74HC00"
 			(body_styles demorgan)
@@ -11047,6 +11051,12 @@
 		(uuid "ed954cdc-3725-4a81-acd7-ce04352cbc47")
 	)
 	(junction
+		(at 247.65 163.83)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ee766607-19a7-49d6-9d97-94fdb4907c0d")
+	)
+	(junction
 		(at 344.17 349.25)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -15051,6 +15061,16 @@
 			(type default)
 		)
 		(uuid "6d53f80e-932e-49f3-a8a4-55ff920712fc")
+	)
+	(wire
+		(pts
+			(xy 247.65 161.29) (xy 247.65 163.83)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6dea4ae7-4663-469a-83c1-4210c3a5fd12")
 	)
 	(wire
 		(pts
@@ -20571,16 +20591,6 @@
 			(justify right bottom)
 		)
 		(uuid "c2e04766-ca1a-47a8-9fcb-9b6d209ece10")
-	)
-	(label "~{LOAD}"
-		(at 247.65 161.29 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "c36e4026-d5ce-423a-9d13-e9f26c7cf10b")
 	)
 	(label "sa11"
 		(at 128.27 255.27 0)

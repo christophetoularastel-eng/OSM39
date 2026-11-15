@@ -56,6 +56,8 @@ ARROW_DN        equ $43         ; flèche bas   (idem)
 UPMARK_POS      equ VRAM_BASE+(7*80+47)*VRAM_PAS     ; première ligne de la liste, colonne de droite
 DNMARK_POS      equ VRAM_BASE+(23*80+47)*VRAM_PAS    ; bas de la fenêtre, colonne de droite
 STATUS_POS      equ VRAM_BASE+(23*80+12)*VRAM_PAS    ; "sel/total" en bas à gauche
+HOR_COL         equ 25          ; la date et l'heure, après l'icône du son
+HOR_RANG        equ 23          ; (barre d'état, 16 cases : JJ/MM/AAAA HH:MM)
 
     section .code
 
@@ -81,6 +83,9 @@ Vision_Main:
     STA     CRTC_RS
     LDA     #$CF            ; Cache le curseur en bas à droite sous l'ombre
     STA     CRTC_DATA
+    JSR     Hor_Init        ; l'horloge (carte RTC sur le PIA) : PIA au repos
+    LDA     #1
+    STA     HorCpt          ; première lecture à la première trame libre
 
     ; 2. Charger le répertoire
     JSR     Load_Directory
@@ -122,8 +127,10 @@ EL_Attente:
     JSR     [table_function_ram+sys_kbd_poll]
     TSTA
     BNE     EL_Touche
+    JSR     Hor_Lecture         ; une fois par seconde : lire l'horloge
     LDE     #1                  ; une trame ; au retour, l'écran est libre
     JSR     [table_function_ram+sys_video_wait_vsync]
+    JSR     Hor_Affiche         ; la date lue, s'il y en a une nouvelle
     JSR     Clou_Lit
     BEQ     EL_Pointeur
     LDB     #1                  ; la Clouris sert : le pointeur s'affiche
@@ -659,6 +666,112 @@ Quit_Vision:
 
 ; La Clouris (souris tactile sur le port A de l'AY)
     include "../lib/clouris.asm"
+
+; L'horloge sauvegardée (MC146818 sur le PIA) : Hor_Init, Hor_Etat, Hor_LitDate
+    include "../lib/horloge.asm"
+
+; ===================================================================
+; La date et l'heure dans la barre d'état (après l'icône du son).
+; Hor_Lecture, AVANT l'attente de trame (la lecture de la puce prend du
+; temps, la VRAM n'y est pas touchée) : toutes les 60 trames, si
+; l'horloge répond (Hor_Etat ; sans carte, le port A rend $FF et
+; Hor_LitDate attendrait UIP = 0 sans fin), lit la date et prépare
+; HorTxt « JJ/MM/AAAA HH:MM ». Hor_Affiche, JUSTE APRÈS l'attente :
+; l'écrit si elle est neuve. Draw_Status la redessine aussi.
+; ===================================================================
+Hor_Lecture:
+    DEC     HorCpt
+    BNE     HLe_Fin
+    LDA     #60
+    STA     HorCpt
+    JSR     Hor_Etat
+    BCC     HLe_La
+    CLR     HorVu               ; pas d'horloge : rien d'affiché
+HLe_Fin:
+    RTS
+HLe_La:
+    LDX     #HorDate
+    JSR     Hor_LitDate
+    LDU     #HorTxt
+    LDA     HorDate+HOR_JOUR
+    BSR     Hor_Bcd
+    LDA     #'/'
+    STA     ,U+
+    LDA     HorDate+HOR_MOIS
+    BSR     Hor_Bcd
+    LDA     #'/'
+    STA     ,U+
+    LDD     #$3230              ; « 20 »
+    STD     ,U++
+    LDA     HorDate+HOR_AN
+    BSR     Hor_Bcd
+    LDA     #ASCII_SPACE
+    STA     ,U+
+    LDA     HorDate+HOR_HEURE
+    BSR     Hor_Bcd
+    LDA     #':'
+    STA     ,U+
+    LDA     HorDate+HOR_MIN
+    BSR     Hor_Bcd
+    CLR     ,U
+    LDA     #1
+    STA     HorVu
+    STA     HorSale
+    RTS
+
+; A = deux chiffres BCD -> deux caractères à ,U+ (« - » pour un chiffre > 9 :
+; horloge jamais réglée)
+Hor_Bcd:
+    PSHS    A
+    LSRA
+    LSRA
+    LSRA
+    LSRA
+    BSR     HB_Chiffre
+    PULS    A
+    ANDA    #$0F
+HB_Chiffre:
+    ADDA    #ASCII_0
+    CMPA    #ASCII_0+9
+    BLS     HB_Pose
+    LDA     #'-'
+HB_Pose:
+    STA     ,U+
+    RTS
+
+; Juste après l'attente de trame : VRAM libre. Le pointeur de la Clouris,
+; s'il est sur la barre, est ôté (il se repose à la trame suivante).
+Hor_Affiche:
+    TST     HorSale
+    BEQ     HA_Fin
+    CLR     HorSale
+    ORCC    #%00010000          ; IRQ masquées pendant l'accès VRAM
+    CLR     VRAM_CTRL           ; page vidéo 0 (comme Sync_Begin)
+    LDA     PtrY
+    CMPA    #HOR_RANG
+    BNE     HA_Dessine
+    JSR     Ptr_Ote
+HA_Dessine:
+    BSR     Hor_Dessine
+    ANDCC   #%11101111
+HA_Fin:
+    RTS
+
+; VRAM accessible : HorTxt à sa place, si l'horloge a répondu. Garde X, Y, W.
+Hor_Dessine:
+    TST     HorVu
+    BEQ     HD_Fin
+    PSHS    X,Y,U
+    PSHSW
+    LDA     #HOR_COL
+    LDB     #HOR_RANG
+    LDX     #HorTxt
+    LDE     #COLOR_TEXT
+    JSR     Vis_Text
+    PULSW
+    PULS    X,Y,U
+HD_Fin:
+    RTS
 
 ; Outils de construction de chaines : source unique dans
 ; lib/str.asm (Append/Hex8/Dec16 ; U = pointeur d'ecriture ;
@@ -3651,6 +3764,7 @@ DS_Case:
     LDA     #COLOR_TEXT|$80             ; l'icône du son est en page 1
     STA     STATUS_POS+VRAM_COL_OFS+9*VRAM_PAS
     STA     STATUS_POS+VRAM_COL_OFS+10*VRAM_PAS
+    JSR     Hor_Dessine                 ; la date et l'heure, si l'horloge répond
     LDA     #COLOR_TEXT                 ; sortie de la v4 : A = attribut, B = 0
     CLRB
     RTS
@@ -3664,6 +3778,7 @@ DS_Case:
     LDA     #COLOR_TEXT|$80             ; l'icône du son est en page 1
     STA     STATUS_POS+VRAM_COL_OFS+9
     STA     STATUS_POS+VRAM_COL_OFS+10
+    JSR     Hor_Dessine                 ; la date et l'heure, si l'horloge répond
     LDA     FillByte                    ; sortie identique a l'ancienne boucle : A = octet, B = 0
     CLRB
     RTS
@@ -3761,6 +3876,11 @@ MenuI           rmb 1
 MenuJ           rmb 1
 BootSnd         rmb 1           ; <>0 : jouer le jingle de démarrage
 AideOn          rmb 1           ; 1 : panneau des raccourcis ouvert (touche ?)
+HorCpt          rmb 1           ; trames avant la prochaine lecture de l'horloge
+HorVu           rmb 1           ; 1 : l'horloge a répondu, HorTxt est valable
+HorSale         rmb 1           ; 1 : HorTxt neuf, à écrire après la trame
+HorDate         rmb 7           ; HOR_SEC..HOR_AN (lib/horloge.asm), en BCD
+HorTxt          rmb 17          ; « JJ/MM/AAAA HH:MM », 0 final
 DigitCnt        rmb 1
 TmpAttr         rmb 1
 SaveSel         rmb 1

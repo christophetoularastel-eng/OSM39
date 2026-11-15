@@ -12,6 +12,7 @@
 # repli sur la racine), le menu Espace (Copier, Coller par leur lettre).
 #   make -C bios osmvision && python3 test/verifie_bureau.py
 # ===================================================================
+import datetime
 import os
 import re
 import sys
@@ -22,6 +23,7 @@ RACINE = os.path.dirname(ICI)
 sys.path.insert(0, ICI)
 import verifie_fs as v          # noqa: E402
 import verifie_asm as va        # noqa: E402
+import verifie_horloge as vh    # noqa: E402
 import carte                    # noqa: E402  (VRAM : v4 ou mono)
 
 HAUT, BAS, ENTREE, ECHAP, ESPACE = 0x80, 0x81, 0x0D, 0x1B, 0x20
@@ -91,8 +93,17 @@ class Bureau(va.MachineAsm):
         super().step()
 
 
-def lance(c, s, touches, ov):
-    m = Bureau(c.image, s, touches)
+class BureauRtc(vh.PiaRtc, Bureau):
+    """Le bureau avec le PIA et la carte RTC de verifie_horloge."""
+
+
+def lance(c, s, touches, ov, rtc=None):
+    if rtc is None:
+        m = Bureau(c.image, s, touches)
+    else:
+        m = BureauRtc(c.image, s, touches)
+        m.pia_init()
+        m.rtc = rtc
     v.installe_bios(m)          # table des services, et BIOS2
     code = open(os.path.join(RACINE, 'osmvision', 'OSMVISION'), 'rb').read()
     m.banks[0][:len(code)] = code
@@ -201,6 +212,44 @@ def main():
     i = car.find(b'QW_')                         # ($82 ailleurs : les icônes, page 1)
     verifie(i > 0 and car[i - 1] not in (0x82, 0xE9),
             'Renommer (nom de fichier, INP_MAJ) : « é » refusé, « QW » inscrit')
+
+    # La date et l'heure dans la barre d'état (rangée 23, colonnes 25-40),
+    # lues sur la carte RTC (modèle de verifie_horloge : PIA et MC146818)
+    HOR = 23 * 80 + 25
+    def barre(m):
+        return bytes(carte.lit(m.mem, 0, 2000)[0][HOR:HOR + 16])
+    m0, r = lance(c, s, [(REPOS, 3)], ov)
+    verifie(r == 'touches' and barre(m0) == bytes(16) and barre(m0) == bytes(ecran(m0)[0][HOR:HOR + 16]),
+            'sans carte RTC : rien dans la barre d\'état après l\'icône du son, pas de blocage (%s)' % r)
+    rtc = vh.Rtc()
+    rtc.regle_heure(datetime.datetime(2026, 11, 14, 18, 32, 7))
+    m, r = lance(c, s, [(REPOS, 3)], ov, rtc=rtc)
+    car, col = ecran(m)
+    verifie(r == 'touches' and barre(m) == b'14/11/2026 18:32' and all(x == 0x0F for x in col[HOR:HOR + 16])
+            and car[HOR - 4:HOR - 2] in (b'\x1c\x1d', b'\x1c\x1e'),
+            'carte RTC le 14/11/2026 à 18:32:07 : « %s » après l\'icône du son (COLOR_TEXT)'
+            % barre(m).decode('latin-1'))
+    verifie(not rtc.erreurs and not rtc.ecrits,
+            'OSM-VISION ne fait que lire l\'horloge : rien d\'écrit dans la puce, règles du bus tenues (%s)'
+            % (rtc.erreurs[:2] or rtc.ecrits[:2] or 'rien'))
+    def reveillon():
+        r_ = vh.Rtc()
+        r_.regle_heure(datetime.datetime(2026, 12, 31, 23, 59, 59))
+        r_.phase = vh.SECONDE // 2              # la seconde suivante dans 0,5 s
+        return r_
+    m, r = lance(c, s, [(REPOS, 3)], ov, rtc=reveillon())
+    avant = barre(m)
+    m, r = lance(c, s, [(REPOS, 3000)], ov, rtc=reveillon())
+    verifie(avant == b'31/12/2026 23:59' and barre(m) == b'01/01/2027 00:00',
+            'la minute passe : « %s », puis « %s » %.1f s plus tard (relue toutes les 60 trames)'
+            % (avant.decode('latin-1'), barre(m).decode('latin-1'), m.steps / vh.SECONDE))
+    rtc = vh.Rtc()
+    rtc.regle_heure(datetime.datetime(2026, 11, 14, 18, 32, 7))
+    rtc.reg[4] = 0x3F                                   # heure jamais réglée
+    rtc.reg[10] = 0                                     # (et l'horloge arrêtée)
+    m, r = lance(c, s, [(REPOS, 3)], ov, rtc=rtc)
+    verifie(barre(m) == b'14/11/2026 3-:32', 'chiffre BCD impossible (heure $3F) : « - » (« %s »)'
+            % barre(m).decode('latin-1'))
 
     # la Clouris (R14) : un contact compte à la 2e trame, puis répétition
     # après 12 trames, un pas toutes les 3 ; pointeur parti de (30, 12)

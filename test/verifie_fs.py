@@ -79,6 +79,8 @@ class Machine(emu6809.CPU6809):
             return self.banks[self.page][a]
         if a == AY_ADR and self.ay_reg == 14:
             return self.lit_port_a()
+        if a == 0xA040:                 # port A du PIA : sans carte RTC, les
+            return 0xFF                 # tirages le tiennent à $FF
         return self.mem[a]
 
     def wr8(self, a, v):

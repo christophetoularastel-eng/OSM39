@@ -36,6 +36,7 @@ cmd/TELE
 cmd/AYTEST
 cmd/AYJOUE
 cmd/CLOUTEST
+cmd/NEIGE
 cmd/HORLOGE
 tools/ay/morceaux/*.MUS
 asm/ASM
