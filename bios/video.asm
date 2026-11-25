@@ -28,9 +28,9 @@
 
         export video_init,video_clean, video_set_cursor_pos
         export video_wait_vsync,PUTCHARV,Console_Zone
-        export X_Console_Zone,X_Zone_Cls
+        export X_Console_Zone,X_Zone_Cls,sys_ClearScreen,Zone_Cls
         include "ext.inc"
-        import  ExtV
+        import  ExtV, gr_actif
         import cz_actif,cz_l,cz_h,cz_haut,cz_bas,cz_op,cz_n,cz_ptr
 
         import table_function_ram
@@ -315,6 +315,8 @@ do_cls:
 ; sys_ClearScreen - Efface l'écran et réinitialise les pointeurs
 ; ===================================================================
 sys_ClearScreen:
+        TST     gr_actif        ; mode graphique : la VRAM est l'image
+        BNE     Cls_Rien
         TST     cz_actif
         LBNE    Zone_Cls
         PSHS    d,x,y,cc
@@ -374,8 +376,10 @@ Clear_Color_Loop:
         sta     CRTC_DATA
 
         PULS    d,x,y,cc,pc     ; Restaure tout et réactive les interruptions
+Cls_Rien:
+        RTS
 
-    section .ext
+    section .code
 ; ===================================================================
 ; Console_Zone (service sys_Console_Zone) - la console dans un rectangle
 ; Entrée : A = colonne, B = rangée, E = largeur, F = hauteur (0..29),

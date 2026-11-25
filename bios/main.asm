@@ -405,6 +405,9 @@ PrintCRLF:    ; Routines d'affichage que tu dois fournir
 ; aux programmes (MINITEL...). Un écho renvoyé par l'autre bout (un modem)
 ; tombait dans la fenêtre du démarrage et ouvrait le SECOURS.
 ; `pshsw` / `pulsw` : W sauvé autour de PUTCHARV (PrintString en dépend).
+; (Les codes $A0-$FF, Latin-1, sont traduits en CP437 au dessin, par l'IRQ :
+; Con_Lat dans IT.asm. Ici, en CP437, é = $82 tomberait sur les flèches
+; $80-$83 que l'IRQ interprète.)
 PrintChar:
         PSHS     B
         pshsw
@@ -414,15 +417,19 @@ PrintChar:
         PULS     b,pc
 
 
+; PrintHexChar : A = octet, deux chiffres. Rend A (avant le 20 nov. 2026,
+; A restait sur son chiffre bas).
 PrintHexChar:
         PSHS     A
         LSRA
         LSRA
         LSRA
         LSRA
-        JSR     HexNibble
-        PULS     A
+        BSR     HexNibble
+        LDA     ,S
         ANDA    #$0F
+        BSR     HexNibble
+        PULS     A,PC
 HexNibble:   ADDA    #$30
         CMPA    #$39
         BLS     HexNibble_Print

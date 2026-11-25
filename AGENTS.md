@@ -28,8 +28,12 @@ make -C bios osm39.hex    # debug Intel-hex link
 ./deploy_sd.sh --no-build
 ```
 
-- **Target board: the file `CARTE`** (one word, `v4` or `mono`, versioned;
-  `v4` until the OSM39_mono board is in use). `update_includes.py` reads it
+- **Target board: the file `CARTE`** (one word, `v4` or `mono`, versioned).
+  **`mono` since 2026-11-18**: OSM39_mono is the machine in service. The V4
+  machine (CPU + CRT2 + SD-KBD-SON boards) is ARCHIVED: its code paths stay
+  and `echo v4 > CARTE` still builds it (last verified at tag `v4-archive`,
+  release v1.2 ships its firmware), but nothing checks it any more.
+  `update_includes.py` reads it
   and writes the board's VRAM layout into `hardware.inc`; every program
   depends on `hardware.inc`, so switching rebuilds the tree. `deploy_sd.sh`
   prints the board (and, for `mono`, `PAS_MONO`, the programs not
@@ -111,6 +115,265 @@ make -C bios osm39.hex    # debug Intel-hex link
   - Measured in the emulator: ~17 000 instructions to compute an image,
     5 frames per image when turning (copy-bound: 20 rows, 4 per frame).
   - After any change to either side, run `make -C test donjon39`.
+- `apps/osmcity.asm` (OSM City: drive a car through Annonay seen from
+  above; original game, the user's son's idea). Full screen 80 x 30,
+  text mode: the car stays on row 15 (column 40; 39-40 heading east or
+  west) and the town scrolls by the 6845 start address (`Debut`, cells
+  mod 4096; R12/R13 = Debut - 1): a step writes the incoming column (30
+  cells) or row (80 cells, one or two `TFM`), the two cells left behind
+  and the car, prepared during the frame and written right after the
+  frame signal (`Fenetre`/`Appliquer`, no IRQ hook; <= ~1400 estimated
+  cycles). Arrows = absolute direction: accelerate, brake on the
+  opposite, turn as soon as the side cell is free; slow off the
+  roadway; buildings and water stop the car.
+  - Map: 512 x 255 cells of ~2.45 x 5.9 m, 4 bits each, the file
+    `OSMCITY.MAP` (65 280 bytes: `FS_LoadFile` refuses exactly 64 KB,
+    its size is 16 bits) loaded in pages 2-3; the game keeps the 32 rows
+    around the car in a ring at `$4000` (`Charge_Rangee`, one `FarRead`
+    per north/south step), so the code must end before `$4000`
+    (Makefile check).
+  - Tiles: each cell's glyph comes from its kind and its 4 neighbours
+    (kerbs, roof outlines, banks, bridge rails: `Tuile`, and a fast row
+    version in `Prep_Rangee` that decodes 3 map rows first). The glyphs
+    are in page 1 of font BANK 1: a 28C256 font chip with `$A120` D4-D5
+    on A13-A14 (U525 O4/O5 -> U515 pins 26/1; NOT fitted yet, chip on
+    order). The game writes `$10` to `$A120` at start, 0 on exit. The
+    32 KB font is `dist/EPROM/font_osm39_28c256.bin` (bank 0 = today's
+    font, bank 1 = text + tiles, banks 2-3 = bank 0). With the AT28C64
+    still fitted the screen shows bank 0 glyphs (unreadable).
+  - The single source is `tools/osmcity/osmcity.py` (the map from
+    `tools/osmcity/donnees/annonay.json`, Overpass extract of
+    2026-11-21, ODbL: credit "© contributeurs OpenStreetMap"; the tile
+    rule `tuile`; the exact model `Jeu`) and `tools/osmcity/glyphes.py`
+    (drawings, `--police`, `--planche`). `--inc` writes
+    `apps/osmcity_data.inc` (never edit), `--carte` the map (built by
+    `apps/Makefile`).
+  - Two levels: bridges come only from `bridge=yes` ways (no more road
+    over water guessed as a bridge). Kinds `PONT` (deck over water),
+    `TABLIER` (over anything else), `SOUS_PONT` (over a road or path: the
+    car passes under, hidden), `RAMPE` (a road cell at a bridge end, next
+    to the deck). The car has a level `Niv` (0 ground, 1 deck): `Passe`
+    (model `passe`) lets it onto a deck only from a deck or a ramp, off a
+    deck only onto a ramp; on the ground only `SOUS_PONT` decks are
+    crossed. Deck rails face neighbours that are neither deck nor ramp
+    (`Garde`). The start is data (`DepartX`/`DepartY`): the verifier's
+    second session starts under the Montgolfier bridge and must drive
+    both on the deck and under it.
+  - Rounded corners: in genres 0 and 3 a cell whose exposed sides are
+    N+W, N+E, E+S or S+W, both of one colour other than its own, gets one
+    of 4 quarter-ellipse glyphs (`G_COIN`): its colour as foreground (8
+    for black), the neighbours' as background (`Coin`, `Note_NC`, tables
+    `Coul`, `CoinT`). `TALUS` (grass within 3 x 2 cells of a deck) looks
+    like grass but stops the car (no climbing from the street below to a
+    ramp across a lawn).
+  - 8 directions: two arrows = a diagonal (`VouluT[8 up + 4 right + 2
+    down + left]`, opposite arrows cancel). Two advances `Ax`, `Ay` (y x
+    107 / 256); on a diagonal each axis gets v x 181 / 256; x step then y
+    step (`Passe` each), so one frame may write a column AND a row. On a
+    diagonal a blocked side lets the car slide; both, or straight into a
+    wall: full stop. Diagonal cars: 2 glyphs each at `G_VOITD` ($90).
+    One tile rule for all paths: `Calc_Case` (TS, VN VE VS VO, XB YB);
+    `Tuile` reads the 5 kinds with `SorteC`, rows decode 3 map rows,
+    columns decode 3 map columns straight from the ring (`Prep_Colonne`).
+    The verifier runs a third, scripted session of long diagonals on the
+    place de Backnang.
+  - On foot: Space (make code `$29`, `KeyEsp`), even while moving (the
+    car stops dead), leaves the car parked (`Bascule`: the first free `Sorties` cell, not the car's
+    own) and walks (`Marche`: the arrow's direction at once, `VPIED`, no
+    inertia; starting or turning sets both advances to `PAS - 1` so the
+    first step is immediate; then the common `Pa_Avance`); Space next to a parked car
+    (its (x, y) within 1 cell, same level) takes it (`VCoul` = its
+    colour). `Garees` (32 x 8 bytes: x, y, direction, colour, level,
+    free) starts with 31 cars (`garees_depart`: one right by the start);
+    parked cars block (`Occupe` in `Passe`) and are drawn over the tiles:
+    `Garee_Case` (in `Tuile`), `Garees_Rangee`, `Garees_Colonne` (one pass
+    over the list, no grid). The verifier's 4th session exits, walks,
+    takes another car.
+  - Traffic (`Population`): 8 cars and 8 walkers in `Mobiles`, right
+    after `Garees` in the same 8-byte format (direction 8 = a walker,
+    `VoitG` index 16/17), so drawing and collisions handle them. They live
+    near the player, in the ring's rows (y - 16 .. y + 15: outside, the
+    6309 has no map) and within 52 columns; else they respawn just off
+    screen (`Apparait`). One car moves per frame (each every 8 frames,
+    vertical every other time), one walker every other frame; none in a
+    frame where the player steps (the frame is already full). Choices by
+    an 8-bit LFSR (`Alea`, `$B8`), identical in the model. A moved
+    entity: the cells it left get `Tuile`, its new cells the glyph on
+    the background of the cell's kind (`Attr`; the same rule for every
+    vehicle and walker, the player's included), never over the plate.
+    `Fait_Proches` lists the parked cars near the player plus all the
+    traffic: `Occupe` and the overlays walk only that list.
+    `Calc_Case` has a shortcut for a cell whose 4 neighbours are of its
+    own kind (rows went from ~8900 to ~6000 instructions).
+  - Driving (`Roule`, model `roule`; traffic and police on patrol): a
+    draw `RoR` < `VIRAGE` turns into a side street (`Ouverture`: `OUV_V`
+    rows or `OUV_H` columns of roadway that way, `Route_Connue` = road
+    in the ring rows); else keep right, only in a narrow street (1 to
+    `LARGE_V` rows / `LARGE_H` columns of roadway on the right): a
+    diagonal step ahead-right, glyph unchanged (never a sideways step);
+    else straight on. A car ahead on the roadway: wait `ATT_DOUBLE`
+    moves (`Att`, per entity, cleared by any move), then overtake by a
+    diagonal step (left, then right), after `ATT_DEMI` a U-turn; end of
+    the road: one side, the other, U-turn last. Stuck more than
+    `ATT_FIN` moves (`Ro_Coince`): parks if on a `PLACE`, else vanishes
+    if off screen. Cars appear facing along the road (`Ouverture_XY`
+    from their cell, 4 directions tried). A traffic car stepping on a
+    `PLACE` with `RoR` >= `GARER` parks (`Garer`: takes the entry of a
+    parked car off screen, its traffic slot respawns). No one-way
+    streets (not stored).
+  - Sound (`Son`, every frame, all useful AY registers written): A = the
+    engine in a car (period 1000 - 5 v, volume 8 + v / 32); B = the horn
+    (K held, make code `$42`: 262 / 208 every 8 frames) or the current
+    sound effect (noise, volume - 2 per frame; `Effet`: steps, door on
+    Space, crash when stopped dead at v >= 48; a new effect replaces the
+    current one if it is at least as strong or the current one is over);
+    C off. `son_coupe` = `$4D` mutes. On exit: volumes 0, R7 `$3A`. The
+    verifier runs with sound on and compares the AY registers each frame.
+  - Relief: `tools/osmcity/donnees/altitudes.bin` (IGN altimetry service,
+    RGE ALTI, Etalab 2.0: credit "IGN"; 512 x 255 cell centres, dm). A
+    grass cell (VIDE, PARC, TALUS) steeper than 70 % with a step over 2 m
+    to a neighbour becomes `FALAISE` (hachures, stops the car); roads are
+    never changed (hundreds of steep road-road pairs: steep streets,
+    walls between parallel streets, DEM noise).
+  - `VIDE` (what OSM does not describe: in town, closed gardens and
+    yards) stops the car too; public parks (`PARC`) are open, slowly.
+    Roads and pedestrian areas have no kerb lines any more (rounded
+    corners cut them into stray dashes).
+  - Street names: a blue plate (`PLQ_ATTR` `$17`, page-0 text) centred on
+    row 29 shows the street of the car's 4 x 4 block (`OSMCITY.RUE`, 8 KB
+    grid of name numbers, loaded at `$6000` of page 1; 187 names, CP437,
+    in the binary; block 0 keeps the plate). The plate stays put while the
+    town scrolls: a south step leaves the old one on row 28 (cells given
+    back, `SegB`), a north step pushes it off screen, a side step exposes
+    one cell (one `Tuile`); the plate is rewritten by `TFM` (`SegC`).
+    Screen writes are segments (`Seg_Pose`/`Prep_Seg`: row, column, count,
+    buffer; `SegA` full row, `SegB` partial, `SegC` plate) plus the cell
+    list.
+  - On exit: start address back to `$FFFF`, font bank 0, rows 25-29
+    given back (saved at start; OSM-VISION restores 0-24), Esc release
+    awaited.
+  - Hide-and-seek (no weapons): a loot (`G_BUTIN`) and a hideout
+    (`G_PLANQUE`) drawn at random among `NCANDS` = 64 road cells
+    (`Cands`, from `cands()`; hideout at |dx| + 2|dy| >= 120 from the
+    loot, 8 tries), both on the map. `Etape`: VOL (blue plate, arrow to
+    the loot) -> FUITE on the loot (red plate, arrow to the hideout,
+    siren on channel C) -> GAGNE at the hideout or ARRETE when a police
+    car touches the player; Space starts a new game (`Nouvelle`). Two
+    police cars (`Mobiles` after the traffic, `NPOLICE`), modes PATROUILLE
+    / CHASSE / RECHERCHE: they see 24 x 10 cells, recognise the player's
+    colour (8 on foot) or anyone within 4 x 2, lose a player hidden under
+    a `SOUS_PONT`, search the last seen cell for 120 moves. A chase step
+    never reverses unless it is the only way; if no move gets closer, a
+    random one (`Alea`). `Bilan` after each move (player step or police
+    tick); a police tick that changes the phase redraws the plate at
+    once. The police cars start parked at `Poste` (`POSTE`, in front of
+    the town hall, rue de l'Hôtel-de-Ville) and stay there until the
+    theft; outside the known zone (ring rows, +-52 columns) or off the
+    roads they move without the map (`Aveugle`: one step towards the
+    target, entering the zone only onto a free cell, else sideways), so
+    they always come from the town hall. `Fige`: nothing moves while a game is over (nor on the restart
+    frame). On a shared cell the last entity of the list is drawn
+    (`Garee_Case` walks the list backwards, like the rows); the player's
+    own cells are redrawn by `Case_Ecran` (`Cel_Ecran`). The verifier's
+    5th and 6th sessions steal, get arrested, replay, and win.
+  - After any change to either side, run `make -C test osmcity`
+    (`OSMCITY_PNG=f.png` saves what the binary shows).
+- `apps/osm3d.asm` (OSM3D: Annonay in 3D, the user's request after OSM City;
+  a separate game because OSM City's page 1 is full). Walking only so far:
+  Up/Down held walk; each Left/Right make code (the press, then every
+  keyboard repeat) turns `ROTATION` = 16/1024 (`Tourne` = steps pending,
+  at most `TOURNE_MAX`); Esc. Turning while the key is HELD (own repeat
+  in the IRQ) was tried on 2026-11-22: on the board a short tap kept
+  turning (release not seen, cause unknown), so it was reverted. Full screen 80 x 30: the view (64 x 18 cells of 2 x 3
+  mosaics, rows 0-17), the mini-map in a CP437 frame (columns 64-79, rows
+  0-17, 14 x 16 cells, one point = 2 map columns x 1 row, a yellow CP437
+  arrow at the centre), the street plate (row 19, centred under the view),
+  help (row 20). Mini-map: buildings red, sidewalks white, grass green.
+  - Its own map `OSM3D.MAP` (pages 2-3, 32-row ring at `$4000`): OSM
+    City's, made for 3D by `osm3d.carte()` = `osmcity.carte(...)` with
+    options whose defaults leave OSM City's map unchanged: `CORDEAU`
+    (ways straightened by Douglas-Peucker at 8 m between junctions, kept
+    in place: `simplifie()`), `ELARGI`/`TROTTOIR` per highway value (main
+    roads 1.5 times wider with a 2.5 m sidewalk taken from `BATI`),
+    `FAIBLES` (minor streets yield to buildings, only their axis stays
+    road: old-town lanes keep their real width), `ALLEES` (parking aisles
+    drawn as parking), `PIETONNES` (pedestrian areas as `PIETON`, not
+    `PLACE`), `RACCORDS`; then `lisse()` (no one-cell building bump or
+    notch), `ponts()`, `marquages()` (kind `BORDURE` = 13: sidewalk
+    touching the roadway, parking touching the driving lanes), `culees()`,
+    `finir()` (PARC and TALUS merged into VIDE: same green, walkable;
+    their numbers 5 and 11 become `PONT_ARC`/`SOUS_ARC`). Ground: roadway
+    black, sidewalk and kerb white, parking grey (15), water blue, sky
+    CYAN (3). Unit = one map column (2.455 m), a row = `RY` / 256 = 2.4
+    units. One ray per column, DDA; each cell crossed paints its ground
+    colour (`SolB`), the first `BATI` is a 16 m wall (`Facades` by block,
+    all attenuated: ochre, brick, ochre, grey render; a face crossed in y
+    with x even gets WINDOWS: one subrow in 3 black, `Fenetres`); rays stop
+    at `DMAX` or out of the ring rows.
+  - Bridges (`ponts()`, after the user's drawing of 2026-11-25): each
+    `bridge=yes` way is redrawn along its axis at the drawn width of the
+    road it carries (the OSM City footprint is removed, the ground under
+    recovered). Deck cells: `PONT` over water, `SOUS_PONT` only where a
+    way that CROSSES the bridge axis passes under (Simone Veil under the
+    Montgolfier bridge; the Valgelas bridge only spans the Deûme),
+    `TABLIER` elsewhere = a solid embankment; `RAMPE` on the first 3 axis
+    cells of the approach ways. `ARCHE_D` = each passage cell's place in
+    the span (0 at the edge, 1 on the axis of the way under); under
+    `ARC_BORD` it becomes `SOUS_ARC`/`PONT_ARC` (the foot of the arch).
+    `culees()`: `CULEE` (14) = passage cell or lower cell touching a ramp;
+    `MURET` (15) = upper approach cells touching the lower street (a 1.2 m
+    wall: no more ground link between the two).
+  - Levels: `Niv` (0 ground, 1 deck), `Passe` = model `osm3d.passe`
+    (grass is walkable, unlike `osmcity.passe`; bati, water, cliff,
+    muret stop; onto a deck kind (`TABLIERS`) only from a deck or a ramp,
+    off it only onto a ramp; on the ground only `SOUS_PONT`/`SOUS_ARC`
+    are crossed); the level changes when the position's cell changes.
+    On the ground (`MasqD`, `MasqM`), `SolB` flags: `DESSOUS` ($40, under a
+    deck), `ARC_F` ($80, foot of the arch), `MUR_P` ($20, culée or
+    embankment), `MURET_F` ($10); painted colour `& 15`. Under a deck
+    from `DIn` to leaving (or a wall, or the end: `NIDX - 1`): white
+    parapet (`Parapet`: `pg = pt + pt x Q_GARDE / 256`, `pt` = `PTop2`
+    at 7 m) then stone down to `PBot2` at 5 m (x `Q_ARC` / 256 = 3 m when
+    the last cell is an arch foot), over sky only. A culée or embankment:
+    parapet, stone from `PTop2` to the foot, the ray goes on above
+    (`Mur_Pont`); a muret: stone from `Bas x Q_MUR / 256` below the horizon
+    (`Muret`). No new tables: heights come from the existing ones by an
+    8-bit `MUL`, exactly as in the model. On the deck decks are ground.
+    Mini-map: decks grey, muret white (no railing line: it would need the
+    neighbours of each point). Two colours per cell (rule in `osm3d.py`'s
+    header; `Cel_Mini` uses it too since attenuated grey is on the map).
+  - Street names: `OSM3D.RUE` at `$6000` (64 x 128 block grid as runs +
+    the names), generated. The code ends before `TAMPONS` (`$2600`,
+    Makefile check); the buffers fill `$2600-$3FDF`.
+  - Every VRAM access (view rows, mini-map rows, text rows, saving and
+    giving back rows 25-29) goes through a job queue (`Jobs`, `Ajoute`)
+    emptied by `Irq_3D` (hooked in `rvec_IRQ`) at the start of the frame,
+    within `BUDGET` cost units per frame (bytes + `COUT_COPIE` per job).
+    `Want`/`Pret` swap when the queue is empty; `MiniBuf`/`TxtBuf` change
+    only then. `Irq_3D` also reads the keyboard (`Lire_Clavier`) every
+    frame: read only between images, typematic repeats filled the NMI's
+    16-byte queue during a long image and the release was lost (the
+    board kept turning). Ring rows are loaded right after a frame (`FarRead` masks
+    IRQs).
+  - The renderer paints ground only when the colour changes (same result
+    as the model, which paints every cell); `Mark` lets `Composer` write
+    runs of one-colour cells. Measured (emulator, 7000 instructions per
+    frame): 4-12 frames per image turning, 10.7 on average (windows and
+    bridges mark more cells mixed; 6.8 before 2026-11-25); the copy alone
+    needs ~5 when
+    the whole view changes. The mini-map rebuild (on a new cell or quarter
+    turn) costs ~22 000 instructions.
+  - The single source is `tools/osm3d/osm3d.py` (tables, `ecran()` = the
+    exact screen, `--inc` -> `apps/osm3d_data.inc`, `--carte`, `--rues`,
+    `--png`).
+    After any change to either side, run `make -C test osm3d`.
+  - `tools/osm3d/dessin.py FILE.txt [--plein] [--osm3d X Y ANGLE]`: a Tk
+    paint program at the view's resolution (128 x 54 points, cells of 2 x
+    3, 16 colours, attenuated ones foreground only; cells the machine
+    cannot show are outlined in red); the user draws what they want, the
+    `.txt` (one hex digit per point) is read back. Drawings and the
+    user's Street View captures live in `tools/osm3d/essais/` (NOT
+    versioned: the captures are Google's).
 - `apps/parole.asm` (PAROLE: French text-to-speech, S.A.M.-style formants).
   Output (since 2026-10-30): the AY as a DAC, tone and noise off, channels
   A + C summed; each sample 0..120 -> a volume pair (`TabA`/`TabC`, chosen
@@ -165,6 +428,11 @@ make -C bios osm39.hex    # debug Intel-hex link
   E width, F height, Y attribute; E = 0 back to full screen). `EXIT`
   returns; OSMVISION restarts as after a console program (folder may have
   changed). /BIN commands run in page 1 and print in the same zone.
+  - OSMVISION calls the SHELL with U = `Term_Redessine` (desktop, then the
+    Terminal window and its zone, cleared). After an external command the
+    SHELL calls it if `ecran_abime` (BIOS RAM) is set: `GR_FIN` sets it
+    when it closes the graphic mode inside a zone (the text screen is
+    lost; it clears outside the zone to `$08`).
   - In a zone the IRQ (`Zone_IRQ`) wraps at the right edge, scrolls only
     the zone by copying rows (2 rows per frame, text waits), `$0C` clears
     the zone, BS stops at the left edge, `$80-$83` and other controls are
@@ -179,8 +447,8 @@ make -C bios osm39.hex    # debug Intel-hex link
   `*DIR` `*DELETE` `*EXEC` `*HELP` `*BYE`, TIME, INKEY, COLOUR, TAB(x,y),
   open files: 2 channels, channel n held whole in RAM page n+1, 32 KB,
   written at CLOSE).
-  - Two binaries: `BBCBASIC` (inline 6309 assembler, from `$2D00`: 9 KB
-    of programs) and `BBCPLUS` (`NOASM=1`, from `$3600`: 11 KB);
+  - Two binaries: `BBCBASIC` (inline 6309 assembler, from `$2900`: 8 KB
+    of programs) and `BBCPLUS` (`NOASM=1`, from `$3200`: 10 KB);
     `BASE`/`BASE_PLUS` in `bbcbasic/Makefile`, a few hundred bytes left
     below `$8000` in each. `*LOAD`/`*SAVE` move machine code between the
     card and PAGE..BASIC (CALL/USR: A% B% X% Y% -> A B X U). Errors are
@@ -201,14 +469,27 @@ make -C bios osm39.hex    # debug Intel-hex link
     table), applied right after a frame tick, 10 cells per frame (CPU
     VRAM access outside vblank flickers on the board). The verifier
     checks every BASIC VRAM write lands early in a frame.
+    `verifie_bbcbasic.py` records every `sys_Graphe` call in MODE 0 and
+    replays it in `graphe.py` (page 3 = the model), plus the expected calls.
     The verifier's emulator lacks NEGD/ASLD (DIVD/DIVQ were added for
     CALC on 2026-10-27): the code avoids them (scaling = high word of `MULD`).
+  - `MODE 0`/1/2/4/5 = the BIOS graphic mode (`sys_Graphe`, 640 x 400):
+    `Om_Hr`; px = x/2, py = 399 - hi(y x 25600); lines, points, rects,
+    circles (`PLOT 144-159`) are single calls; filled triangles (both
+    modes) go row by row (`Om_Tri`, two Bresenham walkers, one span per
+    row: XOR exact); text by `GR_CAR` on the 80 x 25 grid (wraps to the
+    top, clearing rows), XOR cursor in `OSRDCH`. The image is in page 3:
+    channel 2 refused while `Om_Hr`, `MODE 0` refused while it is open.
+    `gfx_tampon` belongs to the BIOS then: the mosaic queue and its
+    inverse table are skipped (`Om_GfxInit` rebuilds them after `MODE 7`).
+    `GR_COULEUR` waits for the IRQ to finish the previous one: text only
+    colours its cell after a `COLOUR`. `MODE 3`/6/7 and `*BYE` call `GR_FIN`.
   - SOUND (`osm39_son.asm`): notes queued in `SND_BUF` for the BIOS
     sequencer (`snd_play` plays a buffer >= `$C000` without copying);
     6840: 2 square voices, channels play one after another. `son_coupe`
     = `$4D` silences it (the verifier's `lance(..., son=0)` enables it).
-  - Not yet: OSGBPB, ENVELOPE, simultaneous channels, circles, VDU 24,
-    TIME$.
+  - Not yet: OSGBPB, ENVELOPE, simultaneous channels, VDU 24, GCOL
+    colours and scrolling in MODE 0, TIME$.
   - Proven by `make -C test bbcbasic` (~10 min).
 - `apps/minitel.asm` (MINITEL: Videotex terminal over the serial line, 115200
   baud). The modem is either a real V.23 modem (Olitec Speed'Com 2000,
@@ -319,8 +600,8 @@ divergences (`KNOWN_DIVERGENCES`): `sys_pager`/`Pager`,
 `sys_loadandexec`/`LoadandExec`, `sys_ls`/`ls_cmd`. Any other divergence is an
 error: rename the slot to `sys_<Handler>` rather than extending the allowlist.
 
-- Slot 0 is `sys_FS_RenameFile`. The non-blocking key read is `sys_kbd_poll`; the console zone is `sys_Console_Zone` (last used slot;
-  2 reserved slots left).
+- Slot 0 is `sys_FS_RenameFile`. The non-blocking key read is `sys_kbd_poll`; the console zone is `sys_Console_Zone`; the
+  graphic mode is `sys_Graphe` (last used slot; 1 reserved slot left).
 - There is exactly one `sysfunc.inc`: `bios/sysfunc.inc`. Never add a local copy.
 - `lib/bioslib.asm` thunks: `bsc_<service>`, one `jmp [...]` each. Not every
   service has one (`video_wait_vsync`, `snd_play`, `snd_stop`, `Far_Call*` do not), and
@@ -377,8 +658,9 @@ error: rename the slot to `sys_<Handler>` rather than extending the allowlist.
 - `std` writes A then B: to fill with one byte, load **both** A and B.
 - `,x++` always advances 2, whatever the mnemonic.
 - `PSHS`/`PULS` lists use a 2-byte native postbyte; don't hand-decode frames.
-- Reference encodings: 5-bit indexed postbyte = `$20+offset`, register in bits 2-0
-  (X0 Y1 U2 S3). `TFR` postbyte = src<<4 | dst (D0 X1 Y2 U3). `addr u,d` = `10 30 30`.
+- Reference encodings: 5-bit indexed postbyte = register in bits 6-5 (X `$00`,
+  Y `$20`, U `$40`, S `$60`) + the offset in bits 4-0 (`1,S` = `$61`, `0,S` =
+  `$60`); `LDY` indexed is `10 AE`, `LDY` extended `10 BE` (lwasm is right). `TFR` postbyte = src<<4 | dst (D0 X1 Y2 U3). `addr u,d` = `10 30 30`.
 
 ## Linker and memory map
 
@@ -400,19 +682,22 @@ script, rebuild, then update that doc. Never add a second map.
 - **The BIOS is in two parts** (since 2026-11-13). The EPROM keeps what
   boots and repairs (SD read, file lookup and load, keyboard, screen,
   IRQ/NMI/TRAP, `FarRead`/`FarWrite`, SECOURS). `BIOS2` (`bios/ext.asm`,
-  section `.ext`, linked in the same `lwlink` run at `EXT_BASE` = `$CE00`,
-  up to `EXT_FIN` = `$DA00`) holds file writing (save, delete, rename,
-  attributes, `SetLoad`, `MkDir`, `ListRoot`, `Fs_WriteBlk`,
-  `SD_WriteBlock`), the Terminal console (`Console_Zone`, `Zone_IRQ`,
-  `Zone_Cls`) and the sound sequencer (`snd_play`, `snd_stop`, the jingle,
-  `Ay_Note`, the IRQ's `X_Audio`).
+  section `.ext`, linked in the same `lwlink` run at `EXT_BASE` = `$CE80`,
+  up to `EXT_FIN` = `$DA00`) holds `FS_SaveFile`, `FS_DeleteFile` and the
+  graphic mode (`bios/graphe.asm`). Everything else it used to hold
+  (rename, attributes, `SetLoad`, `MkDir`, `ListRoot`, `Fs_WriteBlk`,
+  `SD_WriteBlock`, the Terminal console, the sound sequencer) came back
+  to the EPROM on 2026-11-21 to make room; their `X_` names and `ExtV`
+  slots stay, with `Ext_Def` pointing at them from reset. When moving a
+  block between sections, check what it falls through into: `X_Audio`
+  landed between `UPDATE_CURSOR` and `AUDIO_UPDATE` (now a `BRA`).
   - `bios2.py` extracts `bios/BIOS2` from the S-record and writes its
     length and sum into the EPROM image (`ExtLong`, `ExtSomme`).
     `deploy_sd.sh` ships it as `/BIN/BIOS2`: an EPROM and its BIOS2 go
     together (another BIOS2 is refused by the sum).
   - At every boot (cold or after a TRAP) `main` loads it right after the
-    card (`Ext_Charge`), before the jingle. Without it the machine boots,
-    and the moved services answer C=1.
+    card (`Ext_Charge`), before the jingle. Without it the machine boots;
+    `FS_SaveFile`, `FS_DeleteFile` and `sys_Graphe` answer C=1.
   - The EPROM reaches BIOS2 only through 4-byte stubs keeping the old
     names (`FS_SaveFile: jmp [ExtV+EXTV_SAVE]`); `ExtV` (BSS, offsets in
     `bios/ext.inc`) gets defaults from `Ext_Defauts` at reset (`Sys_Absent`,
@@ -445,10 +730,10 @@ on 4 cores; logs in `test/tout/`; `tout-long` adds `zmachine-tout` and
 | `verifie_remplissage.py` | fill routines stay in `$8000-$8FFF`, return, cover 4096 per pass, write one value | yes |
 | `verifie_constantes.py` | no `equ`/`fcb`/`fdb`/`rmb` hits the space or `<<` trap | yes, repo-wide |
 | `verifie_negatifs.py` | the three above fail on 18 injected bugs, each with a distinct diagnostic | `make -C test negatifs` |
-| `verifie_fs.py` | the real BIOS, with 4 emulated RAM pages and an egofs SD image, loads and saves across pages 2→3, refuses page 4, restores the caller's page, never overlaps files | `make -C test fs` |
+| `verifie_fs.py` | the real BIOS, with 4 emulated RAM pages and an egofs SD image, loads and saves across pages 2→3, refuses page 4, restores the caller's page, never overlaps files; the spinner drawn only by a simulated VSYNC IRQ (`Spin_IRQ`), screen intact after, none with IRQ masked | `make -C test fs` |
 | `verifie_asm.py` | the real `asm/ASM` on the real BIOS, sources and INCLUDEs on an OSMFS card: every binary byte-identical to lwasm (6309 test, `asm/test/*.asm`, MIRE, GLOUTON; `tout`: all apps and BRIQUES), entry page/address/attributes, error names file and line | `make -C test asm` (`asm-tout`: ~2 min) |
 | `verifie_demarrage.py` | the real BIOS from its reset vector: automatic boot, SECOURS (key, serial, `$AA` ignored), LOAD/RUN/BOOT, card without OSMVISION, TRAP report and warm restart, Ctrl+A; BIOS2 loaded and installed, missing (boot still works, services absent), from another BIOS (refused by its sum), damaged by a program then reloaded at the warm restart; `cmd/MONITEUR` on that report (R, E, M, G) | `make -C test demarrage` |
-| `verifie_bureau.py` | the real OSMVISION on the real BIOS with scripted keys: copy/paste across folders (content, page, address, attributes), Ctrl+N, cut/paste, rename to a name that exists only at the root, Space-menu letters, paste over an existing name refused, sound icon (barred / with waves after M), `?` shortcut panel (text, file window untouched, second `?` gives back the exact screen, still there after the Space menu), accents typed in Exécuter drawn in CP437 and refused in Renommer, the date and time in the status bar with `verifie_horloge`'s PIA + MC146818 model (none without the card, a minute rollover, a non-BCD digit as `-`, nothing written to the chip) | `make -C test bureau` |
+| `verifie_bureau.py` | the real OSMVISION on the real BIOS with scripted keys: copy/paste across folders (content, page, address, attributes), Ctrl+N, cut/paste, rename to a name that exists only at the root, Space-menu letters, paste over an existing name refused, sound icon (barred / with waves after M), `?` shortcut panel (text, file window untouched, second `?` gives back the exact screen, still there after the Space menu), accents typed in Exécuter drawn in CP437 and refused in Renommer, the date and time in the status bar with `verifie_horloge`'s PIA + MC146818 model (none without the card, a minute rollover, a non-BCD digit as `-`, nothing written to the chip), no AY chip (empty bus: no pointer, keyboard still works; R1 given back with the chip), list scrolled by keyboard with every VRAM write at most 1650 estimated cycles after the frame signal (4 per instruction, 6 + 3 per `TFM` byte; the old cell-by-cell list gave ~6200), the same entering a folder and leaving it (old: ~6800), the list window's shadow row intact, CALC and EDIT moved by arrows (program writes only; old: 4380 / 2716) | `make -C test bureau` |
 | `verifie_dossiers.py` | the real BIOS's folders: flat card unchanged, MkDir/ChDir/paths/`..`, two formatted buffers, list filtered by folder, root fallback for reads only, non-empty folder kept, move and cycle refusal; `CD`/`MKDIR`/`PWD`/`RM` binaries; OSMVISION's `Load_Directory`/`Draw_FileList` | `make -C test dossiers` |
 | `verifie_farcall.py` | the real BIOS's `FAR_CALL`/`FAR_CALLN`, at `$FFE0` and through `sys_Far_Call*`: callee in its page, registers and carry both ways, caller's page back, nesting, page 4 refused, every reserved slot returns C=1 | `make -C test farcall` |
 | `verifie_bbcbasic.py` | the real `bbcbasic/BBCBASIC` launched by the real OSMVISION on the real BIOS: arithmetic, FOR/PROC, RUN/LIST, SAVE+LOAD on OSMFS, SAVE twice = one entry, `*CAT`, an error and recovery, `*EXEC` of an LF text, BBCPLUS: free space, `*LOAD` of a lwasm routine + USR, `*SAVE` round trip, no `[`, graphics read back from VRAM (diagonal, filled triangle and colour, POINT, rectangle + GCOL 3, VDU 29 + relative PLOT), SOUND queue in `SND_BUF` (durations, flush, pitches), OPENOUT/PRINT#/BPUT#, OPENIN/INPUT#/BGET#/EOF#/EXT#, OPENUP/PTR#=, Escape from an endless loop (NMI flag), `*BYE` | `make -C test bbcbasic` |
@@ -456,14 +741,17 @@ on 4 cores; logs in `test/tout/`; `tout-long` adds `zmachine-tout` and
 | `verifie_banc_mono.py` | bench stage 9 (`stage9_mono`) replayed alone: only VRAM, `$A120` and the 6845 written, the 4096 interleaved cells equal a separate model, page 0 / GRAPH 0, start `$FFFF`, cursor hidden, IRQ+FIRQ masked | `make -C test STAGE=stage9_mono` |
 | `verifie_minitel.py` | the real `apps/MINITEL` `Term_Octet` gives exactly `videotex.py`'s `Terminal`: logical screen and bytes sent back (MiniPavi capture, modem test page, random streams; PCE: the real phone capture, its 75 CRCs, blocks with a damaged block or a lost byte and the NACK/SYN recovery, NUL/DLE transparency, STATUS, STOP); then the whole app with a simulated modem (parity in its answers) and keyboard, and a MiniPavi-like server (START until answered, ENQROM, PCE with one damaged block): `ATE0&D0B2M1S91=6DT0972101721,,,,,` for 3615, window = `cellules40`, Ctrl+F = `cellules80`, desktop back around the window, Minitel keys with even parity, ACIA at `$95`, `+++`/`ATH` with guard silences, NO CARRIER, silent modem, exit restores rows 25-29 and `serie_brute` | `make -C test minitel` |
 | `verifie_donjon39.py` | the real `apps/DONJON39` with the VSYNC IRQ taken every frame (its `Irq_Donjon`, then the real BIOS handler) and raw PS/2 bytes: at rest, the VRAM view (glyphs and attributes) equals the model for the position/angle/map in memory (10 places, minimap included), every VRAM write inside the IRQ, early (<= 512 bytes per frame), walls not crossed, Esc returns with the key queue empty and `rvec_IRQ` restored; with a tricky `DONJON39.TXT` on the card: map and start = `texte_carte()`, Space opens the door ahead, it closes by itself, Tab toggles the minimap | `make -C test donjon39` |
+| `verifie_osmcity.py` | the real `apps/OSMCITY` (map `OSMCITY.MAP` on the emulated card) with the VSYNC IRQ every frame and raw PS/2 arrows (random holds, fixed seed, ~3300 frames): at every `Pas` the state (position, direction, speed, accumulated advance, start address) = `osmcity.py`'s `Jeu` fed the same arrows; every 10 frames the 80 x 30 screen read through the 6845 start address = `Jeu.ecran()`; the start address wraps past 4096 cells; VRAM writes <= 1900 estimated cycles after the IRQ entry; Esc: RTS, start `$3FFF`, font bank 1 then 0, rows 25-29 given back, key queue empty | `make -C test osmcity` |
+| `verifie_osm3d.py` | the real `apps/OSM3D` (`OSM3D.MAP`, `OSM3D.RUE` on the emulated card) with the VSYNC IRQ every frame and raw PS/2 arrows: at 7 stops (walk, turn, walk into a wall, U-turn) and 6 by the Valgelas bridge (under it on the ground, onto it by its ramp) the 30 rows of the screen = `osm3d.py`'s `ecran()` for the position and angle in memory (view, mini-map and frame, plate, help); every VRAM access inside the IRQ, <= 1900 estimated cycles after its entry, <= 546 bytes per frame; no walking into buildings; level and cell always agree (never on a deck at level 0 except `SOUS_PONT`, level 1 only on a deck); one Left/Right press = one 16/1024 step, held = one step per keyboard repeat (`appuis()`), Up held + Right tapped (the keyboard then repeats only Right) keeps walking, an arrow held with 30/s repeats then released stops, no keyboard byte lost by the NMI (a full queue drops bytes, as on the board); Esc: RTS, rows 25-29 given back, `rvec_IRQ` restored, key queue empty; frames per image measured | `make -C test osm3d` |
 | `verifie_sdtest.py` | the real `cmd/SDTEST` against an SPI-level SDHC card model on the SD-KBD-SON registers: 80 clocks /CS high, CMD0/CMD8 CRCs, ACMD41 with HCS, OCR, CID, CSD capacity, sector 0, 200 compared reads (missing tokens counted), write + read-back + restore at LBA `$00100000` on O, nothing written on N, no card; spacing between transfers as a lower bound in distinct bus accesses (>= 150 slow, >= 9 fast; 30 slow turns fail) | `make -C test sdtest` |
 | `verifie_tele.py` | the real `cmd/TELE` driven by the real `tools/tele/tele.py` over a simulated line (NMI ring in, TDR out): ping, R/W in page 1 (direct), page 2 (FarRead/FarWrite, page restored) and system RAM, call with registers and carry, a BIOS service through the table, bad sum / unknown command / bad length refused, Q leaves raw mode and returns; `depose.py` creates then replaces a file on the emulated card (one entry, content, page, address, attributes read back by `egofs_core`), missing folder refused | `make -C test tele` |
 | `verifie_aytest.py` | the real `cmd/AYTEST` against a simulated AY: 28/28 read-backs on a sound chip, 26/28 with the two R9 faults shown when R9 reads 0; each listening step's registers and length (A, B, C at period 262, chord, noise, envelope), silence between steps and at the end, ports never outputs; the BIOS sequencer (`snd_play` + the IRQ's `AUDIO_UPDATE`) drives A and C frame by frame for the boot jingle and a score copied from page 1, then silence | `make -C test aytest` |
 | `verifie_ayjoue.py` | the real `cmd/AYJOUE` (`lib/ay_joue.asm`) with the VSYNC IRQ taken every frame and a simulated AY: register state frame by frame = `tools/ay/ay.py`'s model (a test song using the whole format, then KOROBEINIKI until Esc), ends by itself, `rvec_IRQ` restored, silence, frame writes inside the IRQ, `son_coupe` zeroes volumes, no argument / missing file / not a song refused | `make -C test ayjoue` |
-| `verifie_clavier.py` | the real BIOS with the keyboard 6850 simulated: Caps Lock toggles `kbd_verr`, case of a-z and é è à ç ù flipped, Shift+letter lowercase, digit row/punctuation/Ctrl/AltGr unchanged; the real `handler_IRQ` sends `$ED` then the LED byte two frames later (TDR, RTS low >= 100 instructions, RTS high), `kbd_muet` counted down, CR `$DC` at IRQ exit; the real `handler_NMI` drops the echo while muted and queues a key afterwards | `make -C test clavier` |
+| `verifie_clavier.py` | the real BIOS with the keyboard 6850 simulated: Caps Lock toggles `kbd_verr`, case of a-z and é è à ç ù flipped, Shift+letter lowercase, digit row/punctuation/Ctrl/AltGr unchanged; the real `handler_IRQ` sends `$ED` then the LED byte two frames later (TDR, RTS low >= 100 instructions, RTS high), `kbd_muet` counted down, CR `$DC` at IRQ exit; the real `handler_NMI` drops the echo while muted and queues a key afterwards; dead keys `^`/`¨` (vowels, capitals, Caps Lock, Space, another key, arrow, AltGr, AltGr+ç not dead, kept across a `scan_keyboard` entry) | `make -C test clavier` |
 | `verifie_horloge.py` | the real `cmd/HORLOGE` (`lib/horloge.asm`) against a pin-level 68B21 and MC146818: no card, VRT, clock not set, setting (BCD registers, SET during the writes, A = `$20`, B = `$02`), weekday of 48 dates vs Python, refused dates/times write nothing, bus rules (Motorola mode, AS/R/W only with DS low, no AD conflict), a read at any phase of the 23:59:59 -> 2027 update is never mixed, PIA left idle; the real BIOS `main` and `Hor_Init` on a freshly reset PIA write nothing to the chip (DS and R/W never change together) | `make -C test horloge` |
 | `verifie_zmachine.py` | the real `zmachine/ZMACHINE` on the real BIOS, games on an emulated card, VSYNC IRQ every frame, `sys_kbd_poll` fed with script lines: every character sent to the screen and the whole 80 x 30 shadow screen at each input = `tools/zmachine/zmachine.py`; VRAM catches up, writes only in the IRQ (or the BIOS spinner), <= 3 rows per frame; rows 25-29 and `rvec_IRQ` given back; a save on the card = the model's Quetzal file byte for byte, and restoring it gives the same screen (czech, dreamlands, zsnake with timeouts, Zork I v3 + its save, zork_285; `tout`: praxix, aventure, lieuxcommuns, Zork_LXIX) | `make -C test zmachine` |
 | `verifie_contrat.py` | every slot of `table_function_ram`, called through the table on the real BIOS (EPROM + BIOS2, emulated card, SD driver clobbering like the real one) with sentinel registers, success and failure paths: changed registers within `test/contrat_services.py`, stack, DP, page, carry, some outputs; two injected faults must be seen; `docs/services.md` up to date | `make -C test contrat` |
+| `verifie_graphe.py` | the real BIOS graphic mode (`sys_Graphe`) with 8 paged VRAM pages, the VSYNC IRQ every frame and a caller whose stack is in its page 1: after each of 89 calls (points, lines of every slope, clipped, XOR; rectangles; circles/discs incl. r = 0, clipped, XOR; characters; GR_LIT; random) page 3 = `tools/graphe/graphe.py`; registers, stack and page given back; after GR_ATTEND the image read back from VRAM and the cell colours = the model, rows 26-29 colours `$08`; VRAM written only in the IRQ, <= 1900 estimated cycles after its entry; console silent; IRQ masked caller; refusals; GR_FIN gives the text screen back | `make -C test graphe` |
 | `verifie_parole.py` | the real `apps/PAROLE` binary, run in `asm/emu6809.py`, gives exactly the model's sine table, normalised text, frames and the AY writes of every sample (volume pairs = `tables_ay()`) | `make -C test parole` |
 
 - `test/video.asm` is a dead copy no stage includes (it does not assemble).
@@ -524,9 +812,9 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     CPU byte offsets are halved before going to R12-R15.
   - Code differing per board sits in `IFNE CARTE_MONO / ELSE / ENDC`
     (lwasm and the board's ASM both handle an `equ` defined before the IF).
-    Rule: **a `v4` build is byte-identical to the code before mono** (BIOS,
-    OSM-VISION, all programs: check it with a reference build after any
-    change).
+    The `v4` branch of each IF must still assemble (archive); it is no
+    longer verified nor compared byte for byte (that rule held while both
+    boards were in service, until 2026-11-18).
   - Converted: everything. BIOS (console, zone, spinner, clear),
     `lib/vram.asm`, `lib/vision.asm` (mono writes cells as char:attr `STD`
     pairs, one pass, budget `MONO_CASE`), OSM-VISION and every app that
@@ -542,7 +830,8 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     constant gives the 8-bit form and breaks byte identity (DONJON39's
     `RANG_O equ VUE_L`).
   - Verifiers read the screen through `test/carte.py` (`adr`, `adr_coul`,
-    `lit`, `pose`), which parses `hardware.inc`: run them once per board.
+    `lit`, `pose`), which parses `hardware.inc`: they follow `CARTE`
+    (mono now).
   - **The board works** (first power-up 2026-11-15, 450 mA) with two
     modifications, wired on the board and drawn in the KiCad schematic
     (commit `483890c`); the PCB is NOT updated yet:
@@ -558,6 +847,35 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
        than its tOE): through the graphic-mode 74HC157s U507/U509 (never
        soldered on the V4) the 166 loaded the previous glyph, so colours
        were exactly one cell ahead. CRT2 has the same latent OE gating.
+  - **Graphic mode** (mono only, `$A120` D3 = GRAPH), tried on the board
+    on 2026-11-15 with `tools/tele/essai_graphique.asm` (through TELE,
+    page 1 `$1000`, A = seconds): U507/U509 give the 166 the char-RAM
+    byte instead of the font (bit 7 = leftmost pixel), U514 puts RA0-3 on
+    A11-A14 of the char RAM. Pixel byte of cell c, scan line r (0-15) at
+    char-RAM address A = r x 2048 + (c mod 2048); the CPU reaches A with
+    video page (`$A120` D0-D2) = A / 4096 and address `$8000 + 2 x (A
+    mod 4096)`. 2048 cells = 25.6 rows: 640 x 400 useful, rows 26-29
+    repeat the top. Colour stays per cell (colour RAM, page 0). The odd
+    bytes of pages 1-7 are not displayed; those of `$9000-$9FFF` in page 0
+    are the colours of rows 26-29 (keep them `$08`).
+  - **The BIOS graphic mode** (`bios/graphe.asm`, BIOS2; service
+    `sys_Graphe`, B = function, X = parameter block of signed words, A =
+    mode or attribute; functions and exact effects in
+    `tools/graphe/graphe.py`): the image is DRAWN in RAM page 3 (line y at
+    y x 80, 32 000 bytes; the 8 x 8 font `/BIN/POLICE8`, made by
+    `graphe.py --fichier` from `video/font_osm39.bin`, at `$7D00`). The
+    service switches to page 3 (`current_page` follows) on its own stack
+    `gr_pile` (the caller's may be in its page), marks each changed line in
+    `gr_sale` AFTER writing it. The VSYNC IRQ (`X_Gr_IRQ`, first thing in
+    `handler_IRQ` while `gr_actif`; console, cursor and spinner skipped):
+    in the window, copies the lines prepared the frame before (3 by `TFM`
+    of point:`$08` pairs, measured 1528 cycles; an r = 0 line alone, every
+    other byte, since page 0's odd bytes are the cell colours) or one step
+    of the colour task (64 cells); after the window, prepares the next
+    marked lines into `gfx_tampon` (reading page 3 on stack `gr_pirq`).
+    Whole screen: ~150 frames (2.5 s). Bench on the board:
+    `tools/tele/essai_graphe.asm`. Demo: `cmd/GRAPHE`. Proven by
+    `make -C test graphe`. BBC BASIC uses it in `MODE 0`. Not yet: scrolling.
   - `cmd/NEIGE` (both boards) is the bench that found them: white screen,
     IRQ masked, it polls the 68B40's frame flag itself and reads the VRAM
     after a delay set in lines (window after the frame signal: 34 lines
@@ -565,8 +883,38 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     (`gfx_tampon`), C reads page-1 RAM for 3/4 of the frame, D the same
     loop at `$4000` (A14 = 1: no false decode). `stage9_mono` row 3 (X red,
     O green) checks the colour alignment.
-- 68B45 CRTC at `$A100/$A101`. **V4 hardware (since 2026-10-10, the board
-  carries "OSM39 V4.00")**: U126 A0 is wired to a12, so characters are at
+- **VRAM write budget (mono, measured 2026-11-20** with
+  `tools/tele/essai_cycles.asm` through TELE: IRQ masked, it counts a
+  14-cycle loop between frame flags, 2196 turns = 30 751 cycles): the CPU
+  may touch the VRAM only in the window after the frame signal, **~1990
+  cycles** (34 lines, `cmd/NEIGE`); the BIOS IRQ takes ~250 of them at
+  rest, so a program has **~1700 cycles per frame**. `TFM` = 6 + 3 per
+  byte (one Terminal row, 152 bytes: 467); a cell per `STD ,X++` loop =
+  12 cycles (76 cells: 920). BIOS IRQ per frame while the Terminal
+  scrolls: 1316, 1792 on the frame that ended a scroll (row copy + row
+  erased cell by cell); since 2026-11-20 `Zone_IRQ` erases the row by an
+  overlapping `TFM` (first cell, then source = destination - 2: 481
+  instead of 920 cycles). OSM-VISION's file list
+  (`Draw_FileList`, `Update_List`) used to write 16 rows cell by cell in
+  one go (~6200 estimated cycles: interference at the top of the screen
+  while scrolling); on mono it now composes rows in RAM (`DFL_Prepare`,
+  `DFL_Buf`) and copies them by `TFM` (`DFL_Copie`), checking `WinAcc`
+  BEFORE each row (an already-synchronised caller gets a `Sync_Yield`
+  after the preparation, which would eat its window). `lib/vision.asm`
+  `Mono_Budget` is predictive: after a row it yields if one more row of
+  the same cost would not fit (`Draw_Window` mono counts every row,
+  bottom, shadow and title included). `Sync_Begin` zeroes `WinAcc`.
+  `vis_Text` (`Put_Text`) costs ~32 cycles per character on mono: ONE
+  80-character line overflows the window. Long lines go through
+  `vis_Prep` (compose char:attr cells into `VisTxt` in RAM, outside the
+  sync, several calls to overlay a highlighted cell or the cursor) then
+  `vis_Ligne` (one `TFM` inside the sync, budget counted): CALC and EDIT
+  use them (their worst write went from 4380 / 2716 to ~1200 estimated
+  cycles). Use them in any app that writes long lines. The BIOS loading
+  spinner is drawn by the VSYNC IRQ (`Spin_IRQ`, see SD card). `Draw_Base_UI` (whole screen, startup and after an
+  app) still writes unsynchronised.
+- 68B45 CRTC at `$A100/$A101`. **V4 hardware (archived 2026-11-18; from
+  2026-10-10 the board carried "OSM39 V4.00")**: U126 A0 is wired to a12, so characters are at
   `$8000-$8FFF` and colours at `$9000-$9FFF`.
   - The colour of a cell is the character address + `VRAM_COL_OFS`; use
     `VRAM_COL`/`VRAM_COL_END` for whole-plane loops.
@@ -696,7 +1044,11 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     table in the manual ("Brancher la Clouris").
     `lib/clouris.asm` `Clou_Lit` (once per frame: contact seen on 2
     frames, a step at once then every 3 frames after 12, edges for
-    centre/thumb). OSMVISION's `Event_Loop` polls `sys_kbd_poll` (dropping
+    centre/thumb). Its first call probes the AY (`Clou_Sonde`: `$05` then
+    `$0A` written to R1 and read back, R1 restored): without the chip,
+    port A reads the empty bus, i.e. fingers everywhere, and OSMVISION
+    froze on the pointer (V4 with its AY pulled, 2026-11-18); no AY, no
+    contact ever. OSMVISION's `Event_Loop` polls `sys_kbd_poll` (dropping
     the queue on entry like `scan_keyboard`) and reads the Clouris each
     frame; pointer `UI_FLECHE` in yellow over the cell's background,
     removed before any action (`Ptr_Cache`), redrawn when idle. In the
@@ -799,12 +1151,14 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
 - **AY-3-8910 on the SD-KBD-SON board**: write `AY_ADR`
   (`$A150`) selects the register, write `AY_DATA` (`$A151`) writes it, read
   `AY_ADR` reads it back. Clock = E (1.8432 MHz): tone period = 115200 / f
-  (A 440 = 262). Ports A/B go to J104. On this board, R9 (channel B volume)
-  always reads back `00`; every other register reads back right (300 random
-  read-backs through TELE). R9 really keeps nothing: channel B is silent
-  (by ear, and pin 3 stays at ~90 mV at volume 15). A and C, tone, noise,
-  envelope work (heard with `BIN/AYTEST`). The chip is faulty: until it is
-  replaced, music has two voices (A, C); a new chip must show 28/28.
+  (A 440 = 262). Ports A/B go to J104 (J602 on mono). The first chip had
+  a dead R9 (channel B volume, always `00`, B silent). Replaced on
+  2026-11-20 on OSM39_mono by a salvaged chip marked Microchip: `AYTEST`
+  28/28, 440 Hz identical on A, B and C by ear. Through TELE, 1195 random
+  read-backs: all right except R9, 5/91 losing one low bit (`0E` -> `0C`,
+  `05` -> `04`), never twice in a row, 96/96 in a targeted run; not
+  audible. The software still plays two voices (A, C) everywhere: B is
+  free for a third voice.
   Output: line level on J103 (LM386 not fitted, R105 = 0 ohm) to the
   monitor amplifier, in place of the 6840.
   - The BIOS sequencer (`snd_play`, so the boot jingle, BBC BASIC SOUND,
@@ -837,6 +1191,11 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
   - Diagnostics (with `MONITEUR`): `M C879` = last SD error code (`sd_err`),
     `C87A` = retries since boot (`sd_retry`).
   - A long transfer shows a spinner top-right (`L`/`E`, then `| / - \`).
+    `Fs_Spin`/`Fs_Spin_End` only REQUEST (`spin_on`: bit 0 shown, bit 7
+    draw, bit 6 restore); `Spin_IRQ`, early in `handler_IRQ`, writes the
+    VRAM. `Fs_Spin_End` waits (one frame) for the restore. A caller with
+    IRQ masked gets no spinner (if it was already shown, `Fs_Spin_End`
+    restores it directly).
 - Reading a file piece by piece (files are contiguous): `sys_FS_FileInfo`
   (X = name, Y = 14 bytes: entry `+16..+29`), then `sys_FS_ReadSector`
   (X = 4-byte LBA, Y = 512-byte buffer). `sys_FS_SetLoad` (X = name, A = page,
@@ -907,8 +1266,21 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     (`--inc`, never edit; missing capitals fall back to their base
     letter). `vis_Input` accepts `$A0-$FF` except with `INP_MAJ` (file
     names stay ASCII). Files typed on the machine are Latin-1. The BIOS
-    console (`PrintChar`: SHELL, BBC BASIC, FORTH) does not translate.
+    console (`PrintChar`: SHELL, BBC BASIC, FORTH) translates too, since
+    2026-11-20, at DRAW time: the IRQ calls `Con_Lat` (EPROM, `bios/IT.asm`,
+    same `Tab_LatCp`) just before writing the cell, in both the full-screen
+    and the zone paths. Not in `PrintChar`: in CP437 é = `$82` would land
+    on the `$80-$83` arrow codes the IRQ interprets.
     MINITEL, PAROLE, ZMACHINE have their own tables.
+  - Dead keys (since 2026-11-21): the `^` key (PS/2 `$54`; the tables had it at `$53` until 2026-11-21, so it never armed on the board)
+    and Shift+`^` (`¨`, `$A8`) return nothing and wait (`kbd_mort`); a
+    vowel gives â ê î ô û / ä ë ï ö ü ÿ and capitals (Latin-1,
+    `tablemorte`), Space the accent alone, any other key (AltGr, arrows
+    included) the accent then that key on the next call (`kbd_suite`).
+    Detected by the character, so AltGr+ç (`^`) stays a plain `^`.
+    Nothing clears them on `scan_keyboard` entry: `NEW_CODE` = 0 is the
+    normal state of an empty queue (clearing there lost every accent on
+    the board, 2026-11-21).
   - A program that is busy for a frame (MINITEL) must use `sys_kbd_poll`:
     with one slot, a late reader lost make codes (keys came out one key
     late). Decoding in `keyboard.asm` is ordinary PS/2.
@@ -958,6 +1330,9 @@ python3 ../decode_trap.py PC=.... OP=....
   early; `A,R`/`B,R` offsets were unsigned (they are signed); `SUBD #` and
   `JMP` direct were missing. The selftest is unchanged by these fixes.
   `test/verifie_parole.py` adds the few 6309 instructions PAROLE uses.
+- `verifie_fs.Machine` keeps the AY registers (`ay_regs`, read back through
+  `AY_ADR` with the chip's bit widths; R14 = `lit_port_a()`); `ay_present =
+  False` makes `AY_ADR` read the empty bus (`$50`).
 - `verifie_fs.Machine` also runs AIM/OIM/EIM/TIM, the bit ops (BAND...
   STBT), ADCR/SBCR 16-bit, `LDQ #` and native `SWI3` (BBC BASIC uses them).
 - Stack pushes/pulls go through `rd8`/`wr8` (paged RAM): before 2026-10-16
@@ -1042,6 +1417,5 @@ not freshness. **Look at `git status` after a clean build.**
 
 - `bios/vectors.asm` comment list: `sys_memcpy_32_bytes`, and `sys video_wait_vsync`.
 - `asm/dbg.py`, `decode_trap.py` hardcode BIOS addresses from an older link.
-- `test/Makefile` target `indexation` runs a script that does not exist.
 - `games/Makefile clean` references an undefined `$(SONDE_OBJ)`.
 - `update_includes.py`: six `page_copy_*` symbols, all "not found in map".

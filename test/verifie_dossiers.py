@@ -309,7 +309,21 @@ def main():
         v.appelle(m, ov['Load_Directory'])
         n = m.banks[0][ov['FileCount']]
         recs = [bytes(m.banks[0][ov['FileNames'] + 16 * i:ov['FileNames'] + 16 * i + 16]) for i in range(n)]
-        v.appelle(m, ov['Draw_FileList'])
+        # Draw_FileList attend le signal de trame (Sync_Begin, Sync_Yield) :
+        # ici, video_wait_vsync rend la main tout de suite, comme le banc du bureau
+        vsync, pas = b.s['video_wait_vsync'], m.step
+
+        def step():
+            if m.pc == vsync:
+                m.pc = (m.rd8(m.s) << 8) | m.rd8(m.s + 1)
+                m.s += 2
+                return
+            pas()
+        m.step = step
+        try:
+            v.appelle(m, ov['Draw_FileList'])
+        finally:
+            del m.step
         icones = [m.mem[carte.adr((i + 7) * 80 + 12)] for i in range(min(n, 16))]
         return [(r[:15].decode('ascii').rstrip(), r[15]) for r in recs], icones
 

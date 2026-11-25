@@ -27,7 +27,7 @@ RACINE = os.path.dirname(ICI)
 JOURNAUX = os.path.join(ICI, 'tout')
 
 # Les plus longues d'abord (mesuré : bbcbasic et zmachine ~10 min)
-CIBLES = ['bbcbasic', 'zmachine', 'asm', 'bureau', 'minitel', 'donjon39',
+CIBLES = ['bbcbasic', 'zmachine', 'asm', 'bureau', 'graphe', 'minitel', 'donjon39', 'osmcity', 'osm3d',
           'demarrage', 'dossiers', 'fs', 'parole', 'terminal', 'farcall',
           'tele', 'clavier', 'horloge', 'aytest', 'ayjoue', 'sdtest',
           'contrat', 'constantes', 'negatifs']

@@ -7,7 +7,11 @@
     export  kbd_buf, kbd_tete, kbd_queue, kbd_apres_f0
     export  cz_actif, cz_l, cz_h, cz_haut, cz_bas, cz_op, cz_n, cz_ptr, cz_cpt
     export  kbd_echap, gfx_tampon
-    export  kbd_verr, kbd_led_dem, kbd_led_cpt, kbd_muet
+    export  kbd_verr, kbd_led_dem, kbd_led_cpt, kbd_muet, kbd_mort, kbd_suite
+    export  gr_actif, gr_sale, gr_np, gr_r0, gr_n2, gr_m, gr_yc, gr_src, gr_sirq
+    export  gr_cc, gr_cx, gr_cw, gr_cn, gr_ca, gr_s, gr_pg, gr_fn, gr_cc0, gr_mode
+    export  gr_par, gr_res, gr_x, gr_y, gr_x1, gr_y1, gr_dx, gr_dy, gr_sx, gr_sy
+    export  gr_err, gr_e2, gr_hx0, gr_hx1, gr_hn, gr_plein, gr_s2, gr_pile_h, gr_pirq_h, ecran_abime
     export  ext_nom, ext_info, ext_ok, ExtV
     export  SCAN_CODE
     export  NEW_CODE
@@ -41,7 +45,7 @@
     export sys_FS_FindEntry,sys_FS_ListRoot,sys_FS_SaveFile,sys_reg_cmd,sys_FS_ClusterToLBA_Offset,sys_Format_Filename_83,sys_strcpy
     export sys_strlen,sys_pager,sys_loadandexec,sys_ls,sys_malloc_sys,sys_free,sys_FS_DeleteFile,sys_FarRead,sys_FarWrite
     export sys_FS_GetAttributes,sys_FS_SetAttributes, sys_FS_RenameFile, sys_video_wait_vsync,sys_snd_play, sys_snd_stop
-    export sys_Far_Call,sys_Far_CallN,sys_FS_FileInfo,sys_FS_ReadSector,sys_FS_SetLoad,sys_FS_ChDir,sys_FS_MkDir,sys_FS_Dossier,sys_FS_DirInfo,sys_kbd_poll,sys_Console_Zone,table_reserve,table_function_ram_end
+    export sys_Far_Call,sys_Far_CallN,sys_FS_FileInfo,sys_FS_ReadSector,sys_FS_SetLoad,sys_FS_ChDir,sys_FS_MkDir,sys_FS_Dossier,sys_FS_DirInfo,sys_kbd_poll,sys_Console_Zone,sys_Graphe,table_reserve,table_function_ram_end
     export e0_received,last_makecode,PS2_BIT_COUNT,PS2_PARITY
     export argv, argc,current_page
     export vsync_tick,SCREEN_START_OFFSET
@@ -98,11 +102,12 @@ sys_FS_Dossier   rmb 2
 sys_FS_DirInfo   rmb 2
 sys_kbd_poll     rmb 2      ; clavier sans attente : A = caractère, ou 0
 sys_Console_Zone rmb 2      ; console limitée à un rectangle (E = 0 : plein écran)
+sys_Graphe       rmb 2      ; le mode graphique (graphe.asm) : B = fonction
 ; Réserve : la table a une taille FIXE (TABLE_OCTETS dans update_includes.py),
 ; pour qu'un nouveau service ne décale plus la RAM système qui suit. Ajouter
 ; un service = un `sys_X rmb 2` juste au-dessus ET 2 octets de moins ici ;
 ; dans vectors.asm, un `fdb X` à la même place ET un `fdb Sys_Absent` de moins.
-table_reserve:   rmb 4
+table_reserve:   rmb 2
 table_function_ram_end:
 
 SCAN_CODE:       RMB 1
@@ -286,5 +291,50 @@ kbd_muet:    RMB 1          ; <>0 : la NMI jette les octets du clavier
 ext_nom:     RMB 15
 ext_info:    RMB 14
 ext_ok:      RMB 1
-ExtV:        RMB 28         ; vecteurs vers BIOS2 (ext.inc : EXTV_*)
+ExtV:        RMB 32         ; vecteurs vers BIOS2 (ext.inc : EXTV_*)
+; --- Touches mortes ^ et ¨ (keyboard.asm, ajoutées à la fin). ---
+kbd_mort:    RMB 1          ; <>0 : accent en attente ('^' ou $A8 = ¨)
+kbd_suite:   RMB 1          ; <>0 : caractère à rendre au prochain kbd_poll
+; --- Le mode graphique (graphe.asm, BIOS2 ; ajouté à la fin). ---
+gr_actif:    RMB 1          ; <>0 : mode graphique (l'IRQ recopie l'image)
+gr_sale:     RMB 50         ; une marque par ligne (400) : à recopier
+gr_np:       RMB 1          ; lignes préparées dans gfx_tampon (IRQ)
+gr_r0:       RMB 1          ; <>0 : c'est une ligne r = 0 (seule)
+gr_n2:       RMB 1          ; (IRQ) lignes trouvées
+gr_m:        RMB 1          ; (IRQ) masque courant
+gr_yc:       RMB 2          ; (IRQ) ligne examinée
+gr_src:      RMB 6          ; (IRQ) adresses des lignes trouvées, page 3
+gr_sirq:     RMB 2          ; (IRQ) sa pile d'avant
+gr_cc:       RMB 2          ; tâche de couleur : case courante
+gr_cx:       RMB 1          ;   cases restant dans la rangée
+gr_cw:       RMB 1          ;   largeur
+gr_cn:       RMB 1          ;   rangées restant (0 : pas de tâche)
+gr_ca:       RMB 1          ;   attribut
+gr_s:        RMB 2          ; pile de l'appelant du service
+gr_s2:       RMB 2          ; pile du service pendant le chargement de la police
+gr_pg:       RMB 1          ; sa page
+gr_fn:       RMB 1
+gr_cc0:      RMB 1          ; son CC
+gr_mode:     RMB 1
+gr_par:      RMB 8          ; le bloc de paramètres
+gr_res:      RMB 1
+gr_x:        RMB 2
+gr_y:        RMB 2
+gr_x1:       RMB 2
+gr_y1:       RMB 2
+gr_dx:       RMB 2
+gr_dy:       RMB 2
+gr_sx:       RMB 2
+gr_sy:       RMB 2
+gr_err:      RMB 2
+gr_e2:       RMB 2
+gr_hx0:      RMB 2
+gr_hx1:      RMB 2
+gr_hn:       RMB 1
+gr_plein:    RMB 1
+ecran_abime: RMB 1          ; <>0 : écran écrasé hors de la zone (GR_FIN), le SHELL fait redessiner
+gr_pile:     RMB 96         ; pile du service (page 3 visible)
+gr_pile_h:
+gr_pirq:     RMB 32         ; pile de l'IRQ quand elle lit la page 3
+gr_pirq_h:
 __bss_end__:

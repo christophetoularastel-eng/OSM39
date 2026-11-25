@@ -218,7 +218,7 @@ SD_Fin:                         ; A = code, carte libérée
     JSR     SD_Deselect
     PULS    A,PC
 
-    section .ext
+    section .code
 ; -------------------------------------------------------------------
 ; SD_WriteBlock - SD_BUFFER -> secteur BlockAddr. CMD24, puis 8 x $FF
 ; écrits (R1 passe pendant ces octets, sans être lu : voir l'en-tête),

@@ -22,10 +22,12 @@ YIELD_WINDOW    equ 1           ; 1 = Draw_Window par petits lots (boîtes de di
 ; Budget VRAM par trame, compté dans WinAcc (16 bits : plus de plafond à 176).
 ; Copies TFM : 3 cycles/octet, plus un surcoût fixe par ligne (Calc_Addr,
 ; piles, compteurs) d'environ 100 cycles, compté comme COUT_LIGNE octets.
-; Estimation (E = 1,8432 MHz) : fenêtre après l'IRQ ~2600 cycles avec
-; R7=$1e (BIOS depuis le 10 oct. 2026, 80 x 30 ; ~3500 avec l'ancien $1d).
-; A CALIBRER SUR LA CARTE : monter par paliers jusqu'aux parasites en haut
-; de l'écran, puis redescendre d'un palier.
+; Mesuré sur la carte mono (20 nov. 2026, tools/tele/essai_cycles.asm) :
+; fenêtre de retour de trame ~1990 cycles après le signal (34 lignes,
+; banc NEIGE), dont ~250-300 pris par l'IRQ du BIOS au repos ; TFM = 6 +
+; 3 cycles par octet ; une case au STD ,X++ en boucle = 12 cycles.
+; YIELD_CELLS = 480 (~1440 cycles) laisse donc peu de marge : vérifier le
+; budget AVANT d'écrire (DFL_Copie d'OSM-VISION) plutôt qu'après.
 YIELD_CELLS     equ 480         ; octets-équivalents TFM par trame
 COUT_LIGNE      equ 32          ; surcoût d'une ligne, en octets-équivalents TFM
 MONO_CASE       equ 4           ; mono : une case au STD ,X++ (~12 cycles)
@@ -62,6 +64,8 @@ VT_PutCell      FDB Vis_PutCell
 VT_Rect_Save    FDB Vis_Rect_Save
 VT_Rect_Restore FDB Vis_Rect_Restore
 VT_Input        FDB Vis_Input
+VT_Prep         FDB Vis_Prep
+VT_Ligne        FDB Vis_Ligne
 Vis_Table_End:
 ; Chaque entree doit etre a l'offset que lib/vis.inc annonce.
     IFNE    VT_Sync_Begin-VIS_TABLE-vis_Sync_Begin
@@ -100,6 +104,12 @@ Vis_Table_End:
     IFNE    VT_Input-VIS_TABLE-vis_Input
     error   "vis.inc : vis_Input n'est pas a sa place dans Vis_Table"
     ENDC
+    IFNE    VT_Prep-VIS_TABLE-vis_Prep
+    error   "vis.inc : vis_Prep n'est pas a sa place dans Vis_Table"
+    ENDC
+    IFNE    VT_Ligne-VIS_TABLE-vis_Ligne
+    error   "vis.inc : vis_Ligne n'est pas a sa place dans Vis_Table"
+    ENDC
     IFNE    (Vis_Table_End-VIS_TABLE)/2-VIS_COUNT
     error   "vis.inc : VIS_COUNT ne correspond pas a la taille de Vis_Table"
     ENDC
@@ -117,6 +127,8 @@ Sync_Begin:
     JSR     [table_function_ram+sys_video_wait_vsync]
     PULSW
     ORCC    #%00010000
+    CLR     WinAcc              ; début de trame : le budget repart de zéro
+    CLR     WinAcc+1
     PSHS    A
     CLRA                        ; page vidéo 0 (V4 : $A120 = la page seule)
     STA     VRAM_CTRL
@@ -423,11 +435,95 @@ Lat_Cp:
     LDA     A,X
     PULS    X,PC
 
+; vis_Prep (lib/vis.inc) : A = colonne dans VisTxt (0-79), X = chaîne (0
+; final), E = attribut : les cases caractère:attribut composées en RAM,
+; Latin-1 traduit. VisLong = la plus loin écrite. Détruit D, X.
+Vis_Prep:
+    PSHS    Y
+    STE     TextAttr
+    STA     VisPos
+    TFR     A,B
+    CLRA
+    LSLB                                ; 2 octets par case
+    ROLA
+    LDY     #VisTxt
+    LEAY    D,Y
+VPr_Car:
+    LDA     VisPos
+    CMPA    #80
+    BHS     VPr_Fin                     ; la ligne est pleine
+    LDA     ,X+
+    BEQ     VPr_Fin
+    CMPA    #$A0
+    BLO     VPr_Ascii
+    BSR     Lat_Cp
+VPr_Ascii:
+    LDB     TextAttr
+    STD     ,Y++
+    INC     VisPos
+    BRA     VPr_Car
+VPr_Fin:
+    LDA     VisPos
+    CMPA    VisLong
+    BLS     VPr_Ret
+    STA     VisLong
+VPr_Ret:
+    PULS    Y,PC
+
+; vis_Ligne (lib/vis.inc) : A = colonne, B = ligne : les VisLong premières
+; cases de VisTxt à l'écran (mono : un TFM), puis VisLong = 0. Budget de la
+; trame compté ; synchronisé (IRQ masquées) et plein : Sync_Yield d'abord.
+; Préserve X, Y, U.
+Vis_Ligne:
+    PSHS    X,Y,U
+    TST     VisLong
+    BEQ     VLi_Fin
+    JSR     Calc_Addr                   ; Y = adresse de la case (détruit D)
+    LDB     VisLong                     ; coût : 2 octets par case + la ligne
+    CLRA
+    LSLB
+    ROLA
+    ADDD    #COUT_LIGNE
+    PSHS    D
+    ADDD    WinAcc
+    CMPD    #YIELD_CELLS
+    BLS     VLi_Compte
+    TFR     CC,A
+    BITA    #%00010000
+    BEQ     VLi_Compte                  ; pas synchronisé : on compte, sans plus
+    JSR     Sync_Yield                  ; la trame est pleine : la suivante
+VLi_Compte:
+    PULS    D
+    ADDD    WinAcc
+    STD     WinAcc
+    LDU     #VisTxt
+    IFNE    CARTE_MONO
+    LDB     VisLong
+    CLRA
+    LSLB
+    ROLA
+    TFR     D,W
+    TFM     U+,Y+
+    ELSE
+    LDB     VisLong                     ; v4 : caractères, couleurs 4 Ko plus haut
+VLi_Case:
+    LDA     ,U+
+    STA     ,Y
+    LDA     ,U+
+    STA     VRAM_COL_OFS,Y
+    LEAY    1,Y
+    DECB
+    BNE     VLi_Case
+    ENDC
+    CLR     VisLong
+VLi_Fin:
+    PULS    X,Y,U,PC
+
 ; vis_Text (lib/vis.inc) : comme Put_Text, mais l'attribut arrive en E,
 ; pour que l'application n'ait pas a connaitre l'adresse de TextAttr.
 Vis_Text:
     STE     TextAttr
-    BRA     Put_Text
+    JMP     Put_Text
 
 ; vis_PutCell (lib/vis.inc) : A = colonne, B = ligne, E = caractère,
 ; F = attribut. Préserve tous les registres.
@@ -518,16 +614,21 @@ MPl_Case:
 MPl_Fin:
     RTS
 
-; Mono_Budget : B cases viennent d'être écrites ; au-delà de YIELD_CELLS
-; octets-équivalents, on laisse passer une trame. Détruit D.
+; Mono_Budget : B cases viennent d'être écrites. Prédictif : si une rangée
+; de même coût ne tiendrait plus dans YIELD_CELLS octets-équivalents, on
+; laisse passer une trame tout de suite (vérifier après coup laissait la
+; dernière rangée déborder de la fenêtre de retour de trame : parasites en
+; haut de l'écran, mesuré le 20 nov. 2026). Détruit D.
 Mono_Budget:
     LDA     #MONO_CASE
     MUL
-    ADDD    #COUT_LIGNE
+    ADDD    #COUT_LIGNE         ; D = coût de la rangée
+    PSHS    D
     ADDD    WinAcc
     STD     WinAcc
+    ADDD    ,S++                ; + une rangée de plus
     CMPD    #YIELD_CELLS
-    BLO     MBu_Fin
+    BLS     MBu_Fin
     CLR     WinAcc
     CLR     WinAcc+1
     JSR     Sync_Yield
@@ -899,7 +1000,11 @@ DWm_Bas:
     LDA     #UI_SHADOW
     LDB     #COLOR_SHADOW
     STD     ,X++
+    LDB     6,S
+    JSR     Mono_Budget
     ; --- rangée d'ombre, décalée d'une colonne ---
+    LDA     #UI_SHADOW                  ; (Mono_Budget a détruit D)
+    LDB     #COLOR_SHADOW
     LEAU    VRAM_LIGNE,U
     LEAX    2,U
     LDF     6,S
@@ -919,6 +1024,8 @@ DWm_Bas:
     LDF     6,S
     SUBF    #2
     JSR     Mono_Plan
+    LDB     6,S                         ; le filet, puis la place du titre
+    JSR     Mono_Budget
     LDY     4,S                         ; longueur du titre -> B
     CLRB
 DWm_Long:
@@ -1257,6 +1364,9 @@ RectW           rmb 1
 RectH           rmb 1
 RectCnt         rmb 1
 TextAttr        rmb 1           ; attribut utilisé par Put_Text
+VisPos          rmb 1           ; vis_Prep : case courante dans VisTxt
+VisLong         rmb 1           ; vis_Prep : cases composées (la plus loin)
+VisTxt          rmb 160         ; vis_Prep / vis_Ligne : 80 cases car:attr
 FillX           rmb 1           ; vis_Fill : rectangle, caractère, attribut
 FillY           rmb 1
 FillW           rmb 1

@@ -17,7 +17,7 @@
     import  s_file_size, s_file_bytesLeft, s_file_destPtr
     import  s_save_fileNamePtr, s_save_sourcePtr, s_save_bytesLeft, s_save_fileSize
     import  s_save_firstSector, s_save_dirEntryLBA, s_save_dirEntryOffset
-    import  spin_cnt, spin_on, spin_save, spin_dir, SCREEN_START_OFFSET
+    import  spin_cnt, spin_on, spin_save, spin_dir, SCREEN_START_OFFSET, gr_actif
     import  sd_err, sd_retry
     import  fs_dossier, fs_cible, fs_explicite, fs_repli, fs_attr_neuf
     import  fs_slot_suiv, fs_slots, fr_fin, fr_dos, fr_nom15, fs_tmp
@@ -28,6 +28,7 @@
     include "ext.inc"
     import  ExtV
     export  Fs_ReadBlk              ; (ext.asm : chargement de BIOS2)
+    export  Spin_IRQ                ; (IT.asm : le moulinet au retour de trame)
     export  FS_FindEntry, FS_LoadFile
     export  FS_FindFirst, FS_FindNext
     export  FS_ListRoot
@@ -472,17 +473,86 @@ Fs_Spin_Init:                   ; A = 'L' ou 'E'
     clr     spin_on
     rts
 
+; La VRAM ne se touche qu'au retour de trame (mono : sinon des parasites
+; en haut de l'écran) : Fs_Spin et Fs_Spin_End ne font que DEMANDER, et
+; Spin_IRQ, au début de l'IRQ du VSYNC, dessine ou remet le dessous.
+; spin_on : bit 0 = dessous sauvé (moulinet à l'écran), bit 7 = dessin
+; demandé, bit 6 = remise demandée. IRQ masquées chez l'appelant : rien
+; n'est demandé (pas de moulinet) ; Fs_Spin_End remet alors le dessous
+; elle-même si le moulinet était déjà affiché (seule écriture hors trame).
 Fs_Spin:
     pshs    cc,d,x,y
     inc     spin_cnt
     lda     spin_cnt
     cmpa    #SPIN_DEBUT
     bls     FSp_End
-    bsr     Spin_Addr
+    lda     ,s                  ; IRQ masquées : pas de moulinet
+    bita    #$10
+    bne     FSp_End
+    tst     gr_actif            ; mode graphique : la VRAM est l'image
+    bne     FSp_End
+    oim     #$80,spin_on        ; une instruction : l'IRQ ne la coupe pas
+FSp_End:
+    puls    cc,d,x,y,pc
+
+Fs_Spin_End:
+    pshs    cc,d,x
+    orcc    #%00010000
+    lda     spin_on
+    bita    #$01
+    beq     FSe_Rien            ; jamais affiché : on oublie la demande
+    lda     ,s
+    bita    #$10
+    bne     FSe_Direct
+    lda     #$41                ; l'IRQ remet le dessous...
+    sta     spin_on
+    puls    cc                  ; ...IRQ rouvertes, on l'attend (une trame)
+    pshs    cc
+    ldx     #0
+FSe_Att:
     tst     spin_on
-    bne     FSp_Draw
-    inc     spin_on             ; premier affichage : on garde le dessous
-    ldd     ,x
+    beq     FSe_End
+    leax    -1,x
+    bne     FSe_Att
+FSe_Direct:
+    bsr     Spin_Addr
+    ldd     spin_save
+    std     ,x
+    ldd     spin_save+2
+    ifne    CARTE_MONO
+    std     2,x
+    else
+    std     VRAM_COL_OFS,x
+    endc
+FSe_Rien:
+    clr     spin_on
+FSe_End:
+    puls    cc,d,x,pc
+
+; Spin_IRQ : appelée par handler_IRQ au début du retour de trame (IRQ
+; masquées). Exécute la demande de spin_on. Détruit A, B, X, Y.
+Spin_IRQ:
+    lda     spin_on
+    bita    #$C0
+    beq     SpI_Fin
+    bsr     Spin_Addr
+    bita    #$40
+    beq     SpI_Dessin
+    ldd     spin_save           ; remise du dessous
+    std     ,x
+    ldd     spin_save+2
+    ifne    CARTE_MONO
+    std     2,x
+    else
+    std     VRAM_COL_OFS,x
+    endc
+    clr     spin_on
+SpI_Fin:
+    rts
+SpI_Dessin:
+    bita    #$01
+    bne     SpI_Pose
+    ldd     ,x                  ; premier affichage : on garde le dessous
     std     spin_save
     ifne    CARTE_MONO
     ldd     2,x
@@ -490,7 +560,7 @@ Fs_Spin:
     ldd     VRAM_COL_OFS,x
     endc
     std     spin_save+2
-FSp_Draw:
+SpI_Pose:
     lda     spin_dir
     sta     ,x
     lda     spin_cnt
@@ -501,29 +571,14 @@ FSp_Draw:
     lda     #SPIN_ATTR
     sta     VRAM_COL_OFS,x
     sta     VRAM_COL_OFS+VRAM_PAS,x
-FSp_End:
-    puls    cc,d,x,y,pc
-
-Fs_Spin_End:
-    pshs    cc,d,x
-    tst     spin_on
-    beq     FSe_End
-    bsr     Spin_Addr
-    ldd     spin_save
-    std     ,x
-    ldd     spin_save+2
-    ifne    CARTE_MONO
-    std     2,x
-    else
-    std     VRAM_COL_OFS,x
-    endc
-    clr     spin_on
-FSe_End:
-    puls    cc,d,x,pc
+    lda     #$01
+    sta     spin_on
+    rts
 
 ; X = adresse (plan caractères) de la cellule SPIN_COL de la rangée du haut
-; de l'écran visible, repliée dans la page vidéo de 4 Ko. Détruit D.
+; de l'écran visible, repliée dans la page vidéo de 4 Ko. Détruit B.
 Spin_Addr:
+    pshs    a
     ldd     SCREEN_START_OFFSET
     addd    #1+SPIN_COL
     anda    #$0F
@@ -533,7 +588,7 @@ Spin_Addr:
     endc
     adda    #VRAM_BASE/256
     tfr     d,x
-    rts
+    puls    a,pc
 
 Spin_Car:       fcc     "|/-\"
 
@@ -568,7 +623,7 @@ FRB_Loop:
 FRB_End:
     puls    b,pc
 
-    section .ext
+    section .code
 Fs_WriteBlk:
     pshs    b
     ldb     #SD_ESSAIS
@@ -707,7 +762,7 @@ FindNext_Copy:
     andcc   #%11111110
     puls    d,x,y,u,pc
 
-    section .ext
+    section .code
 ; ===================================================================
 ; FS_ListRoot - List all files in root directory
 ; Entry: none
@@ -1197,7 +1252,7 @@ GetAttr_Error:
     orcc    #%00000001
     puls    y,x,d,pc
 
-    section .ext
+    section .code
 ; ===================================================================
 ; FS_SetAttributes - Write file attributes
 ; Entry: X -> 15-byte filename, A = new attributes
@@ -1255,7 +1310,7 @@ FS_ClusterToLBA_Offset:
     orcc    #%00000001
     rts
 
-    section .ext
+    section .code
 ; ===================================================================
 ; FS_RenameFile - Renomme et/ou déplace une entrée
 ; Entry: X -> ancien nom, Y -> nouveau nom (15 octets, Format_Filename_83)
@@ -1714,7 +1769,7 @@ fcd_fin:
 fcd_ret:
     puls    d,u,pc
 
-    section .ext
+    section .code
 ; ===================================================================
 ; FS_MkDir - Crée un dossier
 ; Entry: X -> nom (15 octets, Format_Filename_83 : "APPS" ou "APPS/JEUX")
@@ -1839,7 +1894,7 @@ RS_Err:
     orcc    #%00000001
     puls    u,y,x,d,pc
 
-    section .ext
+    section .code
 ; ===================================================================
 ; FS_SetLoad - Page et adresse de chargement d'un fichier
 ; Entry: X -> 15-byte filename, A = page, Y = adresse

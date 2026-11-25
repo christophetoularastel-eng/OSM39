@@ -14,12 +14,12 @@ TARGET_EPROM = osm39.bin
 # Fichier intermédiaire au format S-Record (contient les adresses)
 TARGET_LINKED = osm39.srec
 TARGET_DEBUG = osm39.hex
-SOURCES =  vectors.asm main.asm SD.asm keyboard.asm IT.asm ram.asm osmfs.asm filename.asm video.asm audio.asm farcall.asm ext.asm
+SOURCES =  vectors.asm main.asm SD.asm keyboard.asm IT.asm ram.asm osmfs.asm filename.asm video.asm audio.asm farcall.asm ext.asm graphe.asm
 OBJECTS = $(SOURCES:.asm=.o)
 
 # BIOS2 (ext.asm, section .ext) : la seconde partie du BIOS, en RAM
 # système de EXT_BASE à EXT_FIN (exclu), sous la pile.
-EXT_BASE = 0xCE00
+EXT_BASE = 0xCE80
 EXT_FIN = 0xDA00
 ASFLAGS = --format=obj --6309 -DEXT_BASE=$(EXT_BASE) -DEXT_FIN=$(EXT_FIN)
 
@@ -44,7 +44,12 @@ LDFLAGSDEBUG = --format=ihex --map=$(TARGET_DEBUG:.hex=.map) \
           --section-base=.bss=0xc000
 
 # La règle par défaut : on veut le fichier EPROM final
-all: $(TARGET_EPROM)
+all: $(TARGET_EPROM) POLICE8
+
+# La police 8 x 8 du mode graphique (/BIN/POLICE8), tirée de la police
+# de la machine par le modèle (tools/graphe/graphe.py).
+POLICE8: ../tools/graphe/graphe.py ../video/font_osm39.bin
+	@python3 ../tools/graphe/graphe.py --fichier POLICE8
 
 # BIOS2 sort avec l'image EPROM (même lien, voir bios2.py)
 BIOS2: $(TARGET_EPROM)
@@ -120,6 +125,6 @@ ram.o: ram.asm
 # Nettoyage
 clean:
 	@echo "Nettoyage du projet..."
-	rm -f $(OBJECTS) $(TARGET_LINKED) $(TARGET_LINKED:.srec=.filtered.srec) $(TARGET_EPROM) BIOS2 *.map ram.srec hardware.inc sysfunc.inc
+	rm -f $(OBJECTS) $(TARGET_LINKED) $(TARGET_LINKED:.srec=.filtered.srec) $(TARGET_EPROM) BIOS2 POLICE8 *.map ram.srec hardware.inc sysfunc.inc
 
 .PHONY: all clean

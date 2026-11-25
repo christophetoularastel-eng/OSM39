@@ -28,6 +28,10 @@ X0, Y0, L, H = 2, 3, 76, 20      # la zone du Terminal d'OSM-VISION
 ATTR = 0x0A
 
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'video'))
+import latin_cp437      # noqa: E402  (Latin-1 $A0-$FF -> CP437, la table du BIOS)
+
+
 class Modele:
     def __init__(self):
         self.g = [[' '] * L for _ in range(H)]
@@ -57,6 +61,8 @@ class Modele:
                 if self.col >= L:
                     self.col = 0
                     self.ligne()
+                if o >= 0xA0:               # PrintChar : Latin-1 -> CP437
+                    c = chr(latin_cp437.cp437(o))
                 self.g[self.lig][self.col] = c
                 self.col += 1
 
@@ -142,6 +148,7 @@ def main():
         ('ligne trop longue', ''.join(chr(0x41 + i % 26) for i in range(170)) + '\r\n'),
         ('défilement', ''.join('ligne %02d\r\n' % i for i in range(30))),
         ('codes ignorés', 'a\x07b\x80\x81c\x1bd\r\n'),
+        ('accents Latin-1 en CP437', 'été à Noël, ça : 5 ° ½\r\n'),
         ('effacement $0C', 'avant\x0capres\r\nfin'),
     ]
     for nom, texte in cas:
@@ -184,6 +191,14 @@ def main():
     verifie(r16(14, 15) == 35 * 80 - 1 and m.rd16(HW['VRAM_PTR']) == carte.adr(35 * 80),
             'plein écran : curseur R14/R15 = $%04X (attendu $%04X), VRAM_PTR = $%04X'
             % (r16(14, 15), 35 * 80 - 1, m.rd16(HW['VRAM_PTR'])))
+
+    # les accents Latin-1 tapés (SHELL, BBC BASIC plein écran) : CP437 à l'écran,
+    # et les flèches $80-$83 gardent leur rôle (é = $82 en CP437 n'en est pas une)
+    ecrit('ça été\r\n')
+    k = 35 * 80
+    attendu = bytes(latin_cp437.cp437(ord(c)) if ord(c) >= 0xA0 else ord(c) for c in 'ça été')
+    verifie(carte.lit(m.mem, k, 6)[0] == attendu,
+            'plein écran : accents Latin-1 affichés en CP437 (%s)' % carte.lit(m.mem, k, 6)[0].hex())
 
     print('\n%s : %d échec(s) (carte %s)' % ('ÉCHEC' if erreurs else 'OK', len(erreurs), carte.NOM))
     return 1 if erreurs else 0

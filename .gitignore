@@ -15,6 +15,7 @@
 *.srec
 bios/osm39.bin
 bios/BIOS2
+bios/POLICE8
 
 # --- Binaires de sortie SANS extension (make) ---
 shell/SHELL
@@ -38,6 +39,7 @@ cmd/AYJOUE
 cmd/CLOUTEST
 cmd/NEIGE
 cmd/HORLOGE
+cmd/GRAPHE
 tools/ay/morceaux/*.MUS
 asm/ASM
 osmvision/OSMVISION
@@ -51,6 +53,8 @@ apps/SON
 apps/PAROLE
 apps/MINITEL
 apps/DONJON39
+apps/OSMCITY
+apps/OSM3D
 apps/PONT
 zmachine/ZMACHINE
 zmachine/ZMACHINE.map
@@ -94,9 +98,25 @@ bbcbasic/construit/
 tools/tele/ESSAI_SD
 tools/tele/ESSAI_SD.map
 tools/tele/essai_sd.o
+tools/tele/essai_cycles.bin
+tools/tele/essai_graphe.bin
+tools/tele/essai_graphe.lst
+tools/tele/essai_cycles.lst
+tools/tele/essai_neige_gr.bin
+tools/tele/essai_neige_gr.lst
 
 # Manuel : environnement Python, PDF et captures se refont (tools/manuel/)
 tools/manuel/.venv/
 docs/manuel/OSM39-manuel.pdf
 docs/manuel/images/
 test/tout/
+tools/osmcity/apercus/
+apps/OSMCITY.MAP
+apps/OSMCITY.RUE
+apps/OSM3D.RUE
+apps/OSM3D.MAP
+tools/osm3d/apercus/
+
+# OSM3D : captures Street View (Google) et dessins de l utilisateur ; captures webcam
+tools/osm3d/essais/
+tools/tele/neige_captures/

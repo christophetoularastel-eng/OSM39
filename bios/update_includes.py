@@ -72,6 +72,9 @@ symbols = [
     "page_copy_saved_page",
     "page_copy_tmp",
     "BUF_HEAD",
+    # GR_FIN dans le Terminal : l'écran hors de la zone est perdu, le SHELL
+    # appelle la routine de redessin d'OSM-VISION (shell/shell.asm).
+    "ecran_abime",
     "BUF_TAIL",
     "VRAM_PTR",
     "CUR_PAGE",

@@ -9,7 +9,7 @@
 #
 #   python3 tools/ay/ay.py morceau.txt -o MORCEAU      fichier pour la carte
 #   python3 tools/ay/ay.py morceau.txt --wav m.wav     écoute (--b-muette :
-#                                                       comme la puce de la carte)
+#                                                       comme l'ancienne puce, voie B morte)
 #   python3 tools/ay/ay.py morceau.txt --trames 20     registres, trame par trame
 #
 # ---- La partition (texte) ----
@@ -403,7 +403,7 @@ def main():
     p.add_argument('-o', help='fichier binaire pour la carte')
     p.add_argument('--wav', help='rendu à écouter')
     p.add_argument('--secondes', type=float, default=30)
-    p.add_argument('--b-muette', action='store_true', help='voie B muette (puce de la carte)')
+    p.add_argument('--b-muette', action='store_true', help='voie B muette (ancienne puce de la carte, R9 mort)')
     p.add_argument('--trames', type=int, help='affiche les registres des N premières trames')
     a = p.parse_args()
     try:

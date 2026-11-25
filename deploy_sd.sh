@@ -5,6 +5,8 @@
 # Usage   : ./deploy_sd.sh [--no-build]
 # Sortie  : dist/EPROM/osm39.bin   -> BIOS à graver en EPROM
 #           dist/EPROM/font_osm39.bin -> police (EPROM des caractères)
+#           dist/EPROM/font_osm39_28c256.bin -> la police de 32 Ko (28C256 :
+#                  4 banques, banque 1 = OSM City ; tools/osmcity/glyphes.py)
 #           (BIN/BIOS2 sur la carte : la seconde partie du BIOS, construite
 #            avec osm39.bin ; l'une ne va pas sans l'autre)
 #           dist/SD/<NOM>          -> fichiers à écrire sur la carte SD
@@ -82,6 +84,7 @@ cmd/RM                BIN/RM     1  cmd/RM.map               rwx
 cmd/CD                BIN/CD     1  cmd/CD.map               rwx
 cmd/MKDIR             BIN/MKDIR  1  cmd/MKDIR.map            rwx
 cmd/PWD               BIN/PWD    1  cmd/PWD.map              rwx
+cmd/GRAPHE            BIN/GRAPHE 1  cmd/GRAPHE.map           rwx
 cmd/LS                BIN/LS     1  cmd/LS.map               rwx
 cmd/MONITEUR          BIN/MONITEUR 1  cmd/MONITEUR.map         rwx
 cmd/SDTEST            BIN/SDTEST 1  cmd/SDTEST.map           rwx
@@ -92,6 +95,7 @@ cmd/CLOUTEST          BIN/CLOUTEST 1  cmd/CLOUTEST.map       rwx
 cmd/NEIGE             BIN/NEIGE    1  cmd/NEIGE.map          rwx
 cmd/HORLOGE           BIN/HORLOGE 1  cmd/HORLOGE.map         rwx
 bios/BIOS2            BIN/BIOS2  1  -                        rw
+bios/POLICE8          BIN/POLICE8 1 -                        rw
 asm/ASM               BIN/ASM    1  asm/ASM.map              rwx
 games/BRIQUES          GAMES/BRIQUES 1  games/BRIQUES.map         rwxa
 apps/MIRE             APPS/MIRE   1  apps/MIRE.map            rwxa
@@ -101,9 +105,16 @@ apps/EDIT             BIN/EDIT   1  apps/EDIT.map            rwxa
 apps/GLOUTON           GAMES/GLOUTON 1  apps/GLOUTON.map          rwxa
 apps/DONJON39           GAMES/DONJON39 1  apps/DONJON39.map          rwxa
 apps/DONJON39.TXT       GAMES/DONJON39.TXT 1 -                       rw
+apps/OSMCITY          GAMES/OSMCITY 1 apps/OSMCITY.map         rwxa
+apps/OSMCITY.MAP      GAMES/OSMCITY.MAP 2 -                     rw
+apps/OSMCITY.RUE      GAMES/OSMCITY.RUE 1 -                     rw
+apps/OSM3D            GAMES/OSM3D 1 apps/OSM3D.map             rwxa
+apps/OSM3D.MAP        GAMES/OSM3D.MAP 2 -                       rw
+apps/OSM3D.RUE        GAMES/OSM3D.RUE 1 -                       rw
 apps/EDIT.TXT         DOC/EDIT.TXT 1 -                           rw
 apps/CALC.TXT         DOC/CALC.TXT 1 -                           rw
 tools/ay/morceaux/korobeiniki.MUS MUSIQUE/KOROBEINIKI.MUS 1 -   rw
+tools/ay/morceaux/elise.MUS       MUSIQUE/ELISE.MUS       1 -   rw
 apps/SON              APPS/SON    1  apps/SON.map             rwxa
 apps/PAROLE           APPS/PAROLE 1  apps/PAROLE.map          rwxa
 apps/PONT             APPS/PONT   1  apps/PONT.map            rwxa
@@ -172,6 +183,7 @@ rm -rf "$DIST"
 mkdir -p "$EPROM" "$SDDIR"
 cp "$ROOT/bios/osm39.bin" "$EPROM/osm39.bin"
 cp "$ROOT/video/font_osm39.bin" "$EPROM/font_osm39.bin"
+python3 "$ROOT/tools/osmcity/glyphes.py" --police "$EPROM/font_osm39_28c256.bin" --essai "$EPROM/font_osmcity_essai_28c64.bin"
 python3 "$ROOT/video/glyphes_ui.py" --verifie || exit 1
 # dist/manifest.txt : une ligne par fichier, pour tools/egofs/egofs_deploy.py
 #   NOM PAGE ADRESSE ATTRIBUTS   (adresse et attributs en hexa, sans $)
@@ -228,6 +240,7 @@ KERNEL=$(grep -E '^KERNEL_FILENAME:' "$ROOT/bios/main.asm" | sed -E 's/.*FCC +"(
     echo
     echo "- \`EPROM/osm39.bin\` (BIOS) : \`sha256: $(sha256sum "$EPROM/osm39.bin" | cut -d' ' -f1)\`"
     echo "- \`EPROM/font_osm39.bin\` (police, EPROM des caractères) : \`sha256: $(sha256sum "$EPROM/font_osm39.bin" | cut -d' ' -f1)\`"
+    echo "- \`EPROM/font_osm39_28c256.bin\` (police de 32 Ko pour un 28C256, banque 1 = OSM City) : \`sha256: $(sha256sum "$EPROM/font_osm39_28c256.bin" | cut -d' ' -f1)\`"
     echo
     echo "## 2. Carte SD (entrées OSMFS)"
     echo

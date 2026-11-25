@@ -220,17 +220,19 @@ def main():
     verifie('une touche : SECOURS' in t, 'la bannière annonce le secours')
     # 1b. BIOS2 (la seconde partie du BIOS) : chargé au démarrage
     def ext_etat(m):
-        vec = [m.rd16(s['ExtV'] + 2 * i) for i in range(14)]
+        vec = [m.rd16(s['ExtV'] + 2 * i) for i in range(16)]
         return m.mem[s['ext_ok']], vec
     ok, vec = ext_etat(m)
-    verifie(ok == 1 and vec[0] == s['X_FS_SaveFile'] and vec[11] == s['X_Zone_IRQ'],
+    verifie(ok == 1 and vec[0] == s['X_FS_SaveFile'] and vec[11] == s['X_Zone_IRQ'] and vec[14] == s['X_Graphe'],
             'BIOS2 sur la carte : chargé et installé (FS_SaveFile -> $%04X, l\'IRQ du Terminal -> $%04X)' % (vec[0], vec[11]))
     d2 = os.path.join(d, 'sans_bios2')
     os.makedirs(d2)
     m2, r2, t2 = demarre(carte(d2, bios2=False), s)
     ok, vec = ext_etat(m2)
-    verifie(r2 == 'OSMVISION' and ok == 0 and vec[0] == s['Sys_Absent'] and vec[11] == s['UPDATE_CURSOR'],
-            'carte sans BIOS2 : OSM-VISION lancé quand même, services de BIOS2 « absents », IRQ sans Terminal (%s)' % r2)
+    verifie(r2 == 'OSMVISION' and ok == 0 and vec[0] == s['Sys_Absent'] and vec[1] == s['Sys_Absent']
+            and vec[14] == s['Sys_Absent'] and vec[11] == s['X_Zone_IRQ'] and vec[2] == s['X_FS_SetAttributes'],
+            'carte sans BIOS2 : OSM-VISION lancé quand même, FS_SaveFile, FS_DeleteFile et Graphe « absents », '
+            'le Terminal et les attributs (EPROM) présents (%s)' % r2)
     autre = bytearray(open(v.BIOS2, 'rb').read())
     autre[len(autre) // 2] ^= 0x55
     d3 = os.path.join(d, 'autre_bios2')

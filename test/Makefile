@@ -157,27 +157,6 @@ constantes:
 	@python3 verifie_constantes.py
 	@python3 verifie_constantes.py --contre-preuve
 
-# ⚠ NON CABLE DANS `all` POUR L'INSTANT -- et c'est deliberé.
-#
-# Meme nature que `constantes` : un controle REPO, pas une dependance de
-# l'etape. lwasm 4.24 emet l'OPCODE ETENDU au lieu de l'indexe pour
-# LDX/LDY/STX/STY (68/68 formes mesurees : postbyte juste, opcode
-# remplace -- plus court d'un octet, donc aucun avertissement).
-# Verifie dans l'image EPROM : $E200 = `AE 62` la ou il faut `BE 62`,
-# c'est-a-dire DANS `LoadandExec`, le chemin de demarrage.
-#
-# Il est ici SANS etre dans `$(VERIF)` parce qu'il signale 117 sites
-# repartis sur 16 fichiers. Le brancher maintenant ferait echouer tout
-# `make -C test`, donc le banc d'ecran serait inutilisable pour rien.
-# Le brancher est la DERNIERE etape, apres correction : c'est lui qui
-# empechera la regression de revenir.
-#
-# Le lancer a la main, y compris le mode --contre-preuve :
-#     make -C test indexation
-indexation:
-	@python3 verifie_indexation.py --contre-preuve
-	@python3 verifie_indexation.py
-
 # Meme raison pour `--contre-preuve` : verifie_constantes.py doit
 # ECHOUER sur des lignes fausses connues, sinon « 42 fichiers relus, 0
 # probleme » ne prouve rien. Le mode injecte six lignes fautives (dont
@@ -306,6 +285,24 @@ donjon39:
 	@$(MAKE) -s -C ../apps DONJON39
 	@python3 verifie_donjon39.py
 
+# OSM City (apps/osmcity.asm) : le VRAI binaire, trames et flèches PS/2
+# simulées ; à chaque pas l'état = le modèle tools/osmcity/osmcity.py,
+# l'écran lu à travers le départ du 6845 = le modèle ; VRAM juste après le
+# signal de trame ; Echap rend le départ et les rangées 25-29.
+osmcity:
+	@$(MAKE) -s -C ../bios
+	@$(MAKE) -s -C ../apps OSMCITY
+	@python3 verifie_osmcity.py
+
+# OSM3D (apps/osm3d.asm) : le VRAI binaire, trames et flèches PS/2
+# simulées ; à l'arrêt, les 30 rangées de l'écran = ecran() du modèle
+# tools/osm3d/osm3d.py ; toute la VRAM dans l'IRQ (file de copies) ;
+# Echap rend les rangées 25-29.
+osm3d:
+	@$(MAKE) -s -C ../bios
+	@$(MAKE) -s -C ../apps OSM3D
+	@python3 verifie_osm3d.py
+
 # OSMFS (bios/osmfs.asm) : le VRAI BIOS rejoué dans asm/emu6809.py, 4 pages
 # de 32 Ko derrière $A0C0, carte SD = image créée par tools/egofs.
 # FS_LoadFile / FS_SaveFile à cheval sur deux pages, refus au-delà de la
@@ -373,6 +370,11 @@ sdtest:
 	@$(MAKE) -s -C ../cmd
 	@python3 verifie_sdtest.py
 
+# Le mode graphique (bios/graphe.asm) = le modèle tools/graphe/graphe.py.
+graphe:
+	@$(MAKE) -s -C ../bios
+	@python3 verifie_graphe.py
+
 # Verr. Maj et voyants du clavier : le vrai BIOS, 6850 du clavier simulé.
 clavier:
 	@$(MAKE) -s -C ../bios
@@ -412,4 +414,4 @@ asm-tout:
 	@$(MAKE) -s -C ../bios
 	@python3 verifie_asm.py tout
 
-.PHONY: all clean tout tout-long contrat send verifier remplissage banc_mono negatifs indexation parole minitel terminal donjon39 zmachine zmachine-tout fs farcall asm asm-tout dossiers demarrage bureau sdtest tele aytest ayjoue clavier horloge FORCE
+.PHONY: all clean tout tout-long contrat send verifier remplissage banc_mono negatifs parole minitel terminal donjon39 osmcity osm3d zmachine zmachine-tout fs farcall asm asm-tout dossiers demarrage bureau sdtest tele aytest ayjoue clavier horloge graphe FORCE

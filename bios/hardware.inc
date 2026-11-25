@@ -42,15 +42,17 @@ CRTC_RS     equ $A100
 CRTC_DATA   equ $A101
 VRAM_CTRL   equ $A120
 VRAM_BASE   equ $8000
-;CARTE v4 : caracteres en $8000-$8FFF, couleurs en $9000-$9FFF (a12
-;choisit la RAM, U126 de la CRT2). VRAM_CTRL ne garde que la page D0-D2.
-CARTE_MONO  equ 0
-VRAM_PAS    equ 1
-VRAM_LIGNE  equ 80
-VRAM_END    equ $9000
-VRAM_COL    equ $9000
-VRAM_COL_END equ $A000
-VRAM_COL_OFS equ $1000
+;CARTE mono : VRAM entrelacee, case c = caractere en $8000+2c, couleur
+;en $8001+2c (A0 choisit la RAM). Les boucles de cases avancent de
+;VRAM_PAS ; VRAM_END et VRAM_COL_END bornent ces boucles. VRAM_CTRL :
+;page D0-D2, D3 = GRAPH (mode graphique : a laisser a 0).
+CARTE_MONO  equ 1
+VRAM_PAS    equ 2
+VRAM_LIGNE  equ 160
+VRAM_END    equ $A000
+VRAM_COL    equ $8001
+VRAM_COL_END equ $A001
+VRAM_COL_OFS equ 1
 ;Passerelle entre pages (bios/farcall.asm), table de sauts FIXE en EPROM
 FAR_CALL    equ $FFE0
 FAR_CALLN   equ $FFE3
@@ -76,6 +78,7 @@ current_page:       equ $C4C1
 ; page_copy_saved_page: not found in map
 ; page_copy_tmp: not found in map
 BUF_HEAD:       equ $C4C4
+ecran_abime:       equ $CCE5
 BUF_TAIL:       equ $C4C5
 VRAM_PTR:       equ $C4C6
 CUR_PAGE:       equ $C4C8

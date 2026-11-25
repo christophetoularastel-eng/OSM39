@@ -1520,12 +1520,14 @@ Show_Msg:
     LDU     #Line
     JSR     Append
     JSR     Pad_Line
+    CLRA                        ; la ligne composée hors synchro (vis_Prep),
+    LDX     #Line               ; copiée par TFM dans la trame (vis_Ligne)
+    LDE     #COLOR_TEXT
+    JSR     [VIS_TABLE+vis_Prep]
     JSR     [VIS_TABLE+vis_Sync_Begin]
     LDA     #COL_X
     LDB     #ROW_EDIT
-    LDX     #Line
-    LDE     #COLOR_TEXT
-    JSR     [VIS_TABLE+vis_Text]
+    JSR     [VIS_TABLE+vis_Ligne]
     JSR     [VIS_TABLE+vis_Sync_End]
     RTS
 
@@ -1558,16 +1560,18 @@ Draw_Status:
     JSR     Get_Text
     JSR     Append
     JSR     Pad_Line
+    CLRA                        ; la ligne composée hors synchro (vis_Prep),
+    LDX     #Line               ; copiée par TFM dans la trame (vis_Ligne)
+    LDE     #ATTR_HEAD
+    JSR     [VIS_TABLE+vis_Prep]
     JSR     [VIS_TABLE+vis_Sync_Begin]
     LDA     #COL_X
     LDB     #ROW_STATUS
-    LDX     #Line
-    LDE     #ATTR_HEAD
-    JSR     [VIS_TABLE+vis_Text]
+    JSR     [VIS_TABLE+vis_Ligne]
     JSR     [VIS_TABLE+vis_Sync_End]
     RTS
 
-; En-têtes de colonnes (entre Sync_Begin et Sync_End).
+; En-têtes de colonnes : composés par vis_Prep (Draw_Grid les copie).
 Draw_Head:
     LDU     #Line
     LDB     #CELL_X-COL_X
@@ -1603,17 +1607,19 @@ DH_R:
     CMPA    HeadEnd
     BLO     DH_Col
     JSR     Pad_Line
-    LDA     #COL_X
-    LDB     #ROW_HEAD
+    CLRA                        ; composée ici, hors synchro (vis_Prep)
     LDX     #Line
     LDE     #ATTR_HEAD
-    JSR     [VIS_TABLE+vis_Text]
+    JSR     [VIS_TABLE+vis_Prep]
     RTS
 
 ; Toutes les lignes visibles, une par synchronisation.
 Draw_Grid:
-    JSR     [VIS_TABLE+vis_Sync_Begin]
     JSR     Draw_Head
+    JSR     [VIS_TABLE+vis_Sync_Begin]
+    LDA     #COL_X
+    LDB     #ROW_HEAD
+    JSR     [VIS_TABLE+vis_Ligne]
     JSR     [VIS_TABLE+vis_Sync_End]
     CLR     GridI
 DG_Loop:
@@ -1637,12 +1643,10 @@ Draw_Row_Of:
     ADDA    #ROW_GRID
     STA     DrY
     JSR     Build_Row
-    JSR     [VIS_TABLE+vis_Sync_Begin]
-    LDA     #COL_X
-    LDB     DrY
-    LDX     #Line
+    CLRA                        ; la ligne, puis la cellule courante par-dessus,
+    LDX     #Line               ; composées hors synchro ; un TFM dans la trame
     LDE     #COLOR_TEXT
-    JSR     [VIS_TABLE+vis_Text]
+    JSR     [VIS_TABLE+vis_Prep]
     LDA     DrRow
     CMPA    CurRow
     BNE     DR_NoSel
@@ -1650,17 +1654,20 @@ Draw_Row_Of:
     SUBA    LeftCol
     LDB     #CELL_W
     MUL
-    ADDB    #CELL_X
+    ADDB    #CELL_X-COL_X       ; colonne dans la ligne composée
     PSHS    B
     LDA     DrRow
     LDB     CurCol
     JSR     Format_Cell         ; FmtBuf
     PULS    A
-    LDB     DrY
     LDX     #FmtBuf
     LDE     #COLOR_SEL
-    JSR     [VIS_TABLE+vis_Text]
+    JSR     [VIS_TABLE+vis_Prep]
 DR_NoSel:
+    JSR     [VIS_TABLE+vis_Sync_Begin]
+    LDA     #COL_X
+    LDB     DrY
+    JSR     [VIS_TABLE+vis_Ligne]
     JSR     [VIS_TABLE+vis_Sync_End]
 DR_End:
     RTS

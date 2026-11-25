@@ -9,7 +9,9 @@
 # Les mêmes appels qu'un programme : le fichier va en page 1 à $2000 (TELE
 # finit avant $1000), puis Format_Filename_83, FS_FileInfo, FS_DeleteFile si
 # le nom existe (FS_SaveFile crée toujours une entrée), FS_SaveFile,
-# FS_SetLoad, FS_SetAttributes, et l'entrée est relue. 24 Ko au plus.
+# FS_SetLoad, FS_SetAttributes, et l'entrée est relue. Au-delà de 24 Ko
+# (65 535 octets au plus), le fichier passe par les pages 2-3 à $0000
+# (FS_SaveFile continue d'une page à la suivante).
 # ===================================================================
 import os
 import re
@@ -41,8 +43,9 @@ def services():
 def depose(t, data, chemin, attr=0x06, page=1, adr=0, dire=print):
     """Pose data sous chemin par la liaison TELE t ; ErreurTele si ça rate.
     Rend l'entrée relue : (lba, taille, page, adresse, attributs)."""
-    if len(data) > MAXI:
-        raise tele.ErreurTele('trop gros : %d octets (%d au plus)' % (len(data), MAXI))
+    if len(data) > 0xFFFF:
+        raise tele.ErreurTele('trop gros : %d octets (65 535 au plus)' % len(data))
+    grand = len(data) > MAXI            # par les pages 2-3
     sv = services()
 
     def service(nom, **reg):
@@ -53,17 +56,25 @@ def depose(t, data, chemin, attr=0x06, page=1, adr=0, dire=print):
     service('Format_Filename_83', x=CHAINE, y=NOM)
     dire('nom OSMFS : "%s"' % t.lit(1, NOM, 15).decode('ascii'))
 
+    # La copie en RAM d'abord, vérifiée : l'ancien fichier n'est effacé
+    # qu'ensuite, juste avant FS_SaveFile. Effacé d'abord, une trame perdue
+    # pendant la copie laissait la carte sans le fichier (20 nov. 2026 :
+    # sans OSMVISION, la machine ne démarre plus que sur SECOURS).
+    morceaux = [(2, 0, data[:0x8000]), (3, 0, data[0x8000:])] if grand else [(1, DONNEES, data)]
+    for pg, a, m in morceaux:
+        if not m:
+            continue
+        t.ecrit(pg, a, m)
+        if t.lit(pg, a, len(m)) != m:
+            raise tele.ErreurTele('copie en RAM relue différente (page %d)' % pg)
+    dire('%d octets en %s' % (len(data), '2:0000 (pages 2-3)' if grand else '1:%04X' % DONNEES))
+
     if not service('FS_FileInfo', x=NOM, y=INFO)['c']:
         if service('FS_DeleteFile', x=NOM)['c']:
             raise tele.ErreurTele('FS_DeleteFile refuse l\'ancien %s' % chemin)
         dire('ancien %s effacé' % chemin)
 
-    t.ecrit(1, DONNEES, data)
-    if t.lit(1, DONNEES, len(data)) != data:
-        raise tele.ErreurTele('copie en RAM relue différente')
-    dire('%d octets en 1:%04X' % (len(data), DONNEES))
-
-    if service('FS_SaveFile', a=1, x=NOM, y=DONNEES, u=len(data))['c']:
+    if service('FS_SaveFile', a=2 if grand else 1, x=NOM, y=0 if grand else DONNEES, u=len(data))['c']:
         raise tele.ErreurTele('FS_SaveFile a échoué (dossier absent ? carte pleine ?)')
     if service('FS_SetLoad', a=page, x=NOM, y=adr)['c']:
         raise tele.ErreurTele('FS_SetLoad a échoué')

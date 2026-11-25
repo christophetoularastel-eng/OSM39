@@ -38,9 +38,12 @@ import carte                    # noqa: E402  (disposition de la VRAM : v4 ou mo
 BIN = os.path.join(RACINE, 'bios', 'osm39.bin')
 MAP = os.path.join(RACINE, 'bios', 'osm39.map')
 RETOUR = 0xDFF0 - 0x10          # adresse de retour sentinelle (RAM commune)
+RETOUR_IRQ = 0xDFE8             # celle de l'IRQ simulée (irq_vsync)
 NOM = 0xDB00                    # nom de fichier (15 octets) en RAM commune (hors de BIOS2)
 PAGER = 0xA0C0
 AY_ADR = 0xA150                 # AY-3-8910 : choix du registre, et relecture
+AY_LARGEUR = [0xFF, 0x0F, 0xFF, 0x0F, 0xFF, 0x0F, 0x1F, 0xFF,      # bits gardés
+              0x1F, 0x1F, 0x1F, 0xFF, 0xFF, 0x0F, 0xFF, 0xFF]      # par registre
 
 
 def sym():
@@ -62,9 +65,14 @@ class Machine(emu6809.CPU6809):
         self.s_ = s
         self.w = 0
         self.vram_ecrits = []           # (adresse, valeur) dans $8000-$9FFF
+        self.irq_tous = None            # pas : une IRQ du VSYNC (Spin_IRQ) tous les n pas
+        self.dans_irq = False
+        self.vram_hors_irq = []         # écritures VRAM hors de cette IRQ
         self.panne = None               # (lecture?, lba, essai) -> code d'erreur ou 0
         self.essais = {}
         self.ay_reg = 0                 # registre choisi de l'AY (AY_ADR)
+        self.ay_regs = [0] * 16         # ses registres, relus par AY_ADR (largeurs de la puce)
+        self.ay_present = True          # False : puce retirée, AY_ADR lit le bus vide
         self.port_a = 0xFF              # R14 : port A (la Clouris), rien de branché
         self.mem[0xE000:0x10000] = open(BIN, 'rb').read()
         installe_bios(self)             # comme au démarrage : table, vecteurs, BIOS2
@@ -77,8 +85,12 @@ class Machine(emu6809.CPU6809):
         a &= 0xFFFF
         if a < 0x8000:
             return self.banks[self.page][a]
-        if a == AY_ADR and self.ay_reg == 14:
-            return self.lit_port_a()
+        if a == AY_ADR:
+            if not self.ay_present:
+                return 0x50             # bus vide : le dernier octet vu, celui de l'adresse
+            if self.ay_reg == 14:
+                return self.lit_port_a()
+            return self.ay_regs[self.ay_reg & 15]
         if a == 0xA040:                 # port A du PIA : sans carte RTC, les
             return 0xFF                 # tirages le tiennent à $FF
         return self.mem[a]
@@ -90,9 +102,14 @@ class Machine(emu6809.CPU6809):
             self.banks[self.page][a] = v
         elif 0x8000 <= a < 0xA000:
             self.vram_ecrits.append((a, v))
+            if not self.dans_irq:
+                self.vram_hors_irq.append((a, v, self.pc))
             self.mem[a] = v
         elif a == AY_ADR:
             self.ay_reg = v
+            self.mem[a] = v
+        elif a == AY_ADR + 1:           # AY_DATA : le registre choisi
+            self.ay_regs[self.ay_reg & 15] = v & AY_LARGEUR[self.ay_reg & 15]
             self.mem[a] = v
         elif a == PAGER:
             if v > 3:
@@ -600,7 +617,7 @@ def installe_bios(m, ext=True):
     rom, fin = s['table_function_rom'], s['table_function_rom_end']
     for i in range(fin - rom):
         m.mem[s['table_function_ram'] + i] = m.mem[rom + i]
-    n = 2 * 14
+    n = 2 * int(re.search(r'EXTV_N\s+equ\s+(\d+)', open(os.path.join(RACINE, 'bios', 'ext.inc')).read()).group(1))
     m.mem[s['ExtV']:s['ExtV'] + n] = m.mem[s['Ext_Def']:s['Ext_Def'] + n]
     m.mem[s['ext_ok']] = 0
     if not ext or not os.path.exists(BIOS2):
@@ -625,9 +642,29 @@ def appelle(m, adr, max_pas=50_000_000):
             continue
         m.step()
         pas += 1
+        if m.irq_tous and pas % m.irq_tous == 0 and not (m.cc & 0x10):
+            irq_vsync(m)
         if pas > max_pas:
             raise RuntimeError('trop long à $%04X' % m.pc)
     return not (m.cc & 1)                       # C = 0 : succès
+
+
+def irq_vsync(m):
+    """Le retour de trame vu par le moulinet : Spin_IRQ (la part de
+    handler_IRQ qui le dessine), registres rendus, comme une IRQ."""
+    etat = (m.a, m.b, m.x, m.y, m.u, m.cc, m.pc, m.w)
+    s0 = m.s
+    m.s -= 14                           # la pile d'une IRQ native
+    m.s -= 2
+    m.mem[m.s], m.mem[m.s + 1] = RETOUR_IRQ >> 8, RETOUR_IRQ & 0xFF
+    m.pc = m.s_['Spin_IRQ']
+    m.cc |= 0x50
+    m.dans_irq = True
+    while m.pc != RETOUR_IRQ:
+        m.step()
+    m.dans_irq = False
+    m.a, m.b, m.x, m.y, m.u, m.cc, m.pc, m.w = etat
+    m.s = s0
 
 
 def nom(m, txt):
@@ -701,12 +738,17 @@ def main():
     for p in (2, 3):
         m.banks[p][:] = bytes(alea.randrange(256) for _ in range(32768))
     attendu = lineaire(m, 2, 0, 40000)
+    m.irq_tous = 1500                   # IRQ ouvertes : le VSYNC dessine le moulinet
+    m.cc = 0x00
+    m.vram_hors_irq = []
     ok = save(m, 'GROS40K', 2, 0x0000, 40000)
     verifie(ok, 'FS_SaveFile de 40 000 octets, pages 2 puis 3')
     verifie((COIN, ord('E')) in m.vram_ecrits and (carte.adr_coul(78), 0x1F) in m.vram_ecrits
             and (carte.adr_coul(79), 0x1F) in m.vram_ecrits and bytes(m.mem[0x8000:0xA000]) == ecran,
             'moulinet : « E » blanc sur bleu pendant l\'enregistrement, écran intact après (carte %s)'
             % carte.NOM)
+    verifie(not m.vram_hors_irq, 'moulinet : VRAM écrite seulement par l\'IRQ du VSYNC %s'
+            % ['%04X@%04X' % (a, pc) for a, _, pc in m.vram_hors_irq[:4]])
     verifie(m.page == 0, 'page de l\'appelant rétablie après l\'enregistrement')
     f = {x['name']: x for x in core.list_files()}
     chemin = os.path.join(tmp, 'relu')
@@ -729,13 +771,23 @@ def main():
     for p in (2, 3):
         m.banks[p][:] = bytes(32768)
     m.vram_ecrits = []
+    m.vram_hors_irq = []
+    m.cc = 0x00
+    m.irq_tous = 150                    # un chargement va vite : des trames serrées
     ok, taille = load(m, 'GROS40K', 2, 0x0000)
+    m.irq_tous = 1500
     verifie(ok and taille == 40000, 'FS_LoadFile de 40 000 octets (U = taille)')
     verifie(lineaire(m, 2, 0, 40000) == attendu, 'relu octet pour octet, à cheval sur les pages 2 et 3')
     car = [v for a, v in m.vram_ecrits if a == COIN2]
     verifie(set(car) >= set(b'|/-\\') and (COIN, ord('L')) in m.vram_ecrits,
             'moulinet : « L » et | / - \\ en haut à droite pendant le chargement')
-    verifie(bytes(m.mem[0x8000:0xA000]) == ecran, 'moulinet : écran intact après le chargement')
+    verifie(bytes(m.mem[0x8000:0xA000]) == ecran and not m.vram_hors_irq,
+            'moulinet : écran intact après le chargement, VRAM écrite seulement par l\'IRQ')
+    m.vram_ecrits = []
+    m.cc = 0x50                         # IRQ masquées chez l'appelant : pas de moulinet
+    ok, _ = load(m, 'GROS40K', 2, 0x0000)
+    verifie(ok and not m.vram_ecrits, 'IRQ masquées : chargement sans moulinet, VRAM jamais touchée')
+    m.cc = 0x00
     verifie(m.page == 0, 'page de l\'appelant rétablie après le chargement')
 
     # 4. départ en milieu de page : page 2 en $6000 (8 Ko en page 2, le reste en page 3)

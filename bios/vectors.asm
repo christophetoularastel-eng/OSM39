@@ -19,7 +19,7 @@
     import Far_Call,Far_CallN,Sys_Absent
     import FS_FileInfo,FS_ReadSector,FS_SetLoad
     import FS_ChDir,FS_MkDir,FS_Dossier,FS_DirInfo
-    import kbd_poll,Console_Zone
+    import kbd_poll,Console_Zone,Graphe
     export table_function_rom,table_function_rom_end
 
     export  rvec_SWI3, rvec_SWI2,rvec_FIRQ,rvec_IRQ,rvec_SWI,rvec_NMI
@@ -299,9 +299,9 @@ table_function_rom:
     fdb FS_DirInfo
     fdb kbd_poll
     fdb Console_Zone
+    fdb Graphe
 table_function_end:
 ; Emplacements libres (voir table_reserve dans ram.asm) : C = 1, rien d'autre.
-    fdb Sys_Absent
     fdb Sys_Absent
 table_function_rom_end:
     fdb 0

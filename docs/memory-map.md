@@ -1,7 +1,8 @@
 # Cartographie mémoire OSM39
 
 Ce document décrit l'espace d'adressage **tel que le code l'utilise
-aujourd'hui** (relevé le 13 nov. 2026, BIOS en deux parties, carte `v4`).
+aujourd'hui** (relevé le 20 nov. 2026, BIOS en deux parties, carte `mono` ;
+la v4 est archivée, ses modules diffèrent de quelques octets).
 C'est la seule carte mémoire du projet : après un changement de `ram.asm`
 ou du lien, reconstruire puis mettre ce document à jour. Les anciennes
 descriptions (noyau en `$D000`, « paged buffer », moniteur au démarrage,
@@ -44,10 +45,10 @@ $A000 ┌───────────────────────�
 $A1FF └──────────────────────────────────────┘
 $A200   (rien de câblé jusqu'à $BFFF)
 $C000 ┌──────────────────────────────────────┐
-      │  BSS système    $C000-$CC6C          │  table des services, variables
-      │  Tas système    $CC6D-$CD6C          │  256 octets (le SHELL)
-      │  (libre)        $CD6D-$CDFF          │
-      │  BIOS2          $CE00-$D9FF          │  chargé de /BIN/BIOS2 (§5.3)
+      │  BSS système    $C000-$CD64          │  table des services, variables
+      │  Tas système    $CD66-$CE65          │  256 octets (le SHELL)
+      │  (libre)        $CE66-$CE7F          │
+      │  BIOS2          $CE80-$D9FF          │  chargé de /BIN/BIOS2 (§5.3)
       │  Pile           $DA00-$DFEF          │  vers le bas depuis $DFEF
 $DFF0 │  Vecteurs RAM (.ram_vectors)         │  14 octets
 $DFFF └──────────────────────────────────────┘
@@ -232,45 +233,50 @@ ces adresses dans `hardware.inc`, jamais en dur.
 | `$CC33–$CC41` | 15 | `ext_nom` — `/BIN/BIOS2` formaté (`Ext_Charge`) |
 | `$CC42–$CC4F` | 14 | `ext_info` — l'entrée de `BIOS2` (`FS_FileInfo` : LBA, taille, page, adresse, attributs, dossier) |
 | `$CC50` | 1 | `ext_ok` — 1 : BIOS2 installé (`M CC50` dans MONITEUR) |
-| `$CC51–$CC6C` | 28 | `ExtV` — 14 vecteurs EPROM → BIOS2 (ordre dans `bios/ext.inc`) |
+| `$CC51–$CC70` | 32 | `ExtV` — 16 vecteurs EPROM → BIOS2 (ordre dans `bios/ext.inc`) |
+| `$CC71` | 1 | `kbd_mort` — touche morte en attente (`^` ou `$A8` = ¨) |
+| `$CC72` | 1 | `kbd_suite` — caractère à rendre au prochain `kbd_poll` |
+| `$CC73` | 1 | `gr_actif` — <> 0 : mode graphique (`bios/graphe.asm`) |
+| `$CC74–$CCA5` | 50 | `gr_sale` — une marque par ligne de l'image (400) à recopier |
+| `$CCA6–$CD64` | 191 | le reste de l'état du mode graphique (`gr_*`, `bios/ram.asm`), dont `gr_pile` (96, la pile du service quand la page 3 est visible) et `gr_pirq` (32, celle de l'IRQ quand elle lit la page 3) |
 
-`__bss_start__ = $C000`, `__bss_end__ = $CC6D`.
+`__bss_start__ = $C000`, `__bss_end__ = $CD66`.
 
-### 5.2 Tas système — `$CC6D–$CD6C` (256 octets)
+### 5.2 Tas système — `$CD66–$CE65` (256 octets)
 
 `HEAP_START = __bss_end__`, `HEAP_SIZE = $0100` (`bios/vectors.asm`).
 `malloc_sys` / `free` : blocs précédés d'un en-tête de 3 octets. Seul le
 SHELL s'en sert (16 octets par commande externe, rendus aussitôt).
-`bios/bios2.py` refuse un tas qui atteindrait `EXT_BASE`. `$CD6D–$CDFF`
+`bios/bios2.py` refuse un tas qui atteindrait `EXT_BASE`. `$CE66–$CE7F`
 est libre.
 
-### 5.3 BIOS2 — `$CE00–$D9FF` (3072 octets)
+### 5.3 BIOS2 — `$CE80–$D9FF` (2944 octets)
 
 La seconde partie du BIOS : section `.ext`, liée en même temps que
-l'EPROM à `EXT_BASE` = `$CE00` (`bios/Makefile`), au plus jusqu'à
+l'EPROM à `EXT_BASE` = `$CE80` (`bios/Makefile`), au plus jusqu'à
 `EXT_FIN` = `$DA00`. `bios2.py` l'extrait dans `bios/BIOS2`, livré en
 `/BIN/BIOS2`, et inscrit sa longueur et sa somme dans l'EPROM (`ExtLong`
-`$F79A`, `ExtSomme` `$F79C`).
+`$FDE0`, `ExtSomme` `$FDE2`). Depuis le 21 nov. 2026, il ne garde que
+l'écriture des fichiers et le mode graphique : le reste (renommer,
+attributs, dossiers, console du Terminal, son, `SD_WriteBlock`) est revenu
+dans l'EPROM pour lui faire place.
 
 | Adresse | Longueur | Module | Contenu |
 |---|---:|---|---|
-| `$CE00` | `$0074` | `SD.o` | `SD_WriteBlock` |
-| `$CE74` | `$0180` | `IT.o` | `X_Zone_IRQ` (défilement de la zone du Terminal), `X_Audio` (séquenceur, à chaque VSYNC) |
-| `$CFF4` | `$0428` | `osmfs.o` | `Fs_WriteBlk`, `FS_SaveFile`, `FS_FindFreeEntry`, `FS_DeleteFile`, `FS_SetAttributes`, `FS_RenameFile`, `FS_MkDir`, `FS_SetLoad`, `FS_ListRoot` |
-| `$D41C` | `$009F` | `video.o` | `X_Console_Zone`, `Cz_Pose`, `X_Zone_Cls` |
-| `$D4BB` | `$00B5` | `audio.o` | `X_snd_play`, `X_snd_stop`, `X_boot_jingle`, `Ay_Note` |
-| `$D570` | `$0028` | `ext.o` | `Ext_Entree`, `Ext_Table` |
-| | | | **fin : `$D597`**, 1944 octets, somme `$9C7B` ; 1128 octets libres avant `EXT_FIN` |
+| `$CE80` | `$027F` | `osmfs.o` | `FS_SaveFile`, `FS_FindFreeEntry`, `FS_DeleteFile` |
+| `$D0FF` | `$002C` | `ext.o` | `Ext_Entree`, `Ext_Table` |
+| `$D12B` | `$0860` | `graphe.o` | `X_Graphe` (le service `sys_Graphe`), `X_Gr_IRQ` (recopie de l'image au retour de trame) |
+| | | | **fin : `$D98A`**, 2827 octets ; 117 octets libres avant `EXT_FIN` |
 
 - **Chargement** : `Ext_Charge` (EPROM), à chaque démarrage, à froid ou
   après un TRAP, juste après la carte SD et avant le jingle. Il lit
-  `/BIN/BIOS2` secteur par secteur en `$CE00`, vérifie la longueur et la
+  `/BIN/BIOS2` secteur par secteur en `$CE80`, vérifie la longueur et la
   somme, appelle `Ext_Entree` (qui copie `Ext_Table` dans `ExtV`) et met
   `ext_ok` à 1.
 - **Sans BIOS2** (fichier absent, autre BIOS, carte absente) : `ExtV`
-  garde les valeurs d'`Ext_Defauts` (reset) : les services déplacés
-  répondent C = 1 (`Sys_Absent`), le son et l'effacement de zone ne font
-  rien, l'IRQ continue au curseur. La machine démarre quand même.
+  garde les valeurs d'`Ext_Defauts` (reset) : `FS_SaveFile`,
+  `FS_DeleteFile` et `sys_Graphe` répondent C = 1 (`Sys_Absent`) ; tout le
+  reste est dans l'EPROM. La machine démarre quand même.
 - L'EPROM n'entre dans BIOS2 que par `jmp [ExtV+n]` (souches aux anciens
   noms) ; `bios/verifie_ext.py` le contrôle à chaque build.
 - Une EPROM et son BIOS2 vont ensemble : reflasher l'EPROM impose de
@@ -300,22 +306,22 @@ pas supprimer ce filtre.
 ## 6. `$E000–$FFFF` — BIOS en EPROM (8 Ko, U104)
 
 `.code` à `$E000`. `bios/osm39.bin` fait exactement 8192 octets (`$FF`
-dans les trous). Relevé dans `bios/osm39.map` le 13 nov. 2026 :
+dans les trous). Relevé dans `bios/osm39.map` le 20 nov. 2026 (carte mono) :
 
 | Adresse | Longueur | Module | Rôle |
 |---|---:|---|---|
 | `$E000` | `$0179` | `vectors.o` | `__start` (mode natif, BSS, vecteurs), `Redemarrage`, `table_function_rom` |
-| `$E179` | `$04CE` | `main.o` | initialisation, `Demarrage`, SECOURS (`LOAD`, `RUN`, `BOOT`), `Pager`, `FarRead`, `FarWrite`, `LoadandExec` |
-| `$E647` | `$0125` | `SD.o` | pilote SPI : init, `SD_ReadBlock` |
-| `$E76C` | `$042E` | `keyboard.o` | décodage PS/2, `scan_keyboard`, `kbd_poll`, voyants |
-| `$EB9A` | `$0344` | `IT.o` | IRQ VSYNC, NMI (deux ACIA), TRAP |
-| `$EEDE` | `$06CE` | `osmfs.o` | OSMFS en lecture : montage, recherche, chargement, dossiers, chemins (`Format_Filename_83`), `FS_FileInfo`, `FS_ReadSector`, `Fs_ReadBlk` |
-| `$F5AC` | `$0027` | `filename.o` | `Convert_To_Upper`, `strlen`, `strcpy` |
-| `$F5D3` | `$013B` | `video.o` | 68B45, console, effacement |
-| `$F70E` | `$0043` | `audio.o` | `init_audio`, `Ay_Silence`, souches du son |
-| `$F751` | `$0049` | `farcall.o` | `FAR_CALL`, `FAR_CALLN` |
-| `$F79A` | `$00F7` | `ext.o` | `ExtLong`, `ExtSomme`, `Ext_Defauts`, `Ext_Charge` |
-| | | | **fin de `.code` : `$F890`** ; 1871 octets libres jusqu'à `$FFDF` (`make -C bios` échoue au-delà) |
+| `$E179` | `$04D1` | `main.o` | initialisation, `Demarrage`, SECOURS (`LOAD`, `RUN`, `BOOT`), `Pager`, `FarRead`, `FarWrite`, `LoadandExec` |
+| `$E64A` | `$0125` | `SD.o` | pilote SPI : init, `SD_ReadBlock` |
+| `$E76F` | `$042E` | `keyboard.o` | décodage PS/2, `scan_keyboard`, `kbd_poll`, voyants |
+| `$EB9D` | `$03C2` | `IT.o` | IRQ VSYNC, NMI (deux ACIA), TRAP, `Con_Lat` et `Tab_LatCp` (Latin-1 → CP437 de la console) |
+| `$EF5F` | `$06C8` | `osmfs.o` | OSMFS en lecture : montage, recherche, chargement, dossiers, chemins (`Format_Filename_83`), `FS_FileInfo`, `FS_ReadSector`, `Fs_ReadBlk` |
+| `$F627` | `$0027` | `filename.o` | `Convert_To_Upper`, `strlen`, `strcpy` |
+| `$F64E` | `$011F` | `video.o` | 68B45, console, effacement |
+| `$F76D` | `$0043` | `audio.o` | `init_audio`, `Ay_Silence`, souches du son |
+| `$F7B0` | `$0049` | `farcall.o` | `FAR_CALL`, `FAR_CALLN` |
+| `$F7F9` | `$00F7` | `ext.o` | `ExtLong`, `ExtSomme`, `Ext_Defauts`, `Ext_Charge` |
+| | | | **fin de `.code` : `$F8EF`** ; 1776 octets libres jusqu'à `$FFDF` (`make -C bios` échoue au-delà) |
 | `$FFE0` | `$0006` | `farcall.o` | `.romjmp`, adresses FIXES : `$FFE0` `FAR_CALL`, `$FFE3` `FAR_CALLN` (ajouter seulement à la fin, jusqu'à `$FFEF`) |
 | `$FFF0` | `$0010` | `vectors.o` | `.vectors` — vecteurs matériels |
 

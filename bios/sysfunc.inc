@@ -55,4 +55,5 @@ sys_FS_Dossier:                 equ    84  ; FS_Dossier
 sys_FS_DirInfo:                 equ    86  ; FS_DirInfo
 sys_kbd_poll:                   equ    88  ; kbd_poll
 sys_Console_Zone:               equ    90  ; Console_Zone
+sys_Graphe:                     equ    92  ; Graphe
 

@@ -1283,22 +1283,23 @@ DL_Pad:
     JSR     Pad_Line
 DL_Write:
     JSR     Cursor_Prep         ; caractère sous le curseur (hors synchro)
+    CLRA                        ; la ligne, puis le curseur par-dessus, composés
+    LDX     #Line               ; hors synchro ; un seul TFM dans la trame
+    LDE     #COLOR_TEXT
+    JSR     [VIS_TABLE+vis_Prep]
+    TST     CurOnRow
+    BEQ     DL_NoCur
+    LDA     CurX
+    SUBA    #TEXT_X
+    LDX     #CurStr
+    LDE     #COLOR_SEL
+    JSR     [VIS_TABLE+vis_Prep]
+DL_NoCur:
     JSR     [VIS_TABLE+vis_Sync_Begin]
     LDA     #TEXT_X
     LDB     DlRow
     ADDB    #ROW_TEXT
-    LDX     #Line
-    LDE     #COLOR_TEXT
-    JSR     [VIS_TABLE+vis_Text]
-    TST     CurOnRow
-    BEQ     DL_NoCur
-    LDA     CurX
-    LDB     DlRow
-    ADDB    #ROW_TEXT
-    LDX     #CurStr
-    LDE     #COLOR_SEL
-    JSR     [VIS_TABLE+vis_Text]
-DL_NoCur:
+    JSR     [VIS_TABLE+vis_Ligne]
     JSR     [VIS_TABLE+vis_Sync_End]
     LDD     DlNext
     RTS
@@ -1361,12 +1362,14 @@ DS_Name:
     JSR     Append
 DS_Msg:
     JSR     Pad_Line
+    CLRA                        ; la ligne composée hors synchro (vis_Prep),
+    LDX     #Line               ; copiée par TFM dans la trame (vis_Ligne)
+    LDE     #ATTR_HEAD
+    JSR     [VIS_TABLE+vis_Prep]
     JSR     [VIS_TABLE+vis_Sync_Begin]
     LDA     #TEXT_X
     LDB     #ROW_STATUS
-    LDX     #Line
-    LDE     #ATTR_HEAD
-    JSR     [VIS_TABLE+vis_Text]
+    JSR     [VIS_TABLE+vis_Ligne]
     JSR     [VIS_TABLE+vis_Sync_End]
     ; les messages sur leur propre ligne, sous la barre de titre
     LDU     #Line
@@ -1375,12 +1378,14 @@ DS_Msg:
     LDX     MsgPtr
     JSR     Append
     JSR     Pad_Line
+    CLRA                        ; la ligne composée hors synchro (vis_Prep),
+    LDX     #Line               ; copiée par TFM dans la trame (vis_Ligne)
+    LDE     #ATTR_HEAD
+    JSR     [VIS_TABLE+vis_Prep]
     JSR     [VIS_TABLE+vis_Sync_Begin]
     LDA     #TEXT_X
     LDB     #ROW_MSG
-    LDX     #Line
-    LDE     #ATTR_HEAD
-    JSR     [VIS_TABLE+vis_Text]
+    JSR     [VIS_TABLE+vis_Ligne]
     JSR     [VIS_TABLE+vis_Sync_End]
     RTS
 

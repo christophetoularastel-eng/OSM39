@@ -23,7 +23,7 @@
         import  trap_frame, trap_info, boot_chaud, Redemarrage, Secours
         import  serie_brute, serie_tete, serie_queue, serie_buf
         import  kbd_buf, kbd_tete, kbd_queue, kbd_echap, kbd_muet
-        import  Kbd_Voyants
+        import  Kbd_Voyants, Spin_IRQ, Gr_IRQ, gr_actif
         import  cz_actif,cz_l,cz_h,cz_haut,cz_bas,cz_op,cz_n,cz_ptr,cz_cpt
         ;import readkey2_ptr, key2_ptr, key2_buffer
         export  handler_NMI,handler_FIRQ,handler_IRQ,handler_SWI,handler_SWI2,handler_SWI3,handler_TRAP
@@ -60,6 +60,9 @@ handler_IRQ:
         leax    1,x
         stx     vsync_tick
         jsr     Kbd_Voyants     ; voyants du clavier (Verr. Maj) ; NMI muette
+        tst     gr_actif        ; mode graphique : l'image, ni console ni moulinet
+        lbne    VSYNC_GRAPHE
+        jsr     Spin_IRQ        ; moulinet de chargement (osmfs.asm)
 
         ; --- SONDE TEMPORAIRE (à retirer) : '.' entre dans le handler ---
         ;lda     #'.'
@@ -195,6 +198,7 @@ not_LEFT:
 not_RIGHT:
 
         ; --- AFFICHAGE STANDARD ---
+        JSR     Con_Lat         ; Latin-1 $A0-$FF -> CP437 (la police)
         STA     ,y              ; Écrit le caractère ASCII sur la carte vidéo
 
         LDu     #COLOR_BUF      ; ... et sa couleur, 4 Ko plus haut
@@ -239,7 +243,7 @@ UPDATE_PTRS:
 
         LBRA    UPDATE_CURSOR
 
-    section .ext
+    section .code
 ; ===================================================================
 ; Zone_IRQ - la console dans le rectangle cz_* (video.asm, Console_Zone)
 ; 1. Un travail de rangées en cours (cz_op) passe d'abord, 2 rangées par
@@ -288,10 +292,12 @@ Zi_Travail:
 Zi_Efface:
         LDA     #$20            ; espace, attribut char_attribut
         LDB     char_attribut
-Zi_EffCase:
-        STD     ,X++
-        DECF
-        BNE     Zi_EffCase
+        STD     ,X              ; la première case, puis TFM la recopie de
+        LEAU    ,X              ; proche en proche (source = destination - 2) :
+        LEAX    2,X             ; 481 cycles pour 76 cases, contre 920 case par
+        ADDF    cz_l            ; case (mesuré sur la carte, 20 nov. 2026) ;
+        SUBF    #2              ; W = 2 x largeur - 2 (E = 0)
+        TFM     U+,X+
         else
         LEAU    80,X            ; défilement : rangée suivante -> celle-ci
         TFM     U+,X+
@@ -377,6 +383,7 @@ Zi_Ecrit:
         PULS    A
         BCS     Zi_Stop         ; défilement : le caractère attend
 Zi_Pose:
+        JSR     Con_Lat         ; Latin-1 $A0-$FF -> CP437 (EPROM)
         STA     ,Y
         LDU     #COLOR_BUF
         CLRA
@@ -422,6 +429,24 @@ Zi_Defile:
 Zone_IRQ:
     jmp     [ExtV+EXTV_ZONEIRQ]
 
+; Con_Lat : A = un caractère de la console ; $A0-$FF (Latin-1 : le clavier,
+; les fichiers tapés sur la machine) -> CP437, la police (Tab_LatCp, la table
+; d'OSM-VISION, video/latin_cp437.py). Appelé par l'IRQ au moment d'écrire
+; la case, après le tri des codes de contrôle et des flèches $80-$83 (où
+; tomberaient é, â... en CP437). Préserve tout sauf A et CC.
+Con_Lat:
+        CMPA    #$A0
+        BLO     CL_Fin
+        PSHS    X
+        SUBA    #$A0            ; 0-$5F : positif pour l'index A,X (signé)
+        LDX     #Tab_LatCp
+        LDA     A,X
+        PULS    X
+CL_Fin:
+        RTS
+
+        include "../lib/latin_cp437.inc"
+
 UPDATE_CURSOR:
         ; 1. Calcul de l'offset du curseur (X contient la nouvelle position)
         LDX     VRAM_PTR        ; Récupère la position actuelle
@@ -451,11 +476,12 @@ UPDATE_CURSOR:
         STA     CRTC_RS           ; Écrit dans le port d'Index[cite: 1]
         STB     CRTC_DATA
         ; Écrit l'octet de poids faible (qui était resté dans B)[cite: 1]
+        BRA     AUDIO_UPDATE    ; (X_Audio, revenu de BIOS2, est entre les deux)
 
  ; ---------------------------------------------------------
 ; MOTEUR AUDIO 2 VOIES (Exécuté à chaque VSYNC)
 ; ---------------------------------------------------------
-    section .ext
+    section .code
 X_Audio:
         LDX     MUSIC_PTR       ; Y a-t-il une musique chargée ?
         BEQ     XA_Fin       ; Si X = 0000, le séquenceur est à l'arrêt
@@ -514,6 +540,10 @@ XA_Fin:
     section .code
 AUDIO_UPDATE:
         JSR     [ExtV+EXTV_AUDIO]     ; le séquenceur (BIOS2), ou rien
+        BRA     END_IRQ
+VSYNC_GRAPHE:
+        JSR     Gr_IRQ                ; graphe.asm (BIOS2), ou rien
+        BRA     AUDIO_UPDATE
 AUDIO_END:
 
 

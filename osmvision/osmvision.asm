@@ -536,12 +536,24 @@ Update_List:
     BEQ     UL_Nothing          ; rien n'a bougé
 UL_Changed:
     JSR     Snd_Tick
-    LDE     #1                  ; attendre 1 VSYNC (IRQ démasquées)
-    JSR     [table_function_ram+sys_video_wait_vsync]
-
     PSHS    CC,U
     PSHSW
+    IFNE    CARTE_MONO
+    LDA     FileCount           ; mono, défilement : les lignes préparées en
+    BEQ     UL_Attente          ; RAM avant l'attente (aucun accès VRAM)
+    LDA     TopIndex
+    CMPA    OldTop
+    BEQ     UL_Attente
+    JSR     DFL_Prepare
+UL_Attente:
+    ENDC
+    LDE     #1                  ; attendre 1 VSYNC (IRQ démasquées)
+    JSR     [table_function_ram+sys_video_wait_vsync]
     ORCC    #%00010000          ; IRQ masquées pendant l'accès VRAM
+    IFNE    CARTE_MONO
+    CLR     WinAcc              ; budget de la trame (lib/vision.asm)
+    CLR     WinAcc+1
+    ENDC
 
     LDA     FileCount
     BEQ     UL_End
@@ -549,7 +561,12 @@ UL_Changed:
     LDA     TopIndex
     CMPA    OldTop
     BEQ     UL_Colors           ; pas de défilement : les noms ne changent pas
+    IFNE    CARTE_MONO
+    JSR     DFL_Copie           ; mono : les lignes entières, couleurs comprises,
+    BRA     UL_Statut           ; par lots dans le budget de la trame
+    ELSE
     BSR     Draw_Names
+    ENDC
 
 UL_Colors:
     LDA     OldSel              ; ancienne ligne sélectionnée -> texte normal
@@ -560,6 +577,10 @@ UL_Colors:
     SUBA    TopIndex
     LDB     #COLOR_SEL
     BSR     Color_Row
+UL_Statut:
+    IFNE    CARTE_MONO
+    JSR     DFL_Budget_Statut
+    ENDC
     JSR     Draw_Status         ; (trop loin pour un BSR)
 
 UL_End:
@@ -3141,6 +3162,8 @@ Terminal_Run:
     LBCS    AT_Lecture
     LDY     #Txt_TermTitre
     JSR     Term_Ouvre
+    CLR     ecran_abime
+    LDU     #Term_Redessine             ; le SHELL l'appelle après GRAPHE...
     LDX     AppEntry
     JSR     ,X                          ; le SHELL ; EXIT : retour ici
     JSR     Term_Ferme
@@ -3163,6 +3186,17 @@ Term_Ouvre:
     LDY     #TERM_ATTR
     JSR     [table_function_ram+sys_Console_Zone]
     BRA     Curseur_On
+; Term_Redessine : appelée par le SHELL quand une commande a écrasé l'écran
+; autour de la zone (ecran_abime : GR_FIN) : le bureau, puis la fenêtre et
+; sa zone (effacée). La liste reste cachée sous le Terminal.
+Term_Redessine:
+    PSHS    D,X,Y,U
+    PSHSW
+    JSR     Draw_Base_UI
+    LDY     #Txt_TermTitre
+    JSR     Term_Ouvre
+    PULSW
+    PULS    D,X,Y,U,PC
 Term_Ferme:
     CLRE
     JSR     [table_function_ram+sys_Console_Zone]
@@ -3600,6 +3634,26 @@ SF_End:
 ; Pas de variables sur la pile : U = pointeur sur le nom courant.
 Draw_FileList:
     PSHS    CC,U
+    IFNE    CARTE_MONO
+    LDA     FileCount
+    LBEQ    Draw_FileList_End
+    JSR     DFL_Prepare         ; les lignes en RAM, sans toucher la VRAM
+    LDA     ,S                  ; l'appelant était-il déjà synchronisé ?
+    BITA    #%00010000          ; (IRQ masquées : entre Sync_Begin et Sync_End)
+    BNE     DFL_Resync
+    JSR     Sync_Begin          ; non : on attend le début de trame
+    BRA     DFL_Sync
+DFL_Resync:                     ; oui, mais la préparation a mangé sa fenêtre :
+    JSR     Sync_Yield          ; on repart au début de la trame suivante
+DFL_Sync:
+    ORCC    #%00010000
+    CLR     WinAcc
+    CLR     WinAcc+1
+    JSR     DFL_Copie
+    JSR     DFL_Budget_Statut
+    JSR     Draw_Status
+    BRA     Draw_FileList_End
+    ELSE
     ORCC    #%00010000          ; IRQ masquées pendant l'écriture VRAM
 
     LDA     FileCount
@@ -3691,10 +3745,130 @@ DFL_Coul:
     BLO     DFL_Loop
 
     BSR     Draw_Status
+    ENDC
 
 Draw_FileList_End:
     PULS    CC,U
     RTS
+
+    IFNE    CARTE_MONO
+; -------------------------------------------------------------------
+; Mono : la liste en deux temps. Écrire la VRAM case par case (STA ,Y++)
+; coûtait ~490 cycles par ligne, ~7800 pour 16 lignes d'un coup : bien
+; plus que la fenêtre de retour de trame (~1990 cycles après le signal,
+; dont ~300 pris par l'IRQ ; mesuré sur la carte le 20 nov. 2026 avec
+; tools/tele/essai_cycles.asm) -> parasites en haut de l'écran en faisant
+; défiler. DFL_Prepare compose les lignes en RAM (DFL_Buf, aucun accès
+; VRAM, IRQ comme l'appelant) ; DFL_Copie les copie par TFM, le budget
+; WinAcc vérifié AVANT chaque ligne (Sync_Yield au-delà de YIELD_CELLS).
+; Une ligne de DFL_Buf : icône (2 cases), couleur de la case 14 (son
+; caractère n'est pas touché, comme avant), puis 15 cases du nom.
+; -------------------------------------------------------------------
+DFL_LIGNE       equ 36          ; octets par ligne dans DFL_Buf (35 servent)
+DFL_COUT        equ 35+COUT_LIGNE   ; une ligne, en octets-équivalents TFM
+
+; DFL_Prepare : DrawRows, DrawSel et DFL_Buf depuis TopIndex (FileCount > 0).
+; Détruit D, X, Y, U, W.
+DFL_Prepare:
+    LDA     FileCount
+    SUBA    TopIndex            ; nombre de lignes à dessiner
+    CMPA    #VISIBLE_ROWS
+    BLS     DP_Lignes
+    LDA     #VISIBLE_ROWS
+DP_Lignes:
+    STA     DrawRows
+    LDA     Selection           ; ligne de la sélection dans la fenêtre
+    SUBA    TopIndex
+    STA     DrawSel
+    LDA     TopIndex            ; U = FileNames + TopIndex*REC
+    LDB     #REC
+    MUL
+    ADDD    #FileNames
+    TFR     D,U
+    LDY     #DFL_Buf
+    CLR     DrawRow
+DP_Ligne:
+    LDD     #(ICO_FILE_L*256)+ICO_FILE_R
+    TST     15,U
+    BEQ     DP_Ico
+    LDD     #(ICO_DIR_L*256)+ICO_DIR_R
+DP_Ico:
+    STA     ,Y
+    STB     2,Y
+    LDA     #COLOR_ICON
+    STA     1,Y
+    STA     3,Y
+    LDA     #COLOR_WIN
+    STA     4,Y
+    LDB     #COLOR_TEXT
+    LDA     DrawRow
+    CMPA    DrawSel
+    BNE     DP_Coul
+    LDB     #COLOR_SEL
+DP_Coul:
+    LEAX    5,Y
+    LDF     #15                 ; les 15 caractères du nom, avec la couleur
+DP_Car:
+    LDA     ,U+
+    STD     ,X++
+    DECF
+    BNE     DP_Car
+    LEAU    1,U                 ; les drapeaux
+    LEAY    DFL_LIGNE,Y
+    INC     DrawRow
+    LDA     DrawRow
+    CMPA    DrawRows
+    BLO     DP_Ligne
+    RTS
+
+; DFL_Copie : les DrawRows lignes de DFL_Buf vers la VRAM, IRQ masquées,
+; synchronisé (WinAcc compte la trame). Détruit D, X, Y, U, W.
+DFL_Copie:
+    LDX     #DFL_Buf
+    CLR     DrawRow
+DC_Ligne:
+    LDW     WinAcc
+    ADDW    #DFL_COUT
+    CMPW    #YIELD_CELLS
+    BLS     DC_Place
+    JSR     Sync_Yield          ; la trame est pleine : la suite au VSYNC suivant
+    LDW     #DFL_COUT
+DC_Place:
+    STW     WinAcc
+    LDB     DrawRow             ; Y = VRAM_BASE + (ligne+7)*160 + 12 cases
+    ADDB    #7
+    LDA     #VRAM_LIGNE
+    MUL
+    ADDD    #VRAM_BASE+12*VRAM_PAS
+    TFR     D,Y
+    LEAU    ,X
+    LDW     #4                  ; les deux cases de l'icône
+    TFM     U+,Y+
+    LDA     ,U+                 ; case 14 : sa couleur seule
+    STA     1,Y
+    LEAY    2,Y
+    LDW     #30                 ; le nom : 15 cases
+    TFM     U+,Y+
+    LEAX    DFL_LIGNE,X
+    INC     DrawRow
+    LDA     DrawRow
+    CMPA    DrawRows
+    BLO     DC_Ligne
+    RTS
+
+; DFL_Budget_Statut : place pour Draw_Status (13 cases et 2 flèches au STA),
+; sinon la trame suivante. Préserve D, X, Y, U.
+DFL_Budget_Statut:
+    LDW     WinAcc
+    ADDW    #15*MONO_CASE+COUT_LIGNE
+    CMPW    #YIELD_CELLS
+    BLS     DBS_Place
+    JSR     Sync_Yield
+    LDW     #15*MONO_CASE+COUT_LIGNE
+DBS_Place:
+    STW     WinAcc
+    RTS
+    ENDC
 
 ; Flèches de défilement + "sélection/total" (plan caractères)
 Draw_Status:
@@ -3945,6 +4119,9 @@ Truncated       rmb 1           ; <>0 : répertoire plus grand que MAX_FILES
 DrawRow         rmb 1
 DrawRows        rmb 1
 DrawSel         rmb 1
+    IFNE    CARTE_MONO
+DFL_Buf         rmb VISIBLE_ROWS*DFL_LIGNE  ; les lignes de la liste, prêtes
+    ENDC
 NumStarted      rmb 1
 FileNames       rmb MAX_FILES*REC
 DirBuf          rmb 16              ; nom du dossier où entrer (NUL final)

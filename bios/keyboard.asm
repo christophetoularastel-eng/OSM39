@@ -5,7 +5,7 @@
     import  SCAN_CODE,PS2_BYTE
     export keyboard_init,scan_keyboard,kbd_poll,Kbd_Voyants
     import kbd_buf,kbd_tete,kbd_queue,kbd_apres_f0
-    import kbd_verr,kbd_led_dem,kbd_led_cpt,kbd_muet
+    import kbd_verr,kbd_led_dem,kbd_led_cpt,kbd_muet,kbd_mort,kbd_suite
     import PrintHexChar,PrintString
     ;import readkey2_ptr, key2_ptr, key2_buffer
     import e0_received,last_makecode,PS2_BIT_COUNT,PS2_PARITY
@@ -123,8 +123,16 @@ kl_vide:
 ; SANS attendre. A = caractère dès qu'une touche est relâchée, A = 0 si
 ; rien (la touche est rendue au relâchement, comme scan_keyboard). L'état
 ; (Maj, E0, F0 reçu...) reste en RAM d'un appel à l'autre. Détruit B.
+; Touches mortes : ^ et Maj+^ (¨) ne rendent rien ; la touche suivante
+; donne la voyelle accentuée (â ê î ô û, ä ë ï ö ü ÿ, et les capitales,
+; Latin-1), l'espace l'accent seul, une autre touche l'accent PUIS elle
+; (rendue à l'appel suivant, kbd_suite).
 kbd_poll:
     pshs    x,y
+    lda     kbd_suite
+    beq     scan_loop
+    clr     kbd_suite
+    puls    x,y,pc
 scan_loop:
     bsr     kb_lire
     bcc     kp_octet
@@ -245,7 +253,51 @@ do_lookup:
     beq     dl_fin
     bsr     Inverse_Casse
 dl_fin:
+    ldb     kbd_mort
+    bne     dl_combine
+    cmpy    #tableasciictrl
+    beq     dl_rend
+    cmpa    #'^'                ; la touche ^ (seule, ou ¨ avec Maj) : morte
+    beq     dl_morte            ; (AltGr+ç rend aussi ^, mais pas par ici)
+    cmpa    #$A8
+    bne     dl_rend
+dl_morte:
+    sta     kbd_mort
+    lbra    scan_loop
+dl_combine:                     ; B = accent en attente, A = la touche
+    clr     kbd_mort
+    cmpa    #' '
+    beq     dl_accent
+    ldx     #tablemorte
+dl_cherche:
+    tst     ,x
+    beq     dl_deux
+    cmpb    ,x
+    bne     dl_suivant
+    cmpa    1,x
+    bne     dl_suivant
+    lda     2,x                 ; la voyelle accentuée
+    bra     dl_rend
+dl_suivant:
+    leax    3,x
+    bra     dl_cherche
+dl_deux:
+    sta     kbd_suite           ; l'accent, puis la touche au prochain appel
+dl_accent:
+    tfr     b,a
+dl_rend:
     puls    x,y,pc    ; Et on retourne !
+
+; Mort_Avant : A = caractère à rendre (AltGr, flèches...). Un accent en
+; attente passe d'abord, A au prochain appel. Détruit B.
+Mort_Avant:
+    ldb     kbd_mort
+    beq     ma_fin
+    sta     kbd_suite
+    tfr     b,a
+    clr     kbd_mort
+ma_fin:
+    rts
 
 ; Inverse_Casse : A = caractère (Latin-1, comme les tables). Verr. Maj
 ; inverse la casse des LETTRES : a-z <-> A-Z, et de $E0-$FE (é è à ç ù...)
@@ -351,6 +403,7 @@ altgr_loop:
     bra     altgr_loop
 altgr_found:
     lda     1,y
+    lbsr    Mort_Avant
     puls    x,y,pc
 altgr_none:
     lbra    scan_loop
@@ -442,6 +495,7 @@ return_ins:     lda #KEY_INS
                 bra return_special
 return_kpenter: lda #$0d
 return_special:
+    lbsr    Mort_Avant
 
     puls    x,y,pc
 
@@ -466,6 +520,14 @@ alt_code_off:
     clr     e0_received
     lbra    scan_loop
 
+; Touches mortes : (accent, lettre, résultat), Latin-1, terminée par 0.
+tablemorte:
+            FCB '^','a',$E2,'^','e',$EA,'^','i',$EE,'^','o',$F4,'^','u',$FB
+            FCB '^','A',$C2,'^','E',$CA,'^','I',$CE,'^','O',$D4,'^','U',$DB
+            FCB $A8,'a',$E4,$A8,'e',$EB,$A8,'i',$EF,$A8,'o',$F6,$A8,'u',$FC
+            FCB $A8,'y',$FF,$A8,'A',$C4,$A8,'E',$CB,$A8,'I',$CF,$A8,'O',$D6
+            FCB $A8,'U',$DC,0
+
 ; AltGr sur clavier AZERTY : (code de la touche, caractère)
 tablealtgr:
             FCB $1E,$7E     ; é 2 -> ~
@@ -487,7 +549,7 @@ tableascii: ;    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
             FCB $00,'c','x','d','e',''','"',$00,$00,' ','v','f','t','r','(',$00 ;2
             FCB $00,'n','b','h','g','y','-',$00,$00,$00,',','j','u',$e8,'_',$00 ;3
             FCB $00,';','k','i','o',$e0,$e7,$00,$00,':','!','l','m','p',')',$00 ;4
-            FCB $00,$00,$f9,'^',$00,'=',$00,$00,$00,$00,$0d,'$',$00,'*',$00,$00 ;5
+            FCB $00,$00,$f9,$00,'^','=',$00,$00,$00,$00,$0d,'$',$00,'*',$00,$00 ;5
             FCB $00,'<',$00,$00,$00,$00,$08,$00,$00,'1',$00,'4','7',$00,$00,$00 ;6
             FCB '0','.','2','5','6','8',$1b,$00,$00,'+','3','-','*','9',$00,$00 ;7
 tableasciishift:
@@ -496,7 +558,7 @@ tableasciishift:
             FCB $00,'C','X','D','E','4','3',$00,$00,' ','V','F','T','R','5',$00 ;2
             FCB $00,'N','B','H','G','Y','6',$00,$00,$00,'?','J','U','7','8',$00 ;3
             FCB $00,'.','K','I','O','0','9',$00,$00,'/',$a7,'L','M','P',$b0,$00 ;4
-            FCB $00,$00,'%',$A8,$00,'+',$00,$00,$00,$00,$0d,$a3,$00,$b5,$00,$00 ;5
+            FCB $00,$00,'%',$00,$A8,'+',$00,$00,$00,$00,$0d,$a3,$00,$b5,$00,$00 ;5
             FCB $00,'>',$00,$00,$00,$00,$08,$00,$00,'1',$00,'4','7',$00,$00,$00 ;6
             FCB '0','.','2','5','6','8',$1b,$00,$00,'+','3','-','*','9',$00,$00 ;7
 tableasciictrl:

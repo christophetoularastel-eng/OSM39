@@ -58,7 +58,7 @@ init_audio:
     LDA #%10000011
     STA PTM_CR2
     JMP Ay_Silence
-    section .ext
+    section .code
 ; =========================================================
 ; BOOT_JINGLE : "Ta-Da-Daaa!", joué par le séquenceur (6840 et AY)
 ; =========================================================

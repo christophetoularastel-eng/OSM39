@@ -34,7 +34,8 @@ import verifie_donjon39 as vdm    # noqa: E402
 SR_KEY, RDR_KEY = 0xA180, 0xA181
 SR_SERIE = 0xA000
 FRAPPE = {'a': 0x15, 'q': 0x1C, 'z': 0x1D, 'e': 0x24, 'é': 0x1E, 'è': 0x3D, 'à': 0x45, 'ç': 0x46,
-          'ù': 0x52, '&': 0x16, '"': 0x26, ',': 0x3A, 'm': 0x4C, ' ': 0x29}
+          'ù': 0x52, '&': 0x16, '"': 0x26, ',': 0x3A, 'm': 0x4C, ' ': 0x29,
+          'o': 0x44, 'i': 0x43, 'u': 0x3C, 'y': 0x35, 'b': 0x32, '^': 0x54}
 MAJ, CTRL, VERR = 0x12, 0x14, 0x58
 
 
@@ -96,7 +97,7 @@ def main():
             m.mem[s['kbd_buf'] + t] = c
             m.mem[s['kbd_tete']] = (t + 1) & 15
             m.mem[s['NEW_CODE']] = 1
-            while m.mem[s['kbd_queue']] != m.mem[s['kbd_tete']]:
+            while m.mem[s['kbd_queue']] != m.mem[s['kbd_tete']] or m.mem[s['kbd_suite']]:
                 m.cc = 0x50
                 v.appelle(m, s['kbd_poll'], 2_000_000)
                 if m.a:
@@ -131,6 +132,53 @@ def main():
     frappe(touche(VERR))
     verifie(m.mem[s['kbd_verr']] == 0 and mot('aé') == l1('aé') and m.mem[s['kbd_led_dem']] == 1,
             'second Verr. Maj : kbd_verr = 0, minuscules, voyants demandés')
+
+    # --- 1 bis. touches mortes ^ et ¨ (Maj+^) ---
+    m.mem[s['kbd_verr']] = 0
+    m.mem[s['kbd_led_dem']] = 0
+    circ = touche(FRAPPE['^'])
+    trema = [MAJ] + touche(FRAPPE['^']) + [0xF0, MAJ]
+    def morte(accent, suite):
+        return bytes(frappe(accent + suite))
+    verifie(frappe(circ) == [] and m.mem[s['kbd_mort']] == ord('^'), '^ seul : rien, accent en attente')
+    verifie(bytes(frappe(touche(FRAPPE['e']))) == l1('ê'), '^ puis e = ê')
+    got = b''.join(morte(circ, touche(FRAPPE[c])) for c in 'aeiou')
+    verifie(got == l1('âêîôû'), '^ + a e i o u -> %s' % got.decode('latin-1'))
+    got = b''.join(morte(trema, touche(FRAPPE[c])) for c in 'aeiouy')
+    verifie(got == l1('äëïöüÿ'), '¨ + a e i o u y -> %s' % got.decode('latin-1'))
+    got = morte(trema, [MAJ] + touche(FRAPPE['o']) + [0xF0, MAJ])
+    verifie(got == l1('Ö'), '¨ + Maj+o = Ö (%s)' % got.decode('latin-1'))
+    verifie(morte(circ, touche(FRAPPE[' '])) == b'^' and morte(trema, touche(FRAPPE[' '])) == l1('¨'),
+            '^ + espace = ^, ¨ + espace = ¨ (l\'accent seul)')
+    got = morte(circ, touche(FRAPPE['b']))
+    verifie(got == b'^b' and m.mem[s['kbd_suite']] == 0, '^ + b = ^ puis b (%r)' % got)
+    got = morte(circ, [0xE0] + touche(0x75)[:1] + [0xE0, 0xF0, 0x75])
+    verifie(got == bytes([ord('^'), 0x80]), '^ + flèche haut = ^ puis KEY_UP (%r)' % got)
+    got = morte(circ, [0xE0, 0x11] + touche(FRAPPE['é']) + [0xE0, 0xF0, 0x11])
+    verifie(got == b'^~', '^ + AltGr+é = ^ puis ~ (%r)' % got)
+    got = bytes(frappe([0xE0, 0x11] + touche(0x46) + [0xE0, 0xF0, 0x11] + touche(FRAPPE['e'])))
+    verifie(got == b'^e' and m.mem[s['kbd_mort']] == 0, 'AltGr+ç (^) n\'est pas morte : ^ puis e (%r)' % got)
+    m.mem[s['kbd_verr']] = 0x04
+    got = morte(circ, touche(FRAPPE['e']))
+    verifie(got == l1('Ê'), 'avec Verr. Maj : ^ + e = Ê (%s)' % got.decode('latin-1'))
+    m.mem[s['kbd_verr']] = 0
+    frappe(circ)
+    m.mem[s['NEW_CODE']] = 0             # quelqu'un a lu SCAN_CODE : file périmée
+    verifie(m.mem[s['kbd_mort']] == ord('^'), '(accent en attente avant scan_keyboard)')
+    pas = m.step
+    def injecte():                      # e arrive après le vidage d'entrée
+        if m.pc == s['sk_attente'] and m.mem[s['kbd_queue']] == m.mem[s['kbd_tete']]:
+            for c in touche(FRAPPE['e']):
+                t = m.mem[s['kbd_tete']]
+                m.mem[s['kbd_buf'] + t] = c
+                m.mem[s['kbd_tete']] = (t + 1) & 15
+            m.mem[s['NEW_CODE']] = 1
+        pas()
+    m.step = injecte
+    m.cc = 0x50
+    v.appelle(m, s['scan_keyboard'], 2_000_000)
+    m.step = pas
+    verifie(m.a == 0xEA, 'scan_keyboard (file vide, NEW_CODE = 0 : l\'état normal) garde l\'accent : ê (%02X)' % m.a)
 
     # --- 2. l'IRQ envoie les voyants ---
     m.mem[s['kbd_verr']] = 0x04

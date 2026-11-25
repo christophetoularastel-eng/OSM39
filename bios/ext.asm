@@ -27,7 +27,8 @@
     import  X_FS_SaveFile, X_FS_DeleteFile, X_FS_SetAttributes, X_FS_RenameFile
     import  X_FS_SetLoad, X_FS_MkDir, X_FS_ListRoot, X_Console_Zone
     import  X_snd_play, X_snd_stop, X_boot_jingle, X_Zone_IRQ, X_Audio, X_Zone_Cls
-    export  Ext_Charge, ExtLong, ExtSomme, Ext_Entree, Ext_Defauts
+    import  X_Graphe, X_Gr_IRQ
+    export  Ext_Charge, ExtLong, ExtSomme, Ext_Entree, Ext_Defauts, Graphe, Gr_IRQ
 
     section .code
 
@@ -44,11 +45,19 @@ Ext_Defauts:
     bra     Ext_Vecteurs
 Ext_Rien:
     rts
-; Ext_Def : sans BIOS2, un service répond « absent » (C = 1), le son et
-; l'effacement de zone ne font rien, l'IRQ continue au curseur
+; Ext_Def : sans BIOS2, FS_SaveFile, FS_DeleteFile et le graphisme
+; répondent « absent » (C = 1). Le reste (attributs, renommer, dossiers,
+; console du Terminal, son) est revenu dans l'EPROM le 21 nov. 2026 pour
+; faire place au graphisme : ses vecteurs pointent sur elle dès le reset.
 Ext_Def:
-    fdb     Sys_Absent,Sys_Absent,Sys_Absent,Sys_Absent,Sys_Absent,Sys_Absent,Sys_Absent
-    fdb     Sys_Absent,Sys_Absent,Sys_Absent,Ext_Rien,UPDATE_CURSOR,Ext_Rien,Ext_Rien
+    fdb     Sys_Absent,Sys_Absent,X_FS_SetAttributes,X_FS_RenameFile,X_FS_SetLoad,X_FS_MkDir,X_FS_ListRoot
+    fdb     X_Console_Zone,X_snd_play,X_snd_stop,X_boot_jingle,X_Zone_IRQ,X_Audio,X_Zone_Cls
+    fdb     Sys_Absent,Ext_Rien
+; Les souches du mode graphique (graphe.asm, BIOS2)
+Graphe:
+    jmp     [ExtV+EXTV_GRAPHE]
+Gr_IRQ:
+    jmp     [ExtV+EXTV_GRIRQ]
 ; Ext_Vecteurs : X = table de EXTV_N mots -> ExtV (Y), puis puls x,y,pc
 Ext_Vecteurs:
     ldd     ,x++
@@ -145,3 +154,4 @@ Ext_Table:                          ; même ordre que ext.inc et Ext_Def
     fdb     X_FS_SaveFile,X_FS_DeleteFile,X_FS_SetAttributes,X_FS_RenameFile
     fdb     X_FS_SetLoad,X_FS_MkDir,X_FS_ListRoot,X_Console_Zone
     fdb     X_snd_play,X_snd_stop,X_boot_jingle,X_Zone_IRQ,X_Audio,X_Zone_Cls
+    fdb     X_Graphe,X_Gr_IRQ

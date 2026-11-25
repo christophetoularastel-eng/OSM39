@@ -13,12 +13,12 @@ CC ne sont pas garantis. Les noms de fichier sont de 15 octets, mis en forme par
 
 | n° | Service | Entrée | Sortie | Détruit | Notes |
 |---:|---|---|---|---|---|
-| 0 | `FS_RenameFile` | X -> ancien nom, Y -> nouveau nom (15 octets, `Format_Filename_83`) | C | E F | BIOS2. Le nouveau nom donne le dossier d'arrivée (`"LIB/UI.INC"` déplace ; `"LIB/"` garde le nom). Refuse un nom pris et un dossier mis dans lui-même. |
+| 0 | `FS_RenameFile` | X -> ancien nom, Y -> nouveau nom (15 octets, `Format_Filename_83`) | C | E F | Le nouveau nom donne le dossier d'arrivée (`"LIB/UI.INC"` déplace ; `"LIB/"` garde le nom). Refuse un nom pris et un dossier mis dans lui-même. |
 | 1 | `scan_keyboard` | - | A = caractère (jamais 0) | B | Attend une touche (rendue au relâchement). Jette une file déjà lue par un programme qui lit `SCAN_CODE` lui-même. Codes spéciaux `$80-$8B` : `lib/ui.inc`. |
 | 2 | `read_line` | - | `input_buffer` = la ligne (NUL final), X = sa fin | A B | Attend Entrée ; écho à l'écran ; Ret. arr. efface. |
-| 3 | `PrintChar` | A = caractère | - | - | Écran seulement (jamais la liaison série), attribut `char_attribut`. `$0C` efface, `$09` tabule. Attend si le tampon de 256 est plein. |
+| 3 | `PrintChar` | A = caractère | - | - | Écran seulement (jamais la liaison série), attribut `char_attribut`. `$0C` efface, `$09` tabule. `$A0-$FF` (Latin-1) affichés en CP437. Attend si le tampon de 256 est plein. |
 | 4 | `PrintString` | X -> chaîne (NUL final) | - | - |  |
-| 5 | `PrintHexChar` | A = octet | - | A | Deux chiffres hexadécimaux. A n'est PAS rendu (il reste son chiffre bas). |
+| 5 | `PrintHexChar` | A = octet | - | - | Deux chiffres hexadécimaux. |
 | 6 | `PrintHexWord` | D = mot | - | - | Quatre chiffres. |
 | 7 | `PrintCRLF` | - | - | - | LF puis CR. |
 | 8 | `PrintFileName83` | - | C = 1 | - | Retiré (moniteur). |
@@ -28,7 +28,7 @@ CC ne sont pas garantis. Les noms de fichier sont de 15 octets, mis en forme par
 | 12 | `FS_GetNextCluster` | - | C = 1 | - | Sans objet (fichiers contigus). |
 | 13 | `FS_LoadFile` | X -> nom (15), A = page, Y = adresse | C ; U = taille (16 bits bas) | E F | Continue en `$0000` de la page suivante après `$7FFF` (64 Ko, page 3 au plus). Y >= `$8000` : copie directe. Nom sans chemin introuvable : réessaie dans /BIN, puis à la racine. La page de l'appelant revient. |
 | 14 | `FS_FindEntry` | X -> nom (15) | C ; D = premier secteur (16 bits bas), U = taille (16 bits bas) | E F | Repli /BIN puis racine comme `FS_LoadFile`. `s_entry_lba`/`s_entry_offset` = l'entrée. |
-| 15 | `FS_ListRoot` | - | A = 0 | E F | BIOS2. Affiche le dossier courant. |
+| 15 | `FS_ListRoot` | - | A = 0 | E F | Affiche le dossier courant. |
 | 16 | `FS_SaveFile` | X -> nom (15), A = page source, Y = source, U = taille | C | E F | BIOS2. Crée TOUJOURS une nouvelle entrée : effacer l'ancien fichier d'abord. Source sur deux pages comme `FS_LoadFile`. |
 | 17 | `reg_cmd` | - | C = 1 | - | Retiré (moniteur ; `MONITEUR R` sur la carte). |
 | 18 | `FS_ClusterToLBA_Offset` | - | C = 1 | - | Sans objet (fichiers contigus). |
@@ -42,22 +42,22 @@ CC ne sont pas garantis. Les noms de fichier sont de 15 octets, mis en forme par
 | 26 | `free` | X = bloc (0 : rien) | - | X | Pas de retenue. |
 | 27 | `FS_DeleteFile` | X -> nom (15) | C | E F U | BIOS2. Refuse un dossier non vide. |
 | 28 | `FS_GetAttributes` | X -> nom (15) | C ; A = attributs | E F U | Bit 0 x, 1 w, 2 r, 3 caché, 4 application, 5 dossier. |
-| 29 | `FS_SetAttributes` | X -> nom (15), A = attributs | C | E F U | BIOS2. |
+| 29 | `FS_SetAttributes` | X -> nom (15), A = attributs | C | E F U |  |
 | 30 | `FarRead` | A = page source, B = page destination, X = source, Y = destination, U = taille | - | - | Par blocs de 256 (`far_transit_buffer`), IRQ et FIRQ masquées pendant chaque bloc. À appeler sur la pile système si la pile du programme est dans une page. |
 | 31 | `FarWrite` | A = page destination, B = page source, X = source, Y = destination, U = taille | - | - | Comme `FarRead`. |
 | 32 | `video_wait_vsync` | E = nombre de trames | C = 0 | - | Les IRQ doivent être démasquées (le compteur avance dans l'IRQ VSYNC). |
-| 33 | `snd_play` | X -> partition (`FDB voix1,voix2 / FCB durée`..., `FDB $FFFF`) | - | - | BIOS2. Copiée dans `SND_BUF` (128 octets) sauf si X >= `$C000`. Interrompt le son en cours. Format : `lib/snd.inc`. |
-| 34 | `snd_stop` | - | - | - | BIOS2. Le silence vient à la trame suivante. |
+| 33 | `snd_play` | X -> partition (`FDB voix1,voix2 / FCB durée`..., `FDB $FFFF`) | - | - | Copiée dans `SND_BUF` (128 octets) sauf si X >= `$C000`. Interrompt le son en cours. Format : `lib/snd.inc`. |
+| 34 | `snd_stop` | - | - | - | Le silence vient à la trame suivante. |
 | 35 | `Far_Call` | A = page (0-3), X = adresse ; B, Y, U, W passés à l'appelée | D, X, Y, U, W et C rendus par l'appelée | - | L'appelée reçoit A = sa page et doit fixer C elle-même (sinon C est quelconque). Page > 3 : C = 1, rien n'est appelé. Aussi en `$FFE0`. |
 | 36 | `Far_CallN` | A = page (0-3), B = n° dans la table `FDB` en `$0000` de la page | comme `Far_Call` | - | L'appelée reçoit X = sa propre adresse. Aussi en `$FFE3`. |
 | 37 | `FS_FileInfo` | X -> nom (15), Y -> 14 octets | C ; les octets +16..+29 de l'entrée en Y | E F | Premier LBA (4), taille (4), page, adresse (2), attributs, dossier parent (2) ; tous en big-endian. Pas de repli /BIN. |
 | 38 | `FS_ReadSector` | X -> LBA (4 octets BE), Y -> 512 octets | C (`sd_err`) | - | Dans la page visible ou la RAM système. 4 essais. |
-| 39 | `FS_SetLoad` | X -> nom (15), A = page, Y = adresse | C | E F | BIOS2. Page et adresse de chargement de l'entrée. |
+| 39 | `FS_SetLoad` | X -> nom (15), A = page, Y = adresse | C | E F | Page et adresse de chargement de l'entrée. |
 | 40 | `FS_ChDir` | X -> chemin (NUL final) : `APPS`, `..`, `/`, `/APPS/JEUX` | C | E F | Échec : dossier courant inchangé. Le dossier courant est commun à tous les programmes. |
-| 41 | `FS_MkDir` | X -> nom (15, `Format_Filename_83`) | C | E F | BIOS2. Refuse un nom pris. |
+| 41 | `FS_MkDir` | X -> nom (15, `Format_Filename_83`) | C | E F | Refuse un nom pris. |
 | 42 | `FS_Dossier` | D = n° de dossier (0 racine), ou `$FFFF` pour lire | D = dossier courant | - | Le n° est celui de `g_find_fileInfo+30` après `FS_FindNext`. |
 | 43 | `FS_DirInfo` | D = n° de dossier (pas 0), Y -> 15 octets ou 0 | C ; D = son parent, son nom en Y | E F | C = 1 : pas un dossier. |
 | 44 | `kbd_poll` | - | A = caractère, ou 0 : rien | B | Sans attendre ; à appeler à chaque trame au moins (file de 16 octets). |
-| 45 | `Console_Zone` | A = colonne, B = rangée, E = largeur, F = hauteur, Y = attribut (octet bas) ; E = 0 : plein écran | C = 0 | - | BIOS2. La zone est effacée par l'IRQ au fil des trames, le curseur va en haut à gauche. |
-| 46 | (réserve) | - | C = 1 | - | Libre. |
+| 45 | `Console_Zone` | A = colonne, B = rangée, E = largeur, F = hauteur, Y = attribut (octet bas) ; E = 0 : plein écran | C = 0 | - | La zone est effacée par l'IRQ au fil des trames, le curseur va en haut à gauche. |
+| 46 | `Graphe` | B = fonction (0-11), X = bloc de paramètres (mots), A = mode ou attribut | C ; GR_LIT : A = le point | - | BIOS2. Le mode graphique 640 x 400 : fonctions et effets dans `tools/graphe/graphe.py`, prouvés par `make -C test graphe`. C = 1 : fonction inconnue, ou mode graphique non ouvert. |
 | 47 | (réserve) | - | C = 1 | - | Libre. |

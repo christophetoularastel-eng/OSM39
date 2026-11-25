@@ -17,6 +17,11 @@
 ; Un contact compte s'il est vu deux trames de suite (les entrées à
 ; 9 Mohm captent le secteur). Rien de branché : port A tout à 1
 ; (tirages internes de l'AY) = aucun contact. Détruit B.
+; Sans AY (puce retirée ou morte), le port A lirait le bus vide : des bits
+; à 0, donc des « doigts posés » en permanence, et OSM-VISION bloqué sur
+; la flèche. Au premier appel, Clou_Sonde écrit $05 puis $0A dans R1 (la
+; période haute de la voie A, 4 bits) et les relit : une vraie puce rend
+; les deux, le bus vide jamais. Pas d'AY : Clou_Lit ne rend plus rien.
 ; ===================================================================
 CLOU_HAUT       equ $01
 CLOU_DROITE     equ $02
@@ -31,6 +36,15 @@ CLOU_INVERSE    equ 1               ; 1 : carte à transistors PNP (doigt = 0)
     ENDC
 
 Clou_Lit:
+    LDA     ClouAY              ; 0 : pas encore sondé, 1 : AY là, $FF : absent
+    BNE     CLL_Sonde
+    BSR     Clou_Sonde
+    LDA     ClouAY
+CLL_Sonde:
+    BPL     CLL_Lire
+    CLRA                        ; pas d'AY : jamais de contact (Z = 1)
+    RTS
+CLL_Lire:
     PSHS    CC
     ORCC    #%00010000          ; l'IRQ du son choisit d'autres registres
     LDA     #14
@@ -80,6 +94,34 @@ CLL_Fin:
     ORA     ,S+
     RTS
 
+; Clou_Sonde : ClouAY = 1 si l'AY relit $05 puis $0A dans R1, $FF sinon ;
+; R1 retrouve sa valeur. IRQ masquées (le son de l'IRQ choisit ses registres).
+Clou_Sonde:
+    PSHS    CC
+    ORCC    #%00010000
+    LDA     #1
+    STA     AY_ADR
+    LDA     AY_ADR              ; valeur de R1, à remettre
+    PSHS    A
+    LDB     #$FF                ; absent, sauf preuve du contraire
+    LDA     #$05
+    STA     AY_ADR+1
+    LDA     AY_ADR
+    CMPA    #$05
+    BNE     CS_Fin
+    LDA     #$0A
+    STA     AY_ADR+1
+    LDA     AY_ADR
+    CMPA    #$0A
+    BNE     CS_Fin
+    LDB     #1
+CS_Fin:
+    PULS    A
+    STA     AY_ADR+1            ; R1 (toujours choisi) retrouve sa valeur
+    STB     ClouAY
+    PULS    CC,PC
+
+ClouAY          FCB 0               ; 0 : à sonder, 1 : AY présent, $FF : absent
 ClouBrut        FCB 0               ; lecture précédente
 ClouTenu        FCB 0               ; contacts confirmés
 ClouRep         FCB 0               ; trames avant le prochain pas

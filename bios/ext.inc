@@ -16,4 +16,6 @@ EXTV_JINGLE     equ 20
 EXTV_ZONEIRQ    equ 22
 EXTV_AUDIO      equ 24
 EXTV_ZONECLS    equ 26
-EXTV_N          equ 14
+EXTV_GRAPHE     equ 28
+EXTV_GRIRQ      equ 30
+EXTV_N          equ 16

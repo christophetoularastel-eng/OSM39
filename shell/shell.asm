@@ -17,7 +17,11 @@ MAX_INPUT_LEN  EQU 128
 MAX_ARGS       EQU 10
 CMD_NAME_LEN   EQU 12
 
+; Entrée : U = routine d'OSM-VISION qui redessine le bureau et la fenêtre
+; du Terminal (0 : aucune) ; appelée après une commande qui a écrasé
+; l'écran hors de la zone (ecran_abime, posé par GR_FIN).
 Shell_Start:
+                STU     Redessine
                 LDX     #ShellMsg
                 JSR     [table_function_ram+sys_PrintString]
 
@@ -80,8 +84,13 @@ Free_And_Fail:
                 JSR     [table_function_ram+sys_free]   ; On libère la ram system allouée par malloc
                 PULS    cc
                 BCS     Unknown_Command                 ; Si Carry=1 (Fichier non trouvé ou erreur de charge), on va à l'erreur
-
-                BRA     MainLoop
+                TST     ecran_abime                     ; écran écrasé autour de la zone ?
+                LBEQ    MainLoop
+                CLR     ecran_abime
+                LDU     Redessine
+                LBEQ    MainLoop
+                JSR     ,U                              ; OSM-VISION redessine (zone effacée)
+                LBRA    MainLoop
 
 
 Malloc_Fail:
@@ -903,4 +912,5 @@ LineBuffer:     RMB 18
 FileInfoBuffer: RMB 40
 chmod_op:       RMB 1   ; Opérateur symbolique (+ - =) pour CHMOD
 chmod_cur:      RMB 1   ; Attributs courants pour CHMOD
+Redessine:      RMB 2   ; routine de redessin d'OSM-VISION (U à l'entrée)
 

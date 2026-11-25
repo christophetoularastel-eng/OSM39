@@ -9,7 +9,7 @@ OBJCOPY = objcopy
 ASFLAGS = --format=obj --6309 -I../bios
 LDFLAGS = --format=raw --section-base=.code=0x0000
 
-all: TYPE CP MV RM SIZE CPU CD MKDIR PWD LS MONITEUR SDTEST TELE AYTEST AYJOUE CLOUTEST HORLOGE NEIGE MORCEAUX
+all: TYPE CP MV RM SIZE CPU CD MKDIR PWD LS MONITEUR SDTEST TELE AYTEST AYJOUE CLOUTEST HORLOGE NEIGE GRAPHE MORCEAUX
 
 TYPE: type.asm type.o
 	$(LD) $(LDFLAGS) --map=TYPE.map -o TYPE type.o
@@ -35,6 +35,9 @@ MKDIR: mkdir.asm mkdir.o
 
 PWD: pwd.asm pwd.o
 	$(LD) $(LDFLAGS) --map=PWD.map -o PWD pwd.o
+
+GRAPHE: graphe.asm graphe.o
+	$(LD) $(LDFLAGS) --map=GRAPHE.map -o GRAPHE graphe.o
 
 LS: ls.asm ls.o
 	$(LD) $(LDFLAGS) --map=LS.map -o LS ls.o
@@ -76,7 +79,7 @@ TELE: tele.asm tele.o
 SDTEST: sdtest.asm sdtest.o
 	$(LD) $(LDFLAGS) --map=SDTEST.map -o SDTEST sdtest.o
 
-cd.o mkdir.o pwd.o ls.o moniteur.o sdtest.o tele.o aytest.o cloutest.o neige.o: %.o: %.asm ../bios/hardware.inc ../bios/sysfunc.inc
+cd.o mkdir.o pwd.o ls.o moniteur.o sdtest.o tele.o aytest.o cloutest.o neige.o graphe.o: %.o: %.asm ../bios/hardware.inc ../bios/sysfunc.inc
 	$(AS) $(ASFLAGS) --list=$*.lst -o $@ $<
 
 SIZE: size.asm size.o
@@ -106,7 +109,7 @@ cpu.o: cpu.asm ../bios/hardware.inc ../bios/sysfunc.inc
 	$(AS) --format=obj --6309 -I../bios --list=cpu.lst -o $@ $<
 
 clean:
-	rm -f *.o *.lst *.map *.hex *.EXE TYPE CP MV RM SIZE CPU CD MKDIR PWD LS MONITEUR SDTEST TELE AYTEST AYJOUE CLOUTEST HORLOGE NEIGE
+	rm -f *.o *.lst *.map *.hex *.EXE TYPE CP MV RM SIZE CPU CD MKDIR PWD LS MONITEUR SDTEST TELE AYTEST AYJOUE CLOUTEST HORLOGE NEIGE GRAPHE
 	rm -f $(MORCEAUX_TXT:.txt=.MUS)
 
 .PHONY: all clean MORCEAUX

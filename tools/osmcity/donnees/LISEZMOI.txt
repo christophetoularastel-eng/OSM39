@@ -1,0 +1,17 @@
+annonay.json : extrait d'OpenStreetMap (API Overpass, le 21 novembre 2026),
+rectangle 45,2335-45,2470 N ; 4,6630-4,6790 E (centre d'Annonay) : routes,
+chemins, cours d'eau, bâtiments, parcs, parkings.
+
+© contributeurs OpenStreetMap. Données sous licence ODbL
+(https://opendatacommons.org/licenses/odbl/). Toute carte tirée de ces
+données (apps/osmcity_data.inc, le jeu OSM City) doit porter ce crédit.
+
+murs.json : la même zone, murs, murs de soutènement, falaises, talus
+(Overpass, 21 novembre 2026 ; © contributeurs OpenStreetMap, ODbL). Pas
+encore utilisé : seulement 12 objets.
+
+altitudes.bin : l'altitude du centre de chaque case de la carte fine
+(512 x 255, rangée par rangée, entiers 16 bits grand-boutistes en
+décimètres), service d'altimétrie de l'IGN (Géoplateforme, RGE ALTI,
+data.geopf.fr/altimetrie), le 21 novembre 2026. © IGN, Licence Ouverte
+Etalab 2.0 : crédit « IGN » si le jeu est publié.

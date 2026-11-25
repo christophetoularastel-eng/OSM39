@@ -66,7 +66,10 @@ class Liaison:
                 break
             r, _, _ = select.select([self.fd], [], [], reste)
             if r:
-                out += os.read(self.fd, n - len(out))
+                try:
+                    out += os.read(self.fd, n - len(out))
+                except BlockingIOError:     # faux réveil de select (adaptateurs USB)
+                    continue
         return bytes(out)
 
     def vide(self):
@@ -87,8 +90,8 @@ class Tele:
         """Une trame et sa réponse. P, R et W se rejouent sans danger : en
         cas de silence ou de somme refusée (un octet perdu sur la ligne :
         TELE a lu la trame suivante comme la fin de la précédente, puis se
-        recale), on réessaie deux fois. Jamais C (l'appel serait refait)."""
-        essais = 3 if cmd in 'PRW' else 1
+        recale), on réessaie (6 essais en tout). Jamais C (l'appel serait refait)."""
+        essais = 6 if cmd in 'PRW' else 1
         for k in range(essais):
             try:
                 return self._demande(cmd, donnees, n_reponse, delai)

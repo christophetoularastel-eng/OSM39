@@ -977,3 +977,399 @@ commandes d'avant lwtools.
   `~LOAD`, plus le retard des 74HC157 du mode graphique. OE à la masse.
 - Schéma KiCad corrigé (`483890c` du dépôt KiCad) ; circuit imprimé à
   reprendre.
+
+## 15 nov. 2026 — Mode graphique de la mono essayé sur la carte
+
+`tools/tele/essai_graphique.asm` (par TELE) : cadre, grille, diagonales,
+cercle en 640 x 400, couleurs par case ; l'image de la carte est celle de
+l'émulateur (modèle des 8 pages de VRAM). `tools/tele/tele.py` tolère les
+faux réveils de `select` sur le port série (un autre programme qui lit le
+même port, ici le terminal VT100, donne des échecs aléatoires).
+
+## 18 nov. 2026 — Bascule sur la carte mono, la V4 archivée
+
+- OSM39_mono fonctionne (corrections de la « neige » et du décalage de
+  couleur, câblées) : `CARTE` passe à `mono` dans le dépôt, les 21
+  vérificateurs sont verts en mono. La machine V4 (cartes CPU, CRT2,
+  SD-KBD-SON) est archivée : ses branches `IFNE CARTE_MONO` restent et
+  assemblent, son dernier état vérifié est l'étiquette `v4-archive`
+  (= release v1.2 pour ses fichiers), plus rien ne la contrôle.
+- La règle « un build v4 est identique octet pour octet au code d'avant
+  la mono » est levée. `docs/memory-map.md` est relevé sur le BIOS mono.
+
+## 18 nov. 2026 — Le « défaut de lwasm sur LDX/LDY indexés » n'existait pas
+
+- `test/Makefile` gardait une cible `indexation` (script absent du dépôt,
+  resté non suivi dans l'ancienne copie OSM39V2) et un commentaire disant
+  que lwasm 4.24 émettait l'opcode étendu au lieu de l'indexé pour
+  LDX/LDY/STX/STY (`AE 62` « au lieu de » `BE 62`). C'est l'inverse :
+  `AE`/`10 AE` est la forme indexée, `BE`/`10 BE` l'étendue ; lwasm émet
+  `10 AE 60` pour `LDY 0,S`, et l'exécution charge bien la pile. Cible
+  et commentaire retirés.
+- AGENTS.md décrivait l'octet d'indexation 5 bits comme « `$20+offset`,
+  registre dans les bits 2-0 » : faux. Registre dans les bits 6-5 (X `$00`,
+  Y `$20`, U `$40`, S `$60`), décalage dans les bits 4-0.
+
+## 18 nov. 2026 — OSM-VISION ne se bloque plus sans AY
+
+- La V4, rebranchée sans son AY-3-8910 (retiré), restait bloquée sur la
+  flèche : la Clouris lisait le bus vide, des bits à 0, donc des doigts
+  posés en permanence. `Clou_Lit` sonde l'AY à son premier appel
+  (`Clou_Sonde` : `$05` puis `$0A` dans R1, relus, R1 rendu) ; sans puce,
+  plus aucun contact.
+- L'émulateur des vérificateurs relisait au registre de l'AY le numéro de
+  registre écrit : il garde maintenant les 16 registres (largeurs de la
+  puce), et `ay_present = False` simule la puce retirée.
+
+## 20 nov. 2026 — Nouvel AY-3-8910 sur la mono, et premiers essais depuis le mini PC
+
+- Carte SD de la mono écrite depuis le mini PC (lecteur USB) : la carte
+  arrivait formatée en FAT32 avec une partition ; OSMFS veut le disque
+  entier (`/dev/sdX`), secteur 0 vide avant `format_fs` (qui ne pose la
+  signature `OSMF` que sur un secteur 0 nul). 81 fichiers relus à
+  l'identique.
+- TELE depuis le mini PC : ping, EPROM relue identique à `dist/`, BIOS2
+  chargé. ~1 % des trames perdues, réessayées sans dommage.
+- AY-3-8910 de remplacement (récupération, marqué Microchip) : `AYTEST`
+  28/28, la voie B s'entend comme A et C. Par TELE, 1195 relectures : R9
+  seul perd parfois un bit faible (5/91), inaudible. L'ancienne puce
+  relisait toujours `00` dans R9.
+
+## 20 nov. 2026 — Parasites en haut de l'écran en faisant défiler la liste d'OSM-VISION
+
+- Mesuré sur la carte (`tools/tele/essai_cycles.asm`, par TELE) : fenêtre
+  de retour de trame ~1990 cycles, IRQ du BIOS ~250 au repos, 1316 pendant
+  un défilement du Terminal, 1792 à sa fin ; `TFM` = 6 + 3 n ; une case au
+  `STD ,X++` = 12 cycles. L'estimation de `lib/vision.asm` (~2600) était
+  trop haute.
+- La liste d'OSM-VISION (`Draw_FileList`, `Draw_Names` par `Update_List`)
+  écrivait 16 lignes case par case d'un coup : ~6200 cycles estimés. Sur
+  la mono, les lignes sont composées en RAM (`DFL_Prepare`) puis copiées
+  par `TFM` (`DFL_Copie`), budget vérifié avant chaque ligne (~1440 cycles
+  par trame au plus). Écran identique case par case à l'ancien code sur 7
+  suites de touches ; `verifie_bureau` mesure désormais le retard des
+  écritures VRAM (contre-preuve : l'ancien code échoue à 6204).
+- `verifie_dossiers` appelait `Draw_FileList` sans signal de trame : il y
+  répond maintenant (`video_wait_vsync` rend la main tout de suite).
+- `tools/tele/depose.py` effaçait l'ancien fichier AVANT de copier et
+  relire le nouveau en RAM : une trame perdue pendant la relecture a
+  laissé la carte sans OSMVISION (reposé aussitôt, relu secteur par
+  secteur identique). Il copie et vérifie maintenant d'abord, et n'efface
+  l'ancien que juste avant `FS_SaveFile`.
+- Puis en entrant dans un dossier ou en en sortant (`Full_Redraw`) :
+  `Draw_Window` (mono) vérifiait son budget APRÈS chaque rangée et ne
+  comptait ni le bas, ni l'ombre, ni le filet du titre ; la liste se
+  préparait dans la fenêtre de l'appelant déjà synchronisé (~6800 cycles
+  estimés). `Mono_Budget` devient prédictif, `Draw_Window` compte toutes
+  ses rangées, la liste se resynchronise après sa préparation. Écran
+  identique case par case sur 13 parcours (une première version abîmait
+  l'ombre des fenêtres : vue par cette comparaison, désormais vérifiée par
+  `verifie_bureau`). Essayé sur la carte : « propre et rapide ».
+
+## 20 nov. 2026 — Lot EPROM : accents de la console, PrintHexChar, effacement du Terminal
+
+- La console du BIOS (SHELL, BBC BASIC, FORTH) affiche les accents
+  Latin-1 en CP437 : `Con_Lat` (EPROM) au moment d'écrire la case, dans
+  l'IRQ, plein écran et zone. Une première version traduisait dans
+  `PrintChar` : é devenait `$82`, une des flèches `$80-$83` que l'IRQ
+  interprète, et disparaissait (vu par `verifie_terminal`).
+- `PrintHexChar` rend A (il gardait son chiffre bas) : contrat mis à jour.
+- `Zone_IRQ` efface la dernière rangée par `TFM` (481 cycles au lieu de
+  920 : la trame qui finit un défilement passait à ~200 cycles du bord de
+  la fenêtre).
+- EPROM et BIOS2 changent ensemble (somme de BIOS2 dans l'EPROM).
+
+## 20 nov. 2026 — CALC et EDIT sans parasites : vis_Prep et vis_Ligne
+
+- Signalé sur la carte : parasites en haut de l'écran dans CALC à chaque
+  déplacement, dans EDIT en faisant défiler. `vis_Text` coûte ~32 cycles
+  par caractère sur la mono : une ligne de 80 caractères (2716 cycles
+  estimés dans EDIT, 4380 dans CALC avec la case surlignée) dépassait
+  seule la fenêtre de retour de trame.
+- Deux services ajoutés en fin de table (`lib/vis.inc`, VIS_COUNT 14) :
+  `vis_Prep` compose la ligne en RAM hors synchronisation (plusieurs
+  appels pour superposer la case courante ou le curseur), `vis_Ligne` la
+  copie par TFM dans la trame, budget compté. `Sync_Begin` remet le
+  budget à zéro. CALC et EDIT les emploient pour leurs lignes longues :
+  ~1200 cycles estimés au pire, écrans identiques case par case sur six
+  parcours ; `verifie_bureau` mesure CALC et EDIT.
+- Reste : l'indicateur de chargement du BIOS (en haut à droite) écrit sans
+  synchronisation pendant les longs transferts.
+
+## 21 nov. 2026 — Lot EPROM : touches mortes ^ ¨, moulinet dessiné au retour de trame
+
+- Touches mortes dans `keyboard.asm` : `^` et Maj+`^` (¨) attendent la
+  touche suivante (â ê î ô û, ä ë ï ö ü ÿ, capitales ; espace = l'accent
+  seul ; une autre touche = l'accent puis elle). Signalé : Noël se tapait
+  en deux fois. La touche est au code `$53` dans les tables (et non `$54`,
+  le code PS/2 habituel) : l'accent est reconnu par le caractère lu.
+  `kbd_mort` et `kbd_suite` ajoutés à la fin de la BSS (rien ne bouge).
+- Moulinet de chargement : `Fs_Spin` / `Fs_Spin_End` ne font plus que
+  demander ; `Spin_IRQ` (début de `handler_IRQ`) écrit la VRAM au retour
+  de trame. C'était la dernière écriture du BIOS hors trame pendant les
+  longs transferts (parasites en haut de l'écran).
+  `verifie_fs` simule l'IRQ pendant les transferts.
+- EPROM et BIOS2 changent ensemble.
+- Essai sur la carte : tout bon sauf les touches mortes (ê, ë donnaient
+  e). `scan_keyboard` effaçait l'accent en attente en « jetant la file
+  périmée » ; or `NEW_CODE` = 0 est l'état normal d'une file vide.
+  Corrigé (le vérificateur attendait l'effacement : il exige maintenant
+  ê) ; part au prochain flash.
+
+## 21 nov. 2026 — Le mode graphique dans le BIOS (sys_Graphe)
+
+- Banc sur la carte (`tools/tele/essai_graphe.asm`, par TELE) : l'image
+  dessinée en RAM page 3, recopiée au retour de trame. Boucle un octet sur
+  deux : ~1190 cycles par ligne de 640 points ; par TFM de paires
+  point:$08 préparées hors fenêtre : 3 lignes = 1528 cycles, l'écran entier
+  en 150 trames. Une première mesure TFM (7966) comptait la préparation :
+  le drapeau de trame était resté levé. Un premier TFM écrivait 0 dans les
+  octets impairs de $9000-$9FFF (page 0) : ce sont les couleurs des
+  rangées 26-29, le bas de l'écran se remplissait ; $08 les cache.
+- `bios/graphe.asm` (BIOS2), service `sys_Graphe` (le dernier emplacement
+  libre sauf un), modèle `tools/graphe/graphe.py`, vérificateur
+  `verifie_graphe.py`, démonstration `cmd/GRAPHE`, police `/BIN/POLICE8`.
+- La bibliothèque (2144 octets) ne tenait pas dans BIOS2 : à la demande de
+  l'utilisateur, renommer, attributs, dossiers, `SetLoad`, `ListRoot`,
+  `Fs_WriteBlk`, `SD_WriteBlock`, la console du Terminal et le son sont
+  revenus dans l'EPROM (253 octets libres ensuite) ; BIOS2 commence en
+  `$CE80` (les variables du mode graphique allongent la BSS). En
+  déplaçant `X_Audio`, `UPDATE_CURSOR` tombait dedans au lieu
+  d'`AUDIO_UPDATE` : un `BRA` (vu par sept vérificateurs).
+- `installe_bios` des vérificateurs lit `EXTV_N` dans `ext.inc` (il en
+  recopiait 14 en dur).
+
+- Essai sur la carte : GRAPHE marche ; ê et ë toujours « e ». La touche
+  `^` de l'AZERTY envoie `$54` (le `[` du QWERTY), les tables la
+  rangeaient à `$53` (aucune touche) : la touche morte n'était jamais
+  armée, et `verifie_clavier.py` envoyait `$53` d'après la table. Les
+  tables et le vérificateur passent à `$54`.
+- Retour de GRAPHE dans le Terminal « en plein écran » : la zone restait,
+  mais GR_FIN effaçait tout l'écran à la couleur du Terminal. Il l'efface
+  en noir (`$08`) autour, puis la zone. Le test « console muette en mode
+  graphique » de `verifie_graphe.py` appelait `PrintChar`, que
+  `MachineAsm` intercepte : il ne prouvait rien ; il passe par `PUTCHARV`.
+- Essai suivant : ê et ë marchent ; au retour de GRAPHE, ni le fond ni le
+  cadre du Terminal (l'image a écrasé l'écran texte ; aucune place pour le
+  garder). `GR_FIN` pose `ecran_abime` ; OSM-VISION passe au SHELL (U)
+  `Term_Redessine`, que le SHELL appelle après une commande qui l'a posé.
+  Prouvé par `verifie_bureau.py` (un programme de 6 octets pose le
+  drapeau) et `verifie_graphe.py` (GR_FIN dans une zone le pose).
+- BBC BASIC : `MODE 0` (1, 2, 4, 5) passe au mode graphique du BIOS
+  (`sys_Graphe`) : PLOT/MOVE/DRAW/POINT, cercles `PLOT 144-159`, texte par
+  `GR_CAR`, curseur en OU EXCLUSIF. Les triangles pleins (aussi en
+  mosaïques) sont remplis rangée par rangée : l'éventail d'avant
+  (une ligne du sommet vers chaque point du côté opposé) laissait des
+  trous et repassait sur les mêmes points (GCOL 3 faux). ~970 octets :
+  BASE `$2D00` -> `$2900` (BBCBASIC, 8 Ko de programmes), `$3600` ->
+  `$3200` (BBCPLUS, 10 Ko). Un premier essai colorait la case de chaque
+  caractère : GR_COULEUR attend la fin du précédent (une trame par
+  caractère), et le banc sans IRQ s'y bloquait.
+- OSM City, étape 1 (`apps/osmcity.asm`, `tools/osmcity/osmcity.py`,
+  `verifie_osmcity.py`) : la carte du centre d'Annonay tirée
+  d'OpenStreetMap (téléchargée avec l'accord de l'utilisateur), une
+  voiture qui roule, la ville qui défile par l'adresse de départ du 6845.
+  Mode texte choisi (le graphique recopie 3 lignes par trame). La police
+  n'a pas de ☺ ni de CP437 en `$01-$1F` : voitures ▲►▼◄ de la page 1,
+  piétons plus tard. Une table « 80 dy » fausse (`0,80,0,-80`) rendait la
+  case quittée une rangée trop bas : vu par les photos du vérificateur.
+- OSM City, étape 2 : sur la carte, la vue de l'étape 1 était « vue de
+  trop haut » ; l'utilisateur veut un dessin à la GLOUTON. Vue deux fois
+  plus fine (512 x 255 cases, carte de 64 Ko en pages 2-3, anneau de 32
+  rangées en page 1), tuiles choisies par la sorte et les 4 voisines,
+  dessinées dans une nouvelle banque de police : la police passe à un
+  28C256 (4 banques par $A120 D4-D5, accord de l'utilisateur ; composant
+  à trouver). Une carte de 65 536 octets pile : FS_LoadFile la refuse
+  (taille sur 16 bits) -> 255 rangées. Une rangée de 80 tuiles calculées
+  une à une prenait 2-3 trames ; décodée d'abord (3 rangées de sortes),
+  presque toujours une.
+- OSM City : le nom des rues (demande de l'utilisateur, qui reconnaît les
+  rues) : une plaque bleue en rangée 29, la rue du bloc de 4 x 4 cases de
+  la voiture (OSMCITY.RUE). L'utilisateur a aussi vu que tout est à plat
+  (on passe de la rue de Riboulon au pont Montgolfier qui l'enjambe) :
+  les ponts à deux niveaux viennent ensuite.
+- OSM City, ponts à deux niveaux : la voiture a un étage ; on ne monte sur
+  un tablier que par une rampe et on n'en descend que par elle ; une rue
+  qui passe sous un pont se traverse (voiture cachée). Les ponts viennent
+  des voies bridge=yes : la règle d'avant (route au-dessus de l'eau =
+  pont) aurait bloqué les rues qui longent une berge.
+- OSM City : coins arrondis (l'utilisateur a choisi l'arrondi plutôt que
+  le biais, aperçus comparés) ; TALUS : on montait sur le pont Montgolfier
+  depuis la rue de Riboulon par la pelouse. Le saut de la place de Backnang
+  à la rue Maurice-Chomel : aucun mur dans OpenStreetMap à cet endroit
+  (murs.json : 12 murs en tout) ; piste : le relief de l'IGN.
+- OSM City : relief de l'IGN (accord de l'utilisateur) ; les pentes
+  d'herbe de plus de 70 % et 2 m deviennent FALAISE : la place de Backnang
+  ne mène plus d'un saut à la rue Maurice-Chomel (9 m de marche dans une
+  pelouse), il faut passer par le carrefour.
+- OSM City : sans bordures de rue ni de trottoir (les coins arrondis les
+  coupaient en petits traits) ; les jardins (VIDE) arrêtent la voiture
+  (rue Melchior-de-Vogüé : des pelouses derrière des murs).
+- OSM City : 8 directions (deux flèches), deux avances, glissade le long
+  d'un mur en biais. La règle des tuiles en une seule routine (Calc_Case)
+  pour les cases, les rangées et les colonnes ; colonnes décodées droit
+  dans l'anneau (186 pas de 2 trames sur 1484 en biais avant, 45 après).
+- OSM City : sortir de la voiture (Espace), marcher, prendre une voiture
+  garée (31 au départ). Un piège : Tuile appelait Garee_Case avec X
+  détruit par Calc_Case : la voiture qu'on venait de quitter s'affichait
+  comme de la chaussée (vu par les photos du vérificateur).
+- Essai sur la carte : le piéton semblait ne pas monter ni descendre (son
+  premier pas vertical venait après 32 trames, l'avance repartant de 0) :
+  le premier pas est maintenant immédiat. Espace en roulant arrête net la
+  voiture et fait sortir (demande de l'utilisateur, pour se garer).
+- OSM City : la circulation et les passants (8 + 8 autour du joueur). Le
+  6309 ne connaît que les rangées de l'anneau : des voitures apparues à
+  20 rangées lisaient une rangée périmée (une rue là où le modèle voyait
+  un bâtiment) : la circulation vit maintenant dans l'anneau. Une voiture
+  passait sur la plaque du nom de rue. Mesuré (profil par routine) : une
+  rangée coûtait ~8900 instructions (plus d'une trame) depuis Calc_Case ;
+  raccourci des cases sans voisine différente.
+- OSM City : le son sur l'AY (moteur, klaxon K, pas, portière, choc),
+  comparé registre par registre au modèle à chaque trame.
+- OSM City : le cache-cache (butin, planque, deux voitures de police).
+  Pièges vus par le vérificateur : la police coincée dans un cul-de-sac
+  (elle refaisait le même pas : plus de demi-tour sauf s'il est seul, un
+  pas au hasard quand rien ne rapproche) ; la circulation qui tournait
+  pendant la trame de relance (le joueur volait aussitôt : `Fige`) ; la
+  plaque d'une trame en retard quand c'est la police qui change l'étape ;
+  le butin et la planque sur la même case dessinés dans un ordre différent
+  par les rangées et par Garee_Case ; une voiture de police qui chevauchait
+  le joueur effaçait sa case en repartant.
+- OSM City, essai sur la carte : la police arrivait dès le vol (elle
+  apparaissait juste hors de l'écran, comme la circulation). Elle part
+  maintenant de devant la mairie et voyage sans carte hors de la zone
+  connue. La séance du pont a changé de graine (35) : le hasard de la
+  circulation n'est plus le même.
+- OSM City : la circulation conduit (remarque de l'utilisateur : « des
+  fourmis ») : tourner aux carrefours seulement, serrer à droite, attendre
+  derrière une voiture, demi-tour seulement au bout d'une impasse ; les
+  voitures se garent sur les places (et peuvent être prises). Pas de sens
+  uniques (choix de l'utilisateur, la mémoire manque). Graine du pont : 27
+  (graines essayées sur la vraie séance, le modèle approché ne suffit pas).
+
+## 21 nov. 2026 — OSM City : plus de glissade de côté ni de voiture bloquée
+
+- « Serrer à droite » faisait un pas de côté en gardant le glyphe de la
+  direction : sur la machine, des voitures roulaient de travers,
+  perpendiculaires à la voie. C'est maintenant un pas en biais
+  avant-droite, et seulement dans une rue étroite (sinon, sur une place
+  large, les voitures la traversaient en biais et tournaient en rond).
+- Une voiture derrière une autre attendait indéfiniment (deux voitures
+  face à face, une voiture garée sur la chaussée) : elle double en biais
+  après `ATT_DOUBLE` pas, fait demi-tour après `ATT_DEMI` ; coincée
+  au-delà de `ATT_FIN`, elle se gare (sur une place) ou disparaît hors de
+  l'écran.
+- Une voiture apparaissait dans une direction tirée au hasard, parfois en
+  travers de la rue : elle apparaît maintenant dans le sens de la rue.
+- Graine de la séance du pont du vérificateur : 27 -> 41.
+
+## 21 nov. 2026 — OSM3D : Annonay en 3D (première étape, à pied)
+
+- Nouveau jeu séparé (la page 1 d'OSM City est pleine) : lancer de
+  rayons sur la carte d'OSM City, mini-carte encadrée, plaque de la rue.
+  Le prototype en virgule flottante (`tools/osm3d/apercu.py`, jardins en
+  haies de 1,8 m puis 1 m) a été remplacé par le modèle exact
+  `tools/osm3d/osm3d.py` ; les jardins (VIDE) sont restés à plat.
+- Premier rendu : 86 000 instructions par image ; ramené à ~45 000 (sol
+  peint aux seuls changements de couleur, plages de cellules unies,
+  tables de quartets, indice des hauteurs = mot haut de MULD). Un bogue
+  trouvé par le vérificateur : la distance d'un pas en y prenait SideX.
+
+## 22 nov. 2026 — OSM3D : rotation par pas, carte faite pour la 3D
+
+- Essai sur la machine : un appui sur une flèche de côté tournait d'un
+  quart de tour, et parfois la rotation ne s'arrêtait plus. Deux causes :
+  la rotation était proportionnelle au temps (8/1024 par trame, 8 trames
+  au plus par image), et le clavier n'était lu qu'entre deux images ;
+  pendant une image longue, la répétition automatique d'une flèche tenue
+  remplissait la file de 16 octets de la NMI, qui perd alors les octets
+  suivants : le relâchement se perdait, la touche restait tenue.
+  Maintenant `Irq_3D` lit le clavier à chaque trame, et chaque appui (ou
+  répétition) de gauche/droite tourne d'un pas de 16/1024 (5,6°).
+  Le vérificateur simule la répétition (et la file qui perd des octets
+  quand elle est pleine, comme la NMI). Note : le scénario « flèche
+  tenue puis lâchée » passe aussi sur l'ancien binaire dans l'émulateur
+  (le débordement n'y est pas reproduit) ; ce qui est prouvé, c'est
+  qu'aucun octet n'est perdu avec la lecture par l'IRQ.
+- Rues trop étroites et façades en escalier en 3D : OSM3D a sa carte,
+  `OSM3D.MAP` (`osm3d.carte()`) : voies 1,5 fois plus larges, trottoir
+  de 2,5 m pris sur le bâti, puis le bâti lissé (`lisse()`). La carte
+  d'OSM City n'a pas changé (vérifié octet pour octet). Coût : 6,8
+  trames par image en moyenne au lieu de 5,4 (plus de sol à peindre).
+- Même jour, après essai : la rotation par pas convient (Haut tenu,
+  appuis brefs sur les côtés). Une flèche de côté TENUE ne dépend plus de
+  la répétition du clavier (qui ne répète que la dernière touche
+  enfoncée) : `Rep_Tourne`, dans l'IRQ, fait un pas 20 trames après
+  l'appui puis toutes les 6. Les rues sont tirées au cordeau
+  (`osmcity.simplifie()`, Douglas-Peucker à 8 m entre les carrefours,
+  qui restent en place ; des angles imposés tous les 30° auraient
+  déplacé les carrefours). Le plan montre les trottoirs en blanc.
+- Puis retour en arrière : sur la machine, avec `Rep_Tourne`, un appui
+  bref faisait tourner sans fin (le relâchement de la flèche n'était
+  donc pas vu ; dans l'émulateur il l'est : cause inconnue). Retour à un
+  pas par code d'appui (répétitions du clavier comprises), qui ne dépend
+  pas du relâchement ; `TOURNE_MAX` 8.
+
+## 24 nov. 2026 — OSM3D : immeubles de 16 m, couleurs, vieille ville, chaussée grise
+
+- Après les photos Street View de l'utilisateur (dans `tools/osm3d/`) :
+  murs de 16 m au lieu de 10 (immeubles de 4-6 étages), façades
+  surtout blanches (gris pierre à l'ombre), un peu de jaune (ocre) et de
+  rouge (brique), plus de magenta.
+- La vieille ville gardait des rues de 7 m élargies de moitié (la rue du
+  Docteur Barry fait 1,8 m, classée « residential » sans largeur dans
+  OSM) : seules les routes principales sont élargies, avec trottoir ; les
+  petites rues cèdent au bâti, seul leur axe reste route.
+- Chaussée grise, trottoir et bordure (`BORDURE`) blancs, parking noir ;
+  les allées de parking tracées en parking (le Champ de Mars était
+  recouvert de routes élargies) ; les zones piétonnes en `PIETON` (la
+  place des Cordeliers était noire, tracée comme un parking).
+- Essayés dans le modèle et abandonnés : tirets du milieu et lignes de
+  stop en cases entières (un pavé de 5 x 6 m de près, rien au loin).
+  Prototype des bords de chaussée en vraies lignes (projetées, cachées
+  par les murs) : `tools/osm3d/essais/lignes.py`, pas encore dans le
+  moteur (5508 segments, ~44 Ko : à mettre en tuiles sur la carte SD).
+- Rien dans le code 6309 : hauteur, couleurs et sortes passent par les
+  tables générées (`--inc`) et la carte.
+- Même soir, sur la machine : chaussée grise et faces à l'ombre des
+  immeubles blancs avaient le même gris (la machine n'en a qu'un) :
+  chaussée remise en noir, parking en gris.
+- Les ponts : on passait de l'avenue Simone Veil au tablier du pont
+  Valgelas (et à la rue Montgolfier) : OSM3D ignorait les étages d'OSM
+  City, et la carte posait des rampes sur toute rue proche d'un bout de
+  pont, y compris l'avenue qui passe dessous. Étages repris (`Passe`),
+  rampes seulement sur les voies raccordées au pont (`RACCORDS`), et les
+  tabliers dessinés en bande grise au-dessus de la rue quand on est au
+  sol. Le vérificateur passe sous le pont Valgelas et monte par sa rampe.
+
+## 25 nov. 2026 — OSM3D : ponts refaits, arche, fenêtres, ciel cyan
+
+- Sur la machine, la version « étages » laissait encore passer de
+  l'avenue Simone Veil à la rue Montgolfier : la carte est plate, les
+  rampes touchaient la rue du dessous ; le pont n'était qu'une bande grise
+  flottante. Le pâté de cases d'OSM City (12 m de biais) donnait un mur.
+- Les ponts sont refaits d'après les voies OSM (`ponts()`) ; un passage
+  dessous seulement pour une voie qui croise l'axe du pont (le Valgelas
+  n'enjambe que la Deûme) ; culées, remblais pleins, muret bas entre la
+  rue du dessous et celle qui monte ; l'arche (pied 3 m, clé 5 m) d'après
+  la place de chaque case dans la portée. Essayés et abandonnés : la
+  dalle plate sur deux piles, l'arrondi calculé à l'écran (dépendait de
+  l'angle de vue), la demi-ellipse continue (le 6309 n'a que des cases).
+- Après un dessin de l'utilisateur (`tools/osm3d/dessin.py`, nouveau) :
+  ciel cyan (l'eau garde le bleu), immeubles atténués (ocre, brique,
+  crépi), fenêtres sur les faces à l'ombre, parapet blanc.
+- PARC et TALUS fondus dans VIDE dans OSM3D (mêmes vert et marche) : leurs
+  numéros servent au pied de l'arche. `osm3d.passe` suit maintenant le
+  6309 (l'herbe se traverse) ; le modèle utilisait `osmcity.passe`, qui
+  bloque l'herbe : les vérifications de passage étaient trop optimistes.
+- `Cel_Mini` prenait toujours p5 comme fond : faux dès qu'une couleur
+  atténuée (le gris des ponts) est sur le plan ; même règle que le modèle.
+- Le vérificateur passe sous le pont Montgolfier (avenue Simone Veil) et
+  monte par sa rampe nord-est.
+- Neige en mode graphique mesurée par webcam (`tools/tele/essai_neige_gr`) :
+  écrire la VRAM pendant l'affichage détruit l'image (BLANK remis à zéro
+  par ~VCRAM-SELECT) ; piste d'une RAM double port pour une révision de
+  la carte.
+- Reste : la carte n'a pas de relief ; la rue Montgolfier monte en pente
+  vers le pont et, de la place de la Liberté ou des Cordeliers, on bute
+  contre lui (signalé par l'utilisateur sur la machine).

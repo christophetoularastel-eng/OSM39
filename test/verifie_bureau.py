@@ -27,6 +27,7 @@ import verifie_horloge as vh    # noqa: E402
 import carte                    # noqa: E402  (VRAM : v4 ou mono)
 
 HAUT, BAS, ENTREE, ECHAP, ESPACE = 0x80, 0x81, 0x0D, 0x1B, 0x20
+LIMITE_TRAME = 1650     # cycles estimés après le signal de trame (voir Bureau)
 CTRL_C, CTRL_X, CTRL_V, CTRL_N = 0x03, 0x18, 0x16, 0x0E
 REPOS = 0xC0                    # la Clouris branchée, aucun doigt (IOA6-7 libres : 1)
 ABSENTE = None                  # rien de branché : R14 = $FF (tirages de l'AY)
@@ -51,8 +52,21 @@ class Bureau(va.MachineAsm):
         super().__init__(image, s)
         self.touches = list(touches)
         self.port_a = REPOS
+        # Budget de la VRAM : cycles ESTIMÉS depuis le signal de trame (retour
+        # de video_wait_vsync), 4 par instruction et 6 + 3 par octet d'un TFM
+        # (mesuré sur la carte : 6 + 3n) ; cyc_max = le plus tard qu'une
+        # écriture VRAM soit tombée dans sa trame, compté après la première
+        # touche lue si mesure_cycles (le dessin initial n'est pas mesuré).
+        self.mesure_cycles = False
+        self.cyc = 0
+        self.cyc_max = 0
+        self.pc_i = 0
 
     def wr8(self, a, val):
+        # (les écritures du BIOS ne comptent pas : son indicateur de
+        # chargement, en haut à droite, écrit sans synchronisation)
+        if self.mesure_cycles == 'actif' and 0x8000 <= a & 0xFFFF < 0xA000 and self.pc_i < 0x8000:
+            self.cyc_max = max(self.cyc_max, self.cyc)
         # une lecture de la Clouris par trame : elle commence par le choix de
         # R14 (l'émulateur relit aussi l'adresse d'un STA : on ne compte pas
         # les lectures)
@@ -82,14 +96,31 @@ class Bureau(va.MachineAsm):
                 raise Fini()
             else:
                 self.a = t.pop(0)
+                if self.mesure_cycles:
+                    self.mesure_cycles = 'actif'
             self.pc = (self.rd8(self.s) << 8) | self.rd8(self.s + 1)
             self.s += 2
             return
         if pc == s['video_wait_vsync']:
+            t = self.touches
+            if not self.ay_present and t and isinstance(t[0], tuple):
+                # sans AY, la Clouris n'est plus lue : une trame à vide = une attente
+                port, n = t[0]
+                if n <= 1:
+                    t.pop(0)
+                else:
+                    t[0] = (port, n - 1)
             self.wr16(s['vsync_tick'], (self.rd16(s['vsync_tick']) + 1) & 0xFFFF)
             self.pc = (self.rd8(self.s) << 8) | self.rd8(self.s + 1)
             self.s += 2
+            self.cyc = 0
             return
+        self.pc_i = pc
+        if self.mem[pc] == 0x11 and self.mem[pc + 1] in (0x38, 0x39, 0x3A, 0x3B) if pc >= 0x8000 else \
+                self.banks[self.page][pc] == 0x11 and self.banks[self.page][pc + 1] in (0x38, 0x39, 0x3A, 0x3B):
+            self.cyc += 6 + 3 * self.w
+        else:
+            self.cyc += 4
         super().step()
 
 
@@ -97,13 +128,15 @@ class BureauRtc(vh.PiaRtc, Bureau):
     """Le bureau avec le PIA et la carte RTC de verifie_horloge."""
 
 
-def lance(c, s, touches, ov, rtc=None):
+def lance(c, s, touches, ov, rtc=None, sans_ay=False, mesure=False):
     if rtc is None:
         m = Bureau(c.image, s, touches)
     else:
         m = BureauRtc(c.image, s, touches)
         m.pia_init()
         m.rtc = rtc
+    m.ay_present = not sans_ay
+    m.mesure_cycles = mesure
     v.installe_bios(m)          # table des services, et BIOS2
     code = open(os.path.join(RACINE, 'osmvision', 'OSMVISION'), 'rb').read()
     m.banks[0][:len(code)] = code
@@ -212,6 +245,18 @@ def main():
     i = car.find(b'QW_')                         # ($82 ailleurs : les icônes, page 1)
     verifie(i > 0 and car[i - 1] not in (0x82, 0xE9),
             'Renommer (nom de fichier, INP_MAJ) : « é » refusé, « QW » inscrit')
+
+    # Sans AY-3-8910 (puce retirée) : la Clouris lit le bus vide ($50 : des
+    # bits à 0, donc des « doigts posés »). La sonde de Clou_Lit le voit :
+    # pas de pointeur, et le clavier marche (M change l'icône du son)
+    m, r = lance(c, s, [(REPOS, 20), ord('M'), (REPOS, 3)], ov, sans_ay=True)
+    car, col = ecran(m)
+    verifie(r == 'touches' and m.banks[0][ov['PtrVu']] == 0 and m.banks[0][ov['PtrOn']] == 0
+            and car[st:st + 2] == b'\x1c\x1d',
+            'sans AY (bus vide) : pas de pointeur ni de clic fantôme, M change l\'icône du son (%s)' % r)
+    m, r = lance(c, s, [(REPOS, 3)], ov)
+    verifie(m.ay_regs[1] == 0 and m.ay_present,
+            'avec l\'AY : la sonde rend au registre R1 sa valeur (R1 = $%02X)' % m.ay_regs[1])
 
     # La date et l'heure dans la barre d'état (rangée 23, colonnes 25-40),
     # lues sur la carte RTC (modèle de verifie_horloge : PIA et MC146818)
@@ -326,6 +371,58 @@ def main():
     m, r = lance(c2, s, tape(0xC4, 30), ov)
     verifie(sel(m) == (19, 4) and po(m) == (30, 24),
             'bas 30 fois : la liste s\'arrête au dernier fichier, la flèche sort par le bas = %s %s' % (sel(m), po(m)))
+    # Défiler au clavier : la VRAM n'est écrite que dans la fenêtre de retour
+    # de trame (~1990 cycles après le signal, ~300 pris par l'IRQ : mesures
+    # de la carte, tools/tele/essai_cycles.asm). Avant : 16 noms case par case
+    # d'un coup, ~5000 cycles estimés, parasites en haut de l'écran.
+    m, r = lance(c2, s, [BAS] * 19 + [HAUT] * 19, ov, mesure=True)
+    car, col = ecran(m)
+    verifie(r == 'touches' and sel(m) == (0, 0) and m.cyc_max <= LIMITE_TRAME
+            and car[7 * 80 + 15:7 * 80 + 18] == b'F00' and col[7 * 80 + 15] == 0x1F
+            and col[8 * 80 + 15] == 0x0F and car[22 * 80 + 15:22 * 80 + 18] == b'F15',
+            'bas 19 fois puis haut 19 fois au clavier : la liste défile, écritures VRAM '
+            'au plus %d cycles après le signal (limite %d)' % (m.cyc_max, LIMITE_TRAME))
+    # Entrer dans un dossier puis en ressortir (Full_Redraw : la fenêtre de
+    # la liste, puis la liste) : même budget. Avant : Draw_Window vérifiait
+    # son budget après coup, et la liste se préparait dans la fenêtre de
+    # l'appelant (~6800 cycles estimés, parasites en haut de l'écran).
+    d6 = tempfile.mkdtemp()
+    c6 = va.Carte(d6)
+    for i in range(5):
+        p_ = os.path.join(d6, 'G%02d' % i)
+        open(p_, 'wb').write(b'x')
+        c6.ajoute('G%02d' % i, p_, page=1, adresse='0000', attr=0x07)
+    for i in range(18):
+        c6.ajoute('DOS/H%02d' % i, p_, page=1, adresse='0000', attr=0x07)
+    m, r = lance(c6, s, [ENTREE, BAS, HAUT, ENTREE, BAS], ov, mesure=True)
+    car, col = ecran(m)
+    # CALC et EDIT : une ligne de 80 caractères par vis_Text dépassait déjà la
+    # fenêtre (~32 cycles par caractère) ; vis_Prep compose hors synchro,
+    # vis_Ligne copie par TFM. Avant : 4380 (CALC), 2716 (EDIT).
+    for app_, fich, contenu, touches_ in (
+            ('CALC', 'A.CAL', b'', [0x83] * 3 + [0x81] * 3 + [0x82, 0x80]),
+            ('EDIT', 'A.TXT', b''.join(b'ligne %03d du texte\r\n' % i for i in range(60)), [0x81] * 30 + [0x80] * 3)):
+        d7 = tempfile.mkdtemp()
+        c7 = va.Carte(d7)
+        c7.ajoute('BIN/' + app_, os.path.join(RACINE, 'apps', app_), page=1, adresse='0000', attr=0x17)
+        p_ = os.path.join(d7, 'f')
+        open(p_, 'wb').write(contenu)
+        c7.ajoute(fich, p_, attr=0x06)
+        m, r = lance(c7, s, [BAS, ENTREE] + touches_, ov, mesure=True)
+        verifie(r == 'touches' and m.page == 1 and m.cyc_max <= LIMITE_TRAME,
+                '%s : flèches, écritures VRAM du programme au plus %d cycles après le signal (limite %d)'
+                % (app_, m.cyc_max, LIMITE_TRAME))
+
+    # l'ombre de la fenêtre de la liste (rangée 25, colonnes 11-50) : un
+    # Mono_Budget mal placé dans Draw_Window l'a déjà dessinée de travers
+    ombre = all(carte.lit(m.mem, 25 * 80 + 11, 40)[0][i] == 0x02 and carte.lit(m.mem, 25 * 80 + 11, 40)[1][i] == 0x90
+                for i in range(40))
+    verifie(ombre, 'fenêtre de la liste redessinée : son ombre intacte (rangée 25, UI_SHADOW, COLOR_SHADOW)')
+    verifie(r == 'touches' and m.mem[s['fs_dossier']:s['fs_dossier'] + 2] == b'\0\0'
+            and car[7 * 80 + 15:7 * 80 + 18] == b'DOS' and car[8 * 80 + 15:8 * 80 + 18] == b'G00'
+            and m.cyc_max <= LIMITE_TRAME,
+            'entrer dans DOS (18 fichiers) puis en ressortir : écritures VRAM au plus %d cycles '
+            'après le signal (limite %d)' % (m.cyc_max, LIMITE_TRAME))
 
     # coller deux fois au même endroit : refusé (le nom existe), rien d'écrasé
     n_avant = len(c.core.list_files())
@@ -473,7 +570,14 @@ def main():
             r = 'PLANTE : %s' % e
         t = m.texte.decode('latin-1')
         shell = open(os.path.join(RACINE, 'shell', 'SHELL'), 'rb').read()
-        verifie(bytes(m.banks[0][0x6000:0x6000 + len(shell)]) == shell,
+        ram = bytes(m.banks[0][0x6000:0x6000 + len(shell)])
+        ecarts = [i for i in range(len(shell)) if ram[i] != shell[i]]
+        # seule la variable Redessine (2 octets) change : l'adresse de
+        # Term_Redessine d'OSM-VISION, posée par le SHELL à son entrée
+        if ecarts and ecarts[-1] - ecarts[0] <= 1:
+            i = ecarts[-1] - 1
+            ecarts = [] if (ram[i] << 8 | ram[i + 1]) == ov['Term_Redessine'] else ecarts
+        verifie(not ecarts,
                 'Terminal (%s) : ' % comment + 'SHELL chargé en page 0, $6000 (%s)' % r)
         verifie(zones[:1] == [(2, 3, 76, 20, 0x0A)] and len(zones) == 2 and zones[1][2] == 0,
                 'Terminal (%s) : ' % comment + 'console limitée à la fenêtre (2,3, 76 x 20), puis plein écran au retour (%s)' % zones)
@@ -489,6 +593,44 @@ def main():
         verifie(r == 'fini' and m.mem[s['cz_actif']] == 0 and intact,
                 'Terminal (%s) : ' % comment + 'EXIT, OSM-VISION reprend (console plein écran, son code intact)')
 
+
+    # Une commande qui écrase l'écran autour du Terminal (GR_FIN pose
+    # ecran_abime ; ici 6 octets : LDA #1 / STA ecran_abime / RTS) : le
+    # SHELL appelle Term_Redessine d'OSM-VISION, le bureau puis la fenêtre.
+    abime = os.path.join(d, 'ABIME.bin')
+    e_ = s['ecran_abime']
+    open(abime, 'wb').write(bytes([0x86, 1, 0xB7, e_ >> 8, e_ & 255, 0x39]))
+    c4.ajoute('ABIME', abime, page=1, adresse='0000', attr=0x07)
+    m = Bureau(c4.image, s, [ord('t')] + [ord(c) for c in 'abime'] + [ENTREE] + [ord(c) for c in 'exit'] + [ENTREE])
+    zones, dessins = [], []
+    orig = m.step
+
+    def step(m=m, orig=orig):
+        if m.pc == s['Console_Zone']:
+            zones.append((m.a, m.b, m.w >> 8, m.w & 255, m.y & 255))
+        if m.pc == ov['Draw_Base_UI']:
+            dessins.append(len(zones))
+        orig()
+    m.step = step
+    v.installe_bios(m)
+    code = open(os.path.join(RACINE, 'osmvision', 'OSMVISION'), 'rb').read()
+    m.banks[0][:len(code)] = code
+    m.mem[s['son_coupe']] = 0x4D
+    m.mem[s['current_page']] = 0
+    m.page = 0
+    v.appelle(m, s['init_heap'])
+    try:
+        v.appelle(m, 0x0000, 80_000_000)
+        r = 'rendu'
+    except Fini:
+        r = 'fini'
+    except Exception as e:      # noqa: BLE001
+        r = 'PLANTE : %s' % e
+    z = (2, 3, 76, 20, 0x0A)
+    verifie(r == 'fini' and zones[:2] == [z, z] and len(zones) == 3 and zones[2][2] == 0
+            and 1 in dessins and m.mem[s['ecran_abime']] == 0,
+            'Terminal : après une commande qui pose ecran_abime (GR_FIN), le SHELL fait '
+            'redessiner le bureau puis la fenêtre (%s, Draw_Base_UI après la zone n° %s)' % (zones, dessins))
 
     for comment, tape in (
             ('touche T', [ord('t')] + [ord(c) for c in 'ver'] + [ENTREE] + [ord(c) for c in 'pwd'] + [ENTREE] +

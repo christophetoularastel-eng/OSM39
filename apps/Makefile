@@ -15,7 +15,7 @@ LD = lwlink
 ASFLAGS = --format=obj --6309
 LDFLAGS = --format=raw --section-base=.code=0x0000
 
-APPS = MIRE ENVAHIS CALC EDIT GLOUTON SON PAROLE PONT MINITEL DONJON39
+APPS = MIRE ENVAHIS CALC EDIT GLOUTON SON PAROLE PONT MINITEL DONJON39 OSMCITY OSM3D
 # Modules de page (passerelle FAR_CALLN) : liés à $0000, table de
 # fonctions en tête, chargés en page 2 ou 3 par l'application.
 MODULES = PONT2 PONT3
@@ -71,6 +71,38 @@ MINITEL: minitel.o
 DONJON39: donjon39.o
 	$(LD) $(LDFLAGS) --map=$@.map -o $@ $<
 	@test $$(stat -c %s $@) -le 20480 || { echo "ERREUR : DONJON39 dépasse \$$5000 (tampons)" >&2; rm -f $@; exit 1; }
+
+# OSMCITY : l'anneau de la carte commence en $4000 (CACHE) : le code et ses
+# variables doivent finir avant. La carte elle-même est OSMCITY.MAP (64 Ko,
+# chargée en pages 2-3).
+OSMCITY: osmcity.o OSMCITY.MAP OSMCITY.RUE
+	$(LD) $(LDFLAGS) --map=$@.map -o $@ $<
+	@test $$(stat -c %s $@) -le 16384 || { echo "ERREUR : OSMCITY dépasse \$$4000 (anneau de la carte)" >&2; rm -f $@; exit 1; }
+
+# Carte d'Annonay et constantes : générées par tools/osmcity/osmcity.py
+# (--inc versionné ; OSMCITY.MAP construite ici ; données OpenStreetMap, ODbL).
+osmcity.o: osmcity_data.inc
+
+OSMCITY.RUE: ../tools/osmcity/osmcity.py ../tools/osmcity/donnees/annonay.json
+	python3 ../tools/osmcity/osmcity.py --rues $@ >/dev/null
+
+OSMCITY.MAP: ../tools/osmcity/osmcity.py ../tools/osmcity/glyphes.py ../tools/osmcity/donnees/annonay.json ../tools/osmcity/donnees/altitudes.bin
+	python3 ../tools/osmcity/osmcity.py --carte $@ >/dev/null
+
+# OSM3D : ses tampons commencent en $2600 (TAMPONS) : le code et ses
+# variables doivent finir avant. Il lit OSM3D.MAP (la carte d'OSM City
+# refaite pour la 3D) et OSM3D.RUE (les rues, en $6000).
+OSM3D: osm3d.o OSM3D.MAP OSM3D.RUE
+	$(LD) $(LDFLAGS) --map=$@.map -o $@ $<
+	@test $$(stat -c %s $@) -le 9728 || { echo "ERREUR : OSM3D dépasse \$$2600 (tampons)" >&2; rm -f $@; exit 1; }
+
+osm3d.o: osm3d_data.inc
+
+OSM3D.MAP: ../tools/osm3d/osm3d.py ../tools/osmcity/osmcity.py ../tools/osmcity/donnees/annonay.json ../tools/osmcity/donnees/altitudes.bin
+	python3 ../tools/osm3d/osm3d.py --carte $@ >/dev/null
+
+OSM3D.RUE: ../tools/osm3d/osm3d.py ../tools/osmcity/osmcity.py ../tools/osmcity/donnees/annonay.json
+	python3 ../tools/osm3d/osm3d.py --rues $@ >/dev/null
 
 # Tables et carte : générées par tools/donjon39/donjon39.py --inc (versionné).
 donjon39.o: donjon_data.inc

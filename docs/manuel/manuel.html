@@ -578,7 +578,7 @@ RUN</pre>
   <tr><td><code>*LOAD</code>, <code>*SAVE</code></td><td>charger, sauver du code machine</td></tr>
   <tr><td><code>*BYE</code></td><td>quitter</td></tr>
 </table>
-<p>Le graphisme (<code>PLOT</code>, <code>MOVE</code>, <code>DRAW</code>, <code>GCOL</code>, <code>CLG</code>, <code>POINT</code>) dessine en 152 × 60 points dans la fenêtre, avec les mosaïques du Minitel. <code>SOUND</code> joue des notes ; <code>OPENIN</code>, <code>OPENOUT</code>, <code>PRINT#</code> et <code>INPUT#</code> lisent et écrivent des fichiers. <kbd>Échap</kbd> arrête un programme. Le dossier <code>BASIC</code> contient des exemples : <code>MANDELBROT.BAS</code>, <code>GRAPHE.BAS</code>, <code>REBOND.BAS</code>, <code>MUSIQUE.BAS</code>… à charger par <code>*EXEC</code>.</p>
+<p>Le graphisme (<code>PLOT</code>, <code>MOVE</code>, <code>DRAW</code>, <code>GCOL</code>, <code>CLG</code>, <code>POINT</code>) dessine en 152 × 60 points dans la fenêtre, avec les mosaïques du Minitel ; <code>MODE 0</code> passe tout l'écran en graphique 640 × 400 (cercles compris : <code>PLOT 145</code>), <code>MODE 7</code> revient à la fenêtre. <code>SOUND</code> joue des notes ; <code>OPENIN</code>, <code>OPENOUT</code>, <code>PRINT#</code> et <code>INPUT#</code> lisent et écrivent des fichiers. <kbd>Échap</kbd> arrête un programme. Le dossier <code>BASIC</code> contient des exemples : <code>MANDELBROT.BAS</code>, <code>GRAPHE.BAS</code>, <code>REBOND.BAS</code>, <code>MUSIQUE.BAS</code>… à charger par <code>*EXEC</code>.</p>
 
 <h2>BASIC</h2>
 <p><code>BASIC</code> est un BASIC classique à numéros de ligne, dans la tradition de Microsoft : <code>PRINT</code>, <code>INPUT</code>, <code>GOTO</code>, <code>GOSUB</code>, <code>FOR</code>…<code>NEXT</code>, <code>DATA</code>, <code>PEEK</code> et <code>POKE</code>, <code>LIST</code>, <code>RENUM</code>, <code>EDIT</code>, <code>LOAD</code> et <code>SAVE</code>. Il occupe peu de place et démarre instantanément.</p>
@@ -750,6 +750,7 @@ ASM GLOUTON.ASM /GAMES/GLOUTON</pre>
 </table>
 <h3>Graphisme et son</h3><table class="mots">
   <tr><th>Mot</th><th>Rôle</th></tr>
+  <tr><td><code>MODE n</code></td><td>0 : graphique 640 × 400 sur tout l'écran ; 7 : la fenêtre du Terminal</td></tr>
   <tr><td><code>MOVE x,y, DRAW x,y</code></td><td>déplacer, tracer un trait</td></tr>
   <tr><td><code>PLOT k,x,y</code></td><td>points, traits, triangles et rectangles pleins</td></tr>
   <tr><td><code>GCOL m,c</code></td><td>couleur et mode de tracé</td></tr>

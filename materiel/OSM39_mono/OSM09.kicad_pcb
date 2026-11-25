@@ -3999,7 +3999,7 @@
 				)
 			)
 		)
-		(property "Value" "74LS139"
+		(property "Value" "74HC139"
 			(at 3.81 20.11 90)
 			(layer "F.Fab")
 			(uuid "614cc634-d7cc-4d13-9cfb-03b02ee114ed")
@@ -4243,7 +4243,7 @@
 			(drill 0.8)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "/8000-9FFF")
+			(net "/~{8000-9FFF}")
 			(pinfunction "O0_4")
 			(pintype "output")
 			(uuid "19598de1-7abe-4884-8b09-7254a2261741")
@@ -7887,7 +7887,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 3.81 20.11 90)
 			(layer "F.Fab")
 			(uuid "b2e60dc3-de87-4c1a-98c1-5f32226465d8")
@@ -8519,7 +8519,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP*W7.62mm*")
-		(path "/f4910c50-0a22-4670-9224-1aba5969cf1d")
+		(path "/92800388-8ade-4080-afd9-e27fefd29916")
 		(sheetname "/")
 		(sheetfile "OSM09.kicad_sch")
 		(units
@@ -13056,7 +13056,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT245"
+		(property "Value" "74HC245"
 			(at 3.81 25.19 0)
 			(layer "F.Fab")
 			(uuid "7361539f-6693-4c83-a9b9-d5f4fb873a9e")
@@ -14949,7 +14949,7 @@
 				)
 			)
 		)
-		(property "Value" "74hc08"
+		(property "Value" "74HC08"
 			(at 3.81 17.57 90)
 			(layer "F.Fab")
 			(uuid "c007f3ad-ef33-452c-b724-296f1441ab9b")
@@ -14995,7 +14995,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP*W7.62mm*")
-		(path "/3d3aacdf-98ca-4418-a127-9221438fe933/7bb9382e-ef61-452e-97bf-04efaa515c8f")
+		(path "/3d3aacdf-98ca-4418-a127-9221438fe933/ac0929ab-074a-4e02-8e20-5914bc6f34b9")
 		(sheetname "/audio,SD,kbd/")
 		(sheetfile "audio,sd,kbd.kicad_sch")
 		(units
@@ -17443,7 +17443,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP*W7.62mm* SSOP?14* TSSOP?14*")
-		(path "/3d3aacdf-98ca-4418-a127-9221438fe933/fcf717d1-bd2e-41dd-8481-8fed457a5abb")
+		(path "/3d3aacdf-98ca-4418-a127-9221438fe933/d6edf3c2-2213-4220-a82d-ff153a1137a3")
 		(sheetname "/audio,SD,kbd/")
 		(sheetfile "audio,sd,kbd.kicad_sch")
 		(units
@@ -20865,7 +20865,7 @@
 				)
 			)
 		)
-		(property "Value" "KM28C64A"
+		(property "Value" "AT28C64"
 			(at 7.62 35.35 90)
 			(layer "F.Fab")
 			(uuid "158b37f8-b7b5-41d8-8530-3a38d2e62c61")
@@ -21301,7 +21301,7 @@
 			(drill 0.8)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "/video/~{LOAD}")
+			(net "GND")
 			(pinfunction "~{OE}_22")
 			(pintype "input")
 			(uuid "dddf45a1-5e65-4f64-905c-e321f5a57d4b")
@@ -21913,7 +21913,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT86"
+		(property "Value" "74HC86"
 			(at 3.81 17.57 0)
 			(layer "F.Fab")
 			(uuid "90774e1e-334a-48c7-a490-0aad1136740c")
@@ -21959,7 +21959,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP*W7.62mm*")
-		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/d7926896-0eef-44db-9663-7a6698088435")
+		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/82029632-4da0-4584-bab1-ed41e88274db")
 		(sheetname "/video/")
 		(sheetfile "video.kicad_sch")
 		(units
@@ -22298,7 +22298,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 3.81 20.11 90)
 			(layer "F.Fab")
 			(uuid "870511e4-fb1f-41ca-825c-4a2bc69bc8d7")
@@ -22923,7 +22923,7 @@
 				)
 			)
 		)
-		(property "Value" "74AC32"
+		(property "Value" "74HC32"
 			(at 3.81 17.57 90)
 			(layer "F.Fab")
 			(uuid "529abf8e-b02f-49ac-8f5c-1d0ee8defac6")
@@ -23308,7 +23308,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT595"
+		(property "Value" "74HC595"
 			(at 3.81 20.11 0)
 			(layer "F.Fab")
 			(uuid "5c2b7e5a-bcc6-44ed-9e6d-1396e86ff21f")
@@ -26600,7 +26600,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 3.81 20.11 90)
 			(layer "F.Fab")
 			(uuid "db86b9ac-af42-4932-b46f-b48d94fe20fc")
@@ -27005,7 +27005,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 3.81 20.11 90)
 			(layer "F.Fab")
 			(uuid "18ec9006-5763-41bf-99e5-6b7bef22995a")
@@ -28116,7 +28116,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP*W7.62mm*")
-		(path "/3d3aacdf-98ca-4418-a127-9221438fe933/ad3ff00e-79af-4a32-a2eb-323ed89be771")
+		(path "/3d3aacdf-98ca-4418-a127-9221438fe933/d7f3d5cb-435c-4d8d-8c53-5f3d4d22bd4a")
 		(sheetname "/audio,SD,kbd/")
 		(sheetfile "audio,sd,kbd.kicad_sch")
 		(units
@@ -28453,7 +28453,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 3.4 17.74 0)
 			(layer "F.Fab")
 			(uuid "d15c9904-2f01-4bfb-8ca8-345468cdc5ec")
@@ -28499,7 +28499,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP*W7.62mm*")
-		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/f8a53548-8e67-4476-9adb-406d58ad7760")
+		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/7f03897e-7b1d-4d02-8b96-578846190029")
 		(sheetname "/video/")
 		(sheetfile "video.kicad_sch")
 		(units
@@ -29079,7 +29079,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT175"
+		(property "Value" "74HC175"
 			(at 3.81 20.11 0)
 			(layer "F.Fab")
 			(uuid "ea8cf9a7-520e-41e0-ae29-8fe04a7a67f7")
@@ -33204,7 +33204,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT08"
+		(property "Value" "74HC08"
 			(at 3.81 17.57 0)
 			(layer "F.Fab")
 			(uuid "38e19a9f-0239-458d-9f05-a4b646e9524d")
@@ -33250,7 +33250,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP*W7.62mm*")
-		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/91f90a5f-bcf1-4d37-a552-63913b39e36d")
+		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/c5302cab-072f-49a9-b8c5-e06e7d8c51ad")
 		(sheetname "/video/")
 		(sheetfile "video.kicad_sch")
 		(units
@@ -36640,7 +36640,7 @@
 				)
 			)
 		)
-		(property "Value" "4040"
+		(property "Value" "74HC4040"
 			(at 3.81 20.11 0)
 			(layer "F.Fab")
 			(uuid "6e266b14-6d6c-4522-a6b0-a05a367ac8bc")
@@ -40502,7 +40502,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT166"
+		(property "Value" "74HC166"
 			(at 3.81 20.11 90)
 			(layer "F.Fab")
 			(uuid "8ee16bbb-a257-4fc9-be65-d24a4b6aeb77")
@@ -41757,7 +41757,7 @@
 				)
 			)
 		)
-		(property "Value" "4040"
+		(property "Value" "74HC4040"
 			(at 3.81 20.11 0)
 			(layer "F.Fab")
 			(uuid "0ecfe8a1-1af3-4bda-a340-4aad2c41190d")
@@ -43741,7 +43741,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP*W7.62mm* SSOP?14* TSSOP?14*")
-		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/c442fd41-c44f-4cd0-a1d6-23dbaced6711")
+		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/d86aab6e-98de-4349-87b6-0923e3f15297")
 		(sheetname "/video/")
 		(sheetfile "video.kicad_sch")
 		(units
@@ -47914,7 +47914,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP?14*")
-		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/9f558e1e-4baf-4d5f-8320-bdb3dabf7f3a")
+		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/13ba323a-03f0-4dd4-b31e-d192d1a76abe")
 		(sheetname "/video/")
 		(sheetfile "video.kicad_sch")
 		(units
@@ -48253,7 +48253,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 3.81 20.11 90)
 			(layer "F.Fab")
 			(uuid "52c27ad0-a7a4-46e9-a05d-eaaf283284d0")
@@ -49065,7 +49065,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP?14*")
-		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/a6543348-ce17-41bc-ab83-e5d28b0c6df5")
+		(path "/5ca8edf4-d098-4dab-80c6-d3974bfb51eb/5b0fc332-ebab-42ae-84fb-9c1bf2b78db4")
 		(sheetname "/video/")
 		(sheetfile "video.kicad_sch")
 		(units
@@ -50117,7 +50117,7 @@
 				)
 			)
 		)
-		(property "Value" "74LS138"
+		(property "Value" "74HC138"
 			(at 3.81 20.11 0)
 			(layer "F.Fab")
 			(uuid "245f075c-0c5d-4d4a-824b-f9504a3de077")
@@ -50702,7 +50702,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 3.81 20.11 90)
 			(layer "F.Fab")
 			(uuid "0da61b40-60e4-4334-9671-289f1b7c0331")
@@ -53718,7 +53718,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP*W7.62mm* SO14*")
-		(path "/3d3aacdf-98ca-4418-a127-9221438fe933/a812da1e-5636-45cf-958a-281b390132c6")
+		(path "/3d3aacdf-98ca-4418-a127-9221438fe933/8ee9ffdc-c844-4a16-8a40-922ae7c20fba")
 		(sheetname "/audio,SD,kbd/")
 		(sheetfile "audio,sd,kbd.kicad_sch")
 		(units
@@ -54450,7 +54450,7 @@
 				)
 			)
 		)
-		(property "Value" "74AC138"
+		(property "Value" "74HC138"
 			(at -14.03 20.53 0)
 			(layer "F.Fab")
 			(uuid "8268ea32-5229-433f-959e-55dbf938aca6")
@@ -55145,8 +55145,8 @@
 			(drill 0.8)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "unconnected-(U103-Pad8)")
-			(pintype "output+no_connect")
+			(net "/8000-9FFF")
+			(pintype "output")
 			(uuid "57b0768d-2642-4b6a-b81f-7621d4712bef")
 		)
 		(pad "9" thru_hole oval
@@ -55155,7 +55155,7 @@
 			(drill 0.8)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "Net-(U103-Pad10)")
+			(net "/~{8000-9FFF}")
 			(pintype "input")
 			(uuid "d004491d-b2b9-4874-92fc-d4caf9ae7e1d")
 		)
@@ -55165,7 +55165,7 @@
 			(drill 0.8)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "Net-(U103-Pad10)")
+			(net "/~{E}")
 			(pintype "input")
 			(uuid "28d6a138-a2d7-4fba-a51c-2f9f9ea6488c")
 		)
@@ -55175,8 +55175,8 @@
 			(drill 0.8)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "Net-(U103-Pad10)")
-			(pintype "output")
+			(net "unconnected-(U103-Pad11)")
+			(pintype "output+no_connect")
 			(uuid "163b1a02-12d9-480f-ae59-5c4fe418c29e")
 		)
 		(pad "12" thru_hole oval
@@ -55240,7 +55240,7 @@
 				)
 			)
 		)
-		(property "Value" "R_Network08"
+		(property "Value" "100k"
 			(at 11.43 2.31 90)
 			(layer "F.Fab")
 			(uuid "db579873-21c9-4f2f-a30a-3bdec3198331")
@@ -58549,7 +58549,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT245"
+		(property "Value" "74HC245"
 			(at 3.81 25.19 0)
 			(layer "F.Fab")
 			(uuid "b432b1f3-115e-4834-92ed-74d4712aa149")
@@ -59584,7 +59584,7 @@
 				)
 			)
 		)
-		(property "Value" "74HCT157"
+		(property "Value" "74HC157"
 			(at 3.81 20.11 90)
 			(layer "F.Fab")
 			(uuid "cdb5e683-95fe-424d-99ad-6c509e98ce48")
@@ -92369,14 +92369,6 @@
 		(layer "B.Cu")
 		(net "/8000-9FFF")
 		(uuid "c0fdca43-2f71-4746-bd6d-868bf31d8ba4")
-	)
-	(segment
-		(start 296.993 234.457)
-		(end 298.11 233.34)
-		(width 0.3)
-		(layer "B.Cu")
-		(net "/8000-9FFF")
-		(uuid "c2667fad-3c2b-41a3-8821-e743f5e19dfc")
 	)
 	(segment
 		(start 323.124 267.576)
@@ -131977,22 +131969,6 @@
 		(layer "B.Cu")
 		(net "/audio,SD,kbd/~{A140}")
 		(uuid "d93f0a6c-928f-4d63-9cba-0986420befab")
-	)
-	(segment
-		(start 242.7 203.28)
-		(end 242.7 200.74)
-		(width 0.3)
-		(layer "B.Cu")
-		(net "Net-(U103-Pad10)")
-		(uuid "1372181d-c316-404d-9b92-3f58561f379b")
-	)
-	(segment
-		(start 242.7 203.28)
-		(end 242.7 205.82)
-		(width 0.3)
-		(layer "B.Cu")
-		(net "Net-(U103-Pad10)")
-		(uuid "f23463e8-35c1-4014-bc35-80b4f0eaaba0")
 	)
 	(segment
 		(start 184.11 91.8653)
