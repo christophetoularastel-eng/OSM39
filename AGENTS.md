@@ -751,7 +751,7 @@ on 4 cores; logs in `test/tout/`; `tout-long` adds `zmachine-tout` and
 | `verifie_horloge.py` | the real `cmd/HORLOGE` (`lib/horloge.asm`) against a pin-level 68B21 and MC146818: no card, VRT, clock not set, setting (BCD registers, SET during the writes, A = `$20`, B = `$02`), weekday of 48 dates vs Python, refused dates/times write nothing, bus rules (Motorola mode, AS/R/W only with DS low, no AD conflict), a read at any phase of the 23:59:59 -> 2027 update is never mixed, PIA left idle; the real BIOS `main` and `Hor_Init` on a freshly reset PIA write nothing to the chip (DS and R/W never change together) | `make -C test horloge` |
 | `verifie_zmachine.py` | the real `zmachine/ZMACHINE` on the real BIOS, games on an emulated card, VSYNC IRQ every frame, `sys_kbd_poll` fed with script lines: every character sent to the screen and the whole 80 x 30 shadow screen at each input = `tools/zmachine/zmachine.py`; VRAM catches up, writes only in the IRQ (or the BIOS spinner), <= 3 rows per frame; rows 25-29 and `rvec_IRQ` given back; a save on the card = the model's Quetzal file byte for byte, and restoring it gives the same screen (czech, dreamlands, zsnake with timeouts, Zork I v3 + its save, zork_285; `tout`: praxix, aventure, lieuxcommuns, Zork_LXIX) | `make -C test zmachine` |
 | `verifie_contrat.py` | every slot of `table_function_ram`, called through the table on the real BIOS (EPROM + BIOS2, emulated card, SD driver clobbering like the real one) with sentinel registers, success and failure paths: changed registers within `test/contrat_services.py`, stack, DP, page, carry, some outputs; two injected faults must be seen; `docs/services.md` up to date | `make -C test contrat` |
-| `verifie_graphe.py` | the real BIOS graphic mode (`sys_Graphe`) with 8 paged VRAM pages, the VSYNC IRQ every frame and a caller whose stack is in its page 1: after each of 89 calls (points, lines of every slope, clipped, XOR; rectangles; circles/discs incl. r = 0, clipped, XOR; characters; GR_LIT; random) page 3 = `tools/graphe/graphe.py`; registers, stack and page given back; after GR_ATTEND the image read back from VRAM and the cell colours = the model, rows 26-29 colours `$08`; VRAM written only in the IRQ, <= 1900 estimated cycles after its entry; console silent; IRQ masked caller; refusals; GR_FIN gives the text screen back | `make -C test graphe` |
+| `verifie_graphe.py` | the real BIOS graphic mode (`sys_Graphe`) with 8 paged VRAM pages, the VSYNC IRQ every frame and a caller whose stack is in its page 1: after each of 89 calls (points, lines of every slope, clipped, XOR; rectangles; circles/discs incl. r = 0, clipped, XOR; characters; GR_LIT; random) page 3 = `tools/graphe/graphe.py`; registers, stack and page given back; after GR_ATTEND the image read back from VRAM and the colour of each of the 16 lines of every cell = the model's cell colour; R6 = 25 after GR_DEBUT, 30 after GR_FIN; VRAM written only in the IRQ, <= 1900 estimated cycles after its entry; console silent; IRQ masked caller; refusals; GR_FIN gives the text screen back | `make -C test graphe` |
 | `verifie_parole.py` | the real `apps/PAROLE` binary, run in `asm/emu6809.py`, gives exactly the model's sine table, normalised text, frames and the AY writes of every sample (volume pairs = `tables_ay()`) | `make -C test parole` |
 
 - `test/video.asm` is a dead copy no stage includes (it does not assemble).
@@ -854,10 +854,14 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     A11-A14 of the char RAM. Pixel byte of cell c, scan line r (0-15) at
     char-RAM address A = r x 2048 + (c mod 2048); the CPU reaches A with
     video page (`$A120` D0-D2) = A / 4096 and address `$8000 + 2 x (A
-    mod 4096)`. 2048 cells = 25.6 rows: 640 x 400 useful, rows 26-29
-    repeat the top. Colour stays per cell (colour RAM, page 0). The odd
-    bytes of pages 1-7 are not displayed; those of `$9000-$9FFF` in page 0
-    are the colours of rows 26-29 (keep them `$08`).
+    mod 4096)`. 2048 cells = 25.6 rows: 640 x 400 useful; rows 26-29
+    would repeat the top, so the BIOS sets R6 = 25 in graphic mode (30
+    back in text). Since 2026-11-26 the colour RAM U512 is addressed like
+    the char RAM (A11-A14 on `RA11`-`RA14` from U514: 4 wires, the V4 ->
+    mono conversion had been left half done; schematic commit `539c977`
+    of the KiCad repo; text mode unchanged): one colour per LINE of 8
+    points (8 x 1), the odd byte right after the pixel byte. A board
+    without the wires shows the line-0 colours (page 0) for every line.
   - **The BIOS graphic mode** (`bios/graphe.asm`, BIOS2; service
     `sys_Graphe`, B = function, X = parameter block of signed words, A =
     mode or attribute; functions and exact effects in
@@ -868,12 +872,15 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     `gr_pile` (the caller's may be in its page), marks each changed line in
     `gr_sale` AFTER writing it. The VSYNC IRQ (`X_Gr_IRQ`, first thing in
     `handler_IRQ` while `gr_actif`; console, cursor and spinner skipped):
-    in the window, copies the lines prepared the frame before (3 by `TFM`
-    of point:`$08` pairs, measured 1528 cycles; an r = 0 line alone, every
-    other byte, since page 0's odd bytes are the cell colours) or one step
-    of the colour task (64 cells); after the window, prepares the next
-    marked lines into `gfx_tampon` (reading page 3 on stack `gr_pirq`).
-    Whole screen: ~150 frames (2.5 s). Bench on the board:
+    in the window, copies the line prepared the frame before (every other
+    byte: the odd bytes are its colours), or one step of the clear task
+    (`gr_ef`: `EF_N` = 420 bytes of (0, colour) pairs per overlapping
+    `TFM`, all 8 pages: ~150 frames) or of the colour task (`GC_N` = 7
+    cells, each written in its 16 lines); after the window, prepares the
+    next marked line into `gfx_tampon` (reading page 3 on stack
+    `gr_pirq`). One line per frame: the whole image ~400 frames (6.7 s;
+    2.5 s with the old 3 lines of point:`$08` pairs, which would now
+    overwrite the line colours). Bench on the board:
     `tools/tele/essai_graphe.asm`. Demo: `cmd/GRAPHE`. Proven by
     `make -C test graphe`. BBC BASIC uses it in `MODE 0`. Not yet: scrolling.
   - `cmd/NEIGE` (both boards) is the bench that found them: white screen,

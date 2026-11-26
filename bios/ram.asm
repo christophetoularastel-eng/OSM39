@@ -299,11 +299,11 @@ kbd_suite:   RMB 1          ; <>0 : caractère à rendre au prochain kbd_poll
 gr_actif:    RMB 1          ; <>0 : mode graphique (l'IRQ recopie l'image)
 gr_sale:     RMB 50         ; une marque par ligne (400) : à recopier
 gr_np:       RMB 1          ; lignes préparées dans gfx_tampon (IRQ)
-gr_r0:       RMB 1          ; <>0 : c'est une ligne r = 0 (seule)
-gr_n2:       RMB 1          ; (IRQ) lignes trouvées
+gr_r0:       RMB 1          ; gr_ef (graphe.asm) : l'effacement, page + 1 (0 : aucun)
+gr_n2:       RMB 1          ; (libre depuis le 26 nov. 2026)
 gr_m:        RMB 1          ; (IRQ) masque courant
 gr_yc:       RMB 2          ; (IRQ) ligne examinée
-gr_src:      RMB 6          ; (IRQ) adresses des lignes trouvées, page 3
+gr_src:      RMB 6          ; +2 : gr_eo (graphe.asm), l'adresse suivante de l'effacement
 gr_sirq:     RMB 2          ; (IRQ) sa pile d'avant
 gr_cc:       RMB 2          ; tâche de couleur : case courante
 gr_cx:       RMB 1          ;   cases restant dans la rangée

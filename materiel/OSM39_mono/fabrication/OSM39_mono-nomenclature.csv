@@ -64,6 +64,7 @@
 "U519,U609","74HC04","Package_DIP:DIP-14_W7.62mm_LongPads","2"
 "U520","74HC166","Package_DIP:DIP-16_W7.62mm_LongPads","1"
 "U522","74HC175","Package_DIP:DIP-16_W7.62mm_LongPads","1"
+"U526","28C256","Package_DIP:DIP-28_W15.24mm_LongPads","1"
 "U605,U610","74HC4040","Package_DIP:DIP-16_W7.62mm_LongPads","2"
 "U608","74HC74","Library:DIP-14_W7.62mm_LongPads","1"
 "U611","AY-3-8910","Package_DIP:DIP-40_W15.24mm_Socket","1"

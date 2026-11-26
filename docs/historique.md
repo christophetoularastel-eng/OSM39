@@ -1373,3 +1373,22 @@ même port, ici le terminal VT100, donne des échecs aléatoires).
 - Reste : la carte n'a pas de relief ; la rue Montgolfier monte en pente
   vers le pont et, de la place de la Liberté ou des Cordeliers, on bute
   contre lui (signalé par l'utilisateur sur la machine).
+
+## 26 nov. 2026 — Mode graphique : une couleur par ligne de 8 points
+
+- En mode graphique la couleur venait de la RAM des couleurs (U512)
+  adressée par `sa11` et les bits de page : une couleur par case 8 x 16.
+  La conversion V4 -> mono n'avait relié RA (par U514) qu'à la RAM des
+  caractères. L'utilisateur a corrigé le schéma (4 fils : U512 A11-A14
+  sur `RA11`-`RA14`) : une couleur par ligne de 8 points, l'octet qui
+  suit celui des points ; le texte ne change pas.
+- Le BIOS (`bios/graphe.asm`) suit : chaque case est écrite dans ses 16
+  lignes ; les points sont recopiés un octet sur deux (les paires
+  point:`$08` effaceraient les couleurs) : une ligne par trame au lieu
+  de 3 (image entière ~6,7 s au lieu de 2,5) ; l'effacement devient une
+  tâche de remplissage par TFM (paires (0, couleur), ~2,3 s) ; R6 = 25 en
+  mode graphique (les rangées 26-29 répéteraient le haut, couleurs
+  comprises, et `$08` ne les cache plus). BIOS2 : 2821 octets (6 de moins).
+- `AGENTS.md` disait que les octets impairs des pages 1-7 n'étaient pas
+  affichés et qu'il fallait garder `$08` en `$9000-$9FFF` : vrai pour
+  l'ancien câblage seulement.

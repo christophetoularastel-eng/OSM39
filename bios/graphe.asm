@@ -1,8 +1,10 @@
 ; ===================================================================
 ; graphe.asm - Le mode graphique de la carte OSM39_mono (BIOS2)
 ; ===================================================================
-; 640 x 400 points, 1 bit par point (bit 7 à gauche), une couleur par
-; case de 8 x 16. Le modèle exact (ce que chaque fonction allume) et la
+; 640 x 400 points, 1 bit par point (bit 7 à gauche). Une couleur par
+; case de 8 x 16 pour le service, écrite dans ses 16 lignes : la RAM des
+; couleurs (U512) est adressée comme celle des points (RA11-RA14, depuis le
+; 26 nov. 2026), une couleur par ligne de 8 points. Le modèle exact (ce que chaque fonction allume) et la
 ; liste des fonctions : tools/graphe/graphe.py. Service sys_Graphe :
 ; B = fonction, X = bloc de paramètres (mots signés), A = mode/couleur ;
 ; tout est préservé, sauf A pour GR_LIT ; C = 1 : refusé.
@@ -15,17 +17,18 @@
 ;
 ; L'IRQ du VSYNC (X_Gr_IRQ, appelée au début de handler_IRQ tant que
 ; gr_actif <> 0 ; la console et le moulinet se taisent) :
-;   1. dans la fenêtre du retour de trame : recopie les lignes préparées
-;      à la trame d'avant (jusqu'à 3 par TFM de 160 octets, paires point,
-;      $08 : 1528 cycles mesurés ; une ligne r = 0 seule, un octet sur
-;      deux : en page vidéo 0 les octets impairs SONT les couleurs) ; ou,
-;      s'il n'y a pas de ligne, un pas de la tâche de couleur (64 cases) ;
-;   2. après : prépare les lignes marquées suivantes dans gfx_tampon
-;      (page 3 lue sur la pile gr_pirq), sauf si une couleur attend.
+;   1. dans la fenêtre du retour de trame : recopie la ligne préparée à
+;      la trame d'avant (un octet sur deux : les octets impairs sont ses
+;      couleurs) ; ou, s'il n'y en a pas, un pas de l'effacement (gr_ef :
+;      EF_N octets de paires (0, couleur) par TFM) ou de la tâche de
+;      couleur (GC_N cases, chacune dans ses 16 lignes) ;
+;   2. après : prépare la ligne marquée suivante dans gfx_tampon (page 3
+;      lue sur la pile gr_pirq), sauf si une couleur ou un effacement
+;      attend.
 ; Ligne y -> rangée R = y / 16, r = y mod 16 ; page vidéo r / 2 ; adresse
-; $8000 + (r mod 2) x $1000 + 160 R + 2 x octet. Couleur de la case c :
-; page 0, $8001 + 2c. Les octets impairs de $9000-$9FFF en page 0 sont
-; les couleurs des rangées 26-29 (qui répètent le haut) : $08 les cache.
+; $8000 + (r mod 2) x $1000 + 160 R + 2 x octet ; sa couleur à l'octet
+; suivant. Le 6845 n'affiche que 25 rangées en mode graphique (R6 = 25) :
+; les rangées 26-29 répéteraient le haut, couleurs comprises.
 ; Banc sur la carte : tools/tele/essai_graphe.asm.
 ; ===================================================================
     include "hardware.inc"
@@ -47,6 +50,10 @@ GR_STG          equ gfx_tampon      ; 3 lignes x 160 octets
 GR_TAB          equ gfx_tampon+480  ; 3 x (page vidéo, adresse)
 POLICE          equ 32000           ; $7D00 en page 3
 GR_N            equ 12
+EF_N            equ 420             ; effacement : octets par trame (TFM)
+GC_N            equ 7               ; tâche de couleur : cases par trame
+gr_ef           equ gr_r0           ; effacement : page + 1 (0 : aucun)
+gr_eo           equ gr_src+2        ;   l'adresse suivante dans la page
 
     section .ext
 
@@ -124,6 +131,7 @@ Gr_Debut:
     clr     gr_actif
     clr     gr_np
     clr     gr_cn
+    clr     gr_ef
     ldx     #gr_sale
     ldb     #50
 Gd_Sale:
@@ -136,33 +144,12 @@ Gd_Sale:
     lbsr     Crtc
     ldd     #$0DFF
     lbsr     Crtc
+    ldd     #$0619                  ; R6 : 25 rangées affichées
+    lbsr     Crtc
     ldd     #-1
     std     SCREEN_START_OFFSET
-    lda     #1                      ; pages vidéo 1-7 : tout à 0
-Gd_Page:
-    sta     VRAM_CTRL
-    clr     $8000
-    ldu     #$8000
-    ldx     #$8001
-    ldw     #$1FFF
-    tfm     u+,x+
-    inca
-    cmpa    #8
-    blo     Gd_Page
-    clr     VRAM_CTRL               ; page 0 : (0, attribut), puis (0, $08)
-    clr     $8000
-    lda     gr_mode
-    sta     $8001
-    ldu     #$8000
-    ldx     #$8002
-    ldw     #4000-2
-    tfm     u+,x+
-    ldd     #$0008
-    std     $8000+4000
-    ldu     #$8000+4000
-    ldx     #$8000+4002
-    ldw     #$2000-4000-2
-    tfm     u+,x+
+    lda     gr_mode                 ; les 8 pages : (0, attribut)
+    lbsr    Remplit
     clr     0                       ; l'image (page 3) à 0
     ldu     #0
     ldx     #1
@@ -202,8 +189,11 @@ Gr_Fin:
     clr     gr_actif
     clr     gr_np
     clr     gr_cn
+    clr     gr_ef
     clr     VRAM_CTRL
     clr     CUR_PAGE
+    ldd     #$061E                  ; R6 : 30 rangées (le texte)
+    bsr     Crtc
     tst     cz_actif                ; console plein écran : tout effacé
     bne     Gf_Zone
     jsr     sys_ClearScreen
@@ -719,20 +709,77 @@ Gr_Efface:
     ldx     #1
     ldw     #POLICE-1
     tfm     u+,x+
-    ldd     #$FFFF                  ; toutes les lignes à recopier
-    std     gr_sale
+    clr     gr_sale                 ; plus rien à recopier
     ldu     #gr_sale
-    ldx     #gr_sale+2
-    ldw     #48
+    ldx     #gr_sale+1
+    ldw     #49
     tfm     u+,x+
-    ldd     #0                      ; toutes les cases : (0, 0)-(79, 24)
-    std     gr_par
-    std     gr_par+2
-    ldd     #79
-    std     gr_par+4
-    ldd     #24
-    std     gr_par+6
-    bra     Gr_Couleur
+    clr     gr_cn
+    clr     gr_np
+    lda     gr_mode
+    sta     gr_ca
+    ldb     gr_cc0                  ; IRQ masquées : tout de suite
+    bitb    #$10
+    bne     Remplit
+    ldx     #$8002                  ; sinon une tâche de l'IRQ
+    stx     gr_eo
+    inc     gr_ef                   ; en dernier : l'IRQ la voit complète
+    rts
+
+; Remplit : les 8 pages vidéo = paires (0, A). Détruit A, B, X, U, W.
+Remplit:
+    ldb     #GRAPH
+Rp_Page:
+    stb     VRAM_CTRL
+    clr     $8000
+    sta     $8001
+    ldu     #$8000
+    ldx     #$8002
+    ldw     #$2000-2
+    tfm     u+,x+
+    incb
+    cmpb    #GRAPH+8
+    blo     Rp_Page
+    lda     #GRAPH
+    sta     VRAM_CTRL
+    rts
+
+; Ef_Pas : EF_N octets au plus de l'effacement (paires (0, gr_ca) par TFM
+; qui se recouvre) ; page suivante, ou fin. Détruit D, X, U, W.
+Ef_Pas:
+    lda     gr_ef
+    adda    #GRAPH-1
+    sta     VRAM_CTRL
+    ldx     gr_eo
+    cmpx    #$8002
+    bne     Ep_Suite
+    clr     $8000                   ; la première paire de la page
+    lda     gr_ca
+    sta     $8001
+Ep_Suite:
+    ldd     #$A000
+    subd    gr_eo
+    cmpd    #EF_N
+    bls     Ep_N
+    ldd     #EF_N
+Ep_N:
+    tfr     d,w
+    leau    -2,x
+    tfm     u+,x+
+    stx     gr_eo
+    cmpx    #$A000
+    blo     Ep_Fin
+    ldx     #$8002                  ; page suivante
+    stx     gr_eo
+    inc     gr_ef
+    lda     gr_ef
+    cmpa    #9
+    blo     Ep_Fin
+    clr     gr_ef
+Ep_Fin:
+    lda     #GRAPH
+    sta     VRAM_CTRL
+    rts
 
 Gr_Car:
     ldd     gr_par                  ; colonne < 80, rangée < 25
@@ -791,13 +838,15 @@ Gca_Fin:
 ; Gr_Couleur : cases (c0, r0)-(c1, r1), attribut gr_mode. Une tâche de
 ; l'IRQ ; celle d'avant d'abord (attendue, ou finie ici si IRQ masquées).
 Gr_Couleur:
-    tst     gr_cn
+    lda     gr_cn                   ; une couleur ou un effacement en cours ?
+    ora     gr_ef
     beq     Gco_Libre
     lda     gr_cc0
     bita    #$10
     bne     Gco_Direct
 Gco_Att:
-    tst     gr_cn
+    lda     gr_cn
+    ora     gr_ef
     bne     Gco_Att
     bra     Gco_Libre
 Gco_Direct:
@@ -869,7 +918,17 @@ Gp_Rang:
     lda     gr_ca
     ldb     gr_cx
 Gp_Case:
-    sta     ,x++
+    pshs    b                       ; la case dans ses 16 lignes : les 8
+    ldb     #GRAPH                  ; pages, les deux moitiés
+Gp_Pg:
+    stb     VRAM_CTRL
+    sta     ,x
+    sta     $1000,x
+    incb
+    cmpb    #GRAPH+8
+    blo     Gp_Pg
+    puls    b
+    leax    2,x
     decb
     beq     Gp_FinR
     decf
@@ -906,9 +965,9 @@ Gr_Attend:
     bita    #$10
     bne     Ga_Fin
 Ga_Encore:
-    tst     gr_np
-    bne     Ga_Encore
-    tst     gr_cn
+    lda     gr_np
+    ora     gr_cn
+    ora     gr_ef
     bne     Ga_Encore
     ldx     #gr_sale
 Ga_Oct:
@@ -925,53 +984,41 @@ Ga_Fin:
 ; L'IRQ du VSYNC (IRQ masquées ; la page de l'appelant est current_page)
 ; ===================================================================
 X_Gr_IRQ:
-    ldb     gr_np
+    tst     gr_np
     beq     GI_Coul
-    ldy     #GR_TAB
+    ldy     #GR_TAB                 ; la ligne : un octet sur deux
     ldu     #GR_STG
-    tst     gr_r0
-    bne     GI_R0
-GI_Ligne:
     lda     ,y+
-    sta     VRAM_CTRL
-    ldx     ,y++
-    ldw     #160
-    tfm     u+,x+
-    decb
-    bne     GI_Ligne
-    bra     GI_Vu
-GI_R0:
-    lda     ,y+                     ; ligne r = 0 : un octet sur deux
     sta     VRAM_CTRL
     ldx     ,y
     lde     #40
-GI_R0Oct:
+GI_Oct:
     ldd     ,u++
     sta     ,x
     stb     2,x
     leax    4,x
     dece
-    bne     GI_R0Oct
-GI_Vu:
+    bne     GI_Oct
     clr     gr_np
     lda     #GRAPH
     sta     VRAM_CTRL
     bra     GI_Prep
 GI_Coul:
+    tst     gr_ef                   ; l'effacement d'abord
+    lbne    Ef_Pas
     tst     gr_cn
     beq     GI_Prep
-    ldf     #64 
+    ldf     #GC_N
     lbsr    Gc_Pas
     lda     #GRAPH
     sta     VRAM_CTRL
     rts
 
-; --- après la fenêtre : jusqu'à 3 lignes marquées (une ligne r = 0 seule)
+; --- après la fenêtre : la ligne marquée suivante
 GI_Prep:
-    tst     gr_cn                   ; une couleur attend : elle d'abord
-    lbne     GI_Fin
-    clr     gr_n2
-    clr     gr_r0
+    lda     gr_cn                   ; une couleur ou un effacement attend :
+    ora     gr_ef                   ; eux d'abord
+    lbne    GI_Fin
     ldx     #gr_sale
     ldd     #0
     std     gr_yc
@@ -983,32 +1030,26 @@ GP_Oct:
     std     gr_yc
     leax    1,x
     cmpx    #gr_sale+50
-    lblo     GP_Oct
-    lbra     GP_Copie
+    blo     GP_Oct
+    rts
 GP_Bits:
     lda     #$80
     sta     gr_m
 GP_Bit:
     lda     ,x
     anda    gr_m
-    beq     GP_BitSuiv
-    ldb     gr_yc+1
-    andb    #15
     bne     GP_Prend
-    tst     gr_n2                   ; r = 0 : seule dans sa trame
-    lbne     GP_Copie
-    inc     gr_r0
+    ldd     gr_yc
+    addd    #1
+    std     gr_yc
+    lsr     gr_m
+    bra     GP_Bit
 GP_Prend:
     lda     gr_m                    ; la marque retirée AVANT la copie
     coma
     anda    ,x
     sta     ,x
-    pshs    x
-    ldb     gr_n2                   ; GR_TAB + 3n : page vidéo, adresse
-    lda     #3
-    mul
-    ldx     #GR_TAB
-    abx
+    ldx     #GR_TAB                 ; page vidéo, adresse
     ldb     gr_yc+1
     andb    #15
     lsrb
@@ -1034,62 +1075,20 @@ GP_Pair:
     mul
     adda    ,s+
     std     ,x
-    ldb     gr_n2                   ; gr_src + 2n : y x 80
-    lslb
-    ldx     #gr_src
-    abx
-    ldd     gr_yc
-    lbsr    Fois80
-    std     ,x
-    puls    x
-    inc     gr_n2
-    tst     gr_r0
-    lbne     GP_Copie
-    lda     gr_n2
-    cmpa    #3
-    bhs     GP_Copie
-GP_BitSuiv:
-    ldd     gr_yc
-    addd    #1
-    std     gr_yc
-    lsr     gr_m
-    lbne     GP_Bit
-    leax    1,x
-    cmpx    #gr_sale+50
-    lblo     GP_Oct
-GP_Copie:
-    ldb     gr_n2
-    beq     GI_Fin
     sts     gr_sirq                 ; page 3 : sur la pile gr_pirq
     lds     #gr_pirq_h
     lda     #3
     sta     pager_reg
-    ldy     #gr_src
+    ldd     gr_yc                   ; la ligne : y x 80
+    lbsr    Fois80
+    tfr     d,x
     ldu     #GR_STG
-    tst     gr_r0
-    bne     GC_R0
-    tfr     b,e
-GC_Ligne:
-    ldx     ,y++
-    ldf     #80
-    ldb     #$08
-GC_Oct:
-    lda     ,x+
-    std     ,u++
-    decf
-    bne     GC_Oct
-    dece
-    bne     GC_Ligne
-    bra     GC_Fin
-GC_R0:
-    ldx     ,y
     ldw     #80
     tfm     x+,u+
-GC_Fin:
     lda     current_page
     sta     pager_reg
     lds     gr_sirq
-    lda     gr_n2
-    sta     gr_np                   ; prêtes pour la trame suivante
+    lda     #1
+    sta     gr_np                   ; prête pour la trame suivante
 GI_Fin:
     rts

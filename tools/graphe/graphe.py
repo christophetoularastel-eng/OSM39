@@ -4,9 +4,11 @@
 # ===================================================================
 # Le mode graphique de la carte OSM39_mono : 640 x 400 points, 1 bit par
 # point (bit 7 = à gauche), une couleur par case de 8 x 16 (l'octet
-# d'attribut du mode texte). Le BIOS dessine dans une copie de l'image en
-# RAM page 3 (ligne y à y x 80, 32 000 octets) ; l'IRQ du VSYNC la recopie
-# à l'écran, au retour de trame, 3 lignes par trame.
+# d'attribut du mode texte), que le BIOS écrit dans les 16 lignes de la
+# case (la carte a une couleur par ligne de 8 points depuis le 26 nov.
+# 2026). Le BIOS dessine dans une copie de l'image en RAM page 3 (ligne y
+# à y x 80, 32 000 octets) ; l'IRQ du VSYNC la recopie à l'écran, au
+# retour de trame, une ligne par trame.
 #
 # Ce fichier dit exactement quels points chaque fonction allume ; le
 # vérificateur (test/verifie_graphe.py) compare la page 3 et la VRAM du

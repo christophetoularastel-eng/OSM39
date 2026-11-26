@@ -11,8 +11,9 @@
 #     BBC BASIC, qui appelle sys_Graphe par la table des services ;
 #   - /BIN/POLICE8 sur une carte OSMFS (egofs).
 # Vérifie :
-#   1. GR_DEBUT : la VRAM (8 pages) effacée, les couleurs des cases 0-1999
-#      = l'attribut, le reste $08 ; la page 3 à 0 ; la police en $7D00 ;
+#   1. GR_DEBUT : la VRAM (8 pages) = paires (0, attribut) (la RAM des
+#      couleurs est adressée comme celle des points : une couleur par ligne
+#      de 8 points) ; R6 = 25 rangées ; la page 3 à 0 ; la police en $7D00 ;
 #   2. après chaque fonction (points, lignes de toutes pentes, coupées,
 #      inversées ; rectangles ; cercles et disques, r = 0, coupés,
 #      inversés ; caractères ; couleurs ; effacement ; GR_LIT) : la page 3
@@ -20,12 +21,12 @@
 #      page 1 rendue, pile rendue, C = 0 ; refus (C = 1) : fonction
 #      inconnue, mode non ouvert ;
 #   3. après GR_ATTEND : l'image relue dans la VRAM (r x 2048 + case) = le
-#      modèle, les couleurs des cases = le modèle, celles des rangées 26-29
-#      à $08 ;
+#      modèle, la couleur de chacune des 16 lignes de chaque case (l'octet
+#      suivant) = la couleur de la case dans le modèle ;
 #   4. hors GR_DEBUT / GR_FIN, la VRAM n'est écrite QUE dans l'IRQ, au
 #      plus LIMITE cycles estimés après son entrée (4 par instruction, 3 par
 #      octet de TFM) ; ni la console ni le moulinet n'y touchent ;
-#   5. GR_FIN : GRAPH coupé, l'écran texte effacé (espaces).
+#   5. GR_FIN : GRAPH coupé, R6 = 30 rangées, l'écran texte effacé (espaces).
 #   make -C bios && python3 test/verifie_graphe.py
 # ===================================================================
 import os
@@ -65,6 +66,8 @@ class Banc(va.MachineAsm):
         self.hors_irq = []              # écritures VRAM hors de l'IRQ
         self.cyc_max = 0
         self.permis = False             # GR_DEBUT / GR_FIN : écritures libres
+        self.crtc_rs = 0
+        self.crtc = {}
 
     def rd8(self, a):
         a &= 0xFFFF
@@ -77,6 +80,10 @@ class Banc(va.MachineAsm):
         if a == 0xA120:
             self.vpage = x & 7
             self.graph = bool(x & 8)
+        if a == 0xA100:
+            self.crtc_rs = x & 31
+        if a == 0xA101:
+            self.crtc[self.crtc_rs] = x & 255
         if 0x8000 <= a < 0xA000:
             self.vram[self.vpage][a - 0x8000] = x & 255
             self.ecrit = True
@@ -138,7 +145,10 @@ class Banc(va.MachineAsm):
         return img
 
     def couleurs_vram(self):
-        return bytes(self.vram[0][2 * c + 1] for c in range(2000))
+        """Les couleurs des 16 lignes de chaque case : (case, ligne) -> l'octet
+        qui suit celui des points (r x 2048 + c)."""
+        return bytes(self.vram[(r * 2048 + c) >> 12][2 * ((r * 2048 + c) & 4095) + 1]
+                     for c in range(2000) for r in range(16))
 
 
 def prepare():
@@ -175,6 +185,9 @@ def main():
     m, s = prepare()
     service = m.rd16(s['sys_Graphe'])
     mod = g.Ecran()
+
+    def coul16():
+        return bytes(mod.coul[c] for c in range(2000) for _ in range(16))
     alea = random.Random(39)
     fautes = []
 
@@ -234,10 +247,10 @@ def main():
     verifie(c == 0 and m.mem[s['gr_actif']] and m.graph and m.vpage == 0,
             'GR_DEBUT : C = 0, gr_actif, GRAPH à $A120')
     pages_nulles = all(not any(m.vram[p][i] for i in range(0, 0x2000, 2)) for p in range(8))
-    coul = m.couleurs_vram()
-    cache = all(m.vram[0][i] == 0x08 for i in range(2 * 2000 + 1, 0x2000, 2))
-    verifie(pages_nulles and coul == bytes([7]) * 2000 and cache,
-            'GR_DEBUT : points à 0 dans les 8 pages, cases 0-1999 = $07, le reste $08')
+    toutes = all(m.vram[p][i] == 7 for p in range(8) for i in range(1, 0x2000, 2))
+    verifie(pages_nulles and toutes,
+            'GR_DEBUT : points à 0 et couleurs $07 dans les 8 pages (chaque ligne de chaque case)')
+    verifie(m.crtc.get(6) == 25, 'GR_DEBUT : R6 = 25 rangées affichées (vu : %s)' % m.crtc.get(6))
     verifie(bytes(m.banks[3][:32000]) == bytes(32000) and bytes(m.banks[3][32000:32768]) == g.police(),
             'GR_DEBUT : page 3 à 0, la police 8 x 8 en $7D00 (/BIN/POLICE8)')
 
@@ -298,9 +311,7 @@ def main():
     c, _ = appel(g.GR_ATTEND)
     verifie(c == 0 and m.image_vram() == bytes(mod.img),
             'GR_ATTEND (%d trames) : l\'image relue dans la VRAM = le modèle' % (m.trame - t0))
-    verifie(m.couleurs_vram() == bytes(mod.coul), 'les couleurs des cases = le modèle')
-    cache = all(m.vram[0][i] == 0x08 for i in range(2 * 2048 + 1, 0x2000, 2))
-    verifie(cache, 'couleurs des rangées 26-29 ($9000-$9FFF, page 0) toujours $08')
+    verifie(m.couleurs_vram() == coul16(), 'les couleurs des 16 lignes de chaque case = le modèle')
     verifie(not m.hors_irq and m.cyc_max <= LIMITE,
             'VRAM écrite seulement dans l\'IRQ, au plus %d cycles estimés après son entrée (limite %d) %s'
             % (m.cyc_max, LIMITE, m.hors_irq[:3]))
@@ -313,7 +324,7 @@ def main():
         mod.appel(g.GR_LIGNE, 0, (i, 0, 639 - i, 399))
     t0 = m.trame
     appel(g.GR_ATTEND)
-    verifie(m.image_vram() == bytes(mod.img) and m.couleurs_vram() == bytes(mod.coul),
+    verifie(m.image_vram() == bytes(mod.img) and m.couleurs_vram() == coul16(),
             'GR_EFFACE puis 16 lignes : l\'écran = le modèle après %d trames' % (m.trame - t0))
 
     # --- la console et le moulinet se taisent ---
@@ -340,8 +351,8 @@ def main():
     c, _ = appel(g.GR_FIN)
     m.permis = False
     texte = all(m.vram[0][2 * i] == 0x20 for i in range(2400))
-    verifie(c == 0 and not m.graph and not m.mem[s['gr_actif']] and texte,
-            'GR_FIN : GRAPH coupé, gr_actif = 0, écran texte effacé (espaces)')
+    verifie(c == 0 and not m.graph and not m.mem[s['gr_actif']] and texte and m.crtc.get(6) == 30,
+            'GR_FIN : GRAPH coupé, gr_actif = 0, R6 = 30 rangées, écran texte effacé (espaces)')
     c, _ = appel(g.GR_POINT, 0, (1, 1))
     verifie(c == 1, 'après GR_FIN : GR_POINT refusé')
 
