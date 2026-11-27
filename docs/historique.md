@@ -1458,3 +1458,7 @@ même port, ici le terminal VT100, donne des échecs aléatoires).
   code d'OSM-VISION. Constaté en passant : `make -C test asm-tout` échoue
   déjà sur OSMCITY.ASM (et OSM3D.ASM) au dernier commit (« fichier de plus
   de 64 Ko », nom illisible) : à corriger à part.
+- 2026-11-27 : manuel : le joystick remplace la Clouris (« Brancher le
+  joystick » avec JOYCAL, le pointeur d'OSM-VISION, JOYCAL dans les
+  commandes, un tableau du joystick dans les jeux, « Le joystick dans vos
+  programmes » : Joy_Init, Joy_Lit, Joy_Evts).

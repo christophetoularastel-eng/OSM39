@@ -113,7 +113,7 @@
   <tr><td>Stockage</td><td>Carte SD, avec son propre système de fichiers à dossiers (OSMFS)</td></tr>
   <tr><td>Clavier</td><td>AZERTY français, pavé numérique, voyants pilotés par le système</td></tr>
   <tr><td>Communication</td><td>Liaison série RS-232 à 115 200 bauds : modem Minitel, ordinateur hôte</td></tr>
-  <tr><td>Extension</td><td>Connecteur 48 broches à l'arrière (le bus du processeur) ; 16 lignes d'entrée-sortie sur l'AY, dont la Clouris, la souris tactile</td></tr>
+  <tr><td>Extension</td><td>Connecteur 48 broches à l'arrière (le bus du processeur) ; 16 lignes d'entrée-sortie sur l'AY, dont le joystick</td></tr>
 </table>
 
 <h2>Ce que vous pouvez faire</h2>
@@ -180,7 +180,7 @@
   <tr><td>J301</td><td>arrière</td><td>connecteur d'extension DIN 41612, 48 broches : le bus du processeur</td></tr>
   <tr><td>J401</td><td>avant droit</td><td>entrée secteur (terre, neutre, phase), vers le module d'alimentation</td></tr>
   <tr><td>J601</td><td>bord arrière</td><td>le clavier PS/2 (+5 V, données, horloge, masse)</td></tr>
-  <tr><td>J602</td><td>bord gauche</td><td>les deux ports de l'AY-3-8910 : 16 lignes d'entrée-sortie, dont la Clouris</td></tr>
+  <tr><td>J602</td><td>bord gauche</td><td>les deux ports de l'AY-3-8910 : 16 lignes d'entrée-sortie, dont le joystick</td></tr>
   <tr><td>J604</td><td>bord gauche</td><td>la sortie son, niveau ligne</td></tr>
   <tr><td>J603</td><td>sur la carte</td><td>le module de carte SD</td></tr>
   <tr><td>J102</td><td>bord arrière</td><td>l'interface parallèle (ports A et B du 6821)</td></tr>
@@ -189,20 +189,18 @@
   <tr><td>SW101</td><td>sur la carte</td><td>le bouton de réinitialisation</td></tr>
 </table>
 
-<h3>Brancher la Clouris</h3>
-<p>La Clouris, la souris tactile, se branche sur le <strong>port A de l'AY-3-8910</strong>, c'est-à-dire sur les broches impaires de <strong>J602</strong> (sur la carte SD-KBD-SON, c'est J104, avec le même brochage). Son connecteur J7, huit broches, se relie ainsi :</p>
+<h3>Brancher le joystick</h3>
+<p>Le joystick (quatre micro-rupteurs et un bouton) se branche sur le <strong>port A de l'AY-3-8910</strong>, c'est-à-dire sur les broches impaires de <strong>J602</strong> : le contact « normalement ouvert » (NO) de chaque micro-rupteur et du bouton sur une ligne, tous les communs à la masse. Au repos, chaque ligne est à 1 ; un contact fermé la fait passer à 0. L'AY tire lui-même ses lignes à 1.</p>
 <table>
-  <tr><th>J7 (Clouris)</th><th>Clou</th><th>J602</th><th>Ligne de l'AY</th></tr>
-  <tr><td>1</td><td>—</td><td>1 ou 2</td><td>+5 V</td></tr>
-  <tr><td>2</td><td>J1 : haut</td><td>17</td><td>IOA0</td></tr>
-  <tr><td>3</td><td>J2 : droite</td><td>15</td><td>IOA1</td></tr>
-  <tr><td>4</td><td>J3 : bas</td><td>13</td><td>IOA2</td></tr>
-  <tr><td>5</td><td>J4 : gauche</td><td>11</td><td>IOA3</td></tr>
-  <tr><td>6</td><td>J5 : centre</td><td>9</td><td>IOA4</td></tr>
-  <tr><td>7</td><td>J6 : clic, sous le pouce</td><td>7</td><td>IOA5</td></tr>
-  <tr><td>8</td><td>—</td><td>19 ou 20</td><td>masse</td></tr>
+  <tr><th>Ligne de l'AY</th><th>J602</th><th>Ligne de l'AY</th><th>J602</th></tr>
+  <tr><td>IOA0</td><td>17</td><td>IOA4</td><td>9</td></tr>
+  <tr><td>IOA1</td><td>15</td><td>IOA5</td><td>7</td></tr>
+  <tr><td>IOA2</td><td>13</td><td>IOA6</td><td>5</td></tr>
+  <tr><td>IOA3</td><td>11</td><td>IOA7</td><td>3</td></tr>
+  <tr><td>masse</td><td>19 ou 20</td><td>+5 V</td><td>1 ou 2</td></tr>
 </table>
-<p>Les broches 3 et 5 (IOA7, IOA6) restent libres, comme tout le port B (broches paires de 4 à 18). La plaque de paume est à la masse sur la carte de la Clouris. Au repos, chaque ligne est à 1 ; un doigt posé sur un clou la fait passer à 0. La commande <code>CLOUTEST</code> affiche l'état des six clous à chaque changement : c'est le moyen de vérifier le câblage. Dans OSM-VISION, les quatre clous de direction déplacent la flèche, le pouce ouvre ce qu'elle désigne et le centre ouvre le menu.</p>
+<p>Peu importe quel fil va sur quelle ligne, et dans quel sens le joystick est monté dans le boîtier : la commande <code>JOYCAL</code> l'apprend. Lancez-la dans le Terminal ; elle demande de pousser le joystick vers le haut, puis vers la droite, le bas, la gauche, et enfin d'appuyer sur le bouton. Pour chacun, elle attend que tout soit lâché, puis un seul contact bien fermé, et affiche la ligne et la broche trouvées (« -&gt; IOA4 (J602 broche 9) »). Elle refuse une diagonale et une ligne déjà prise, et redemande. À la fin, elle écrit le fichier <code>/BIN/JOYSTICK.CFG</code>, que lisent OSM-VISION et les jeux à leur démarrage. <kbd>Échap</kbd> abandonne sans rien écrire. Sans ce fichier, le câblage par défaut est : IOA0 haut, IOA1 droite, IOA2 bas, IOA3 gauche, IOA5 bouton.</p>
+<div class="encadre"><div class="titre">Un micro-rupteur qui ne répond pas</div><p>Sur un joystick d'arcade, pousser le manche à droite enfonce souvent le micro-rupteur de gauche. Si une direction ne répond pas du tout, vérifiez d'abord que son micro-rupteur « clique » quand on pousse le manche.</p></div>
 
 <h2>Les deux mémoires mortes</h2>
 <p>OSM39 a deux mémoires mortes de 8 Ko, toutes deux au format 28C64 :</p>
@@ -285,6 +283,7 @@ python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
   <tr><td><kbd>←</kbd> <kbd>→</kbd>, <kbd>Pg préc</kbd> <kbd>Pg suiv</kbd></td><td>page précédente, suivante, quand la liste est plus longue que la fenêtre</td></tr>
   <tr><td><kbd>Début</kbd> <kbd>Fin</kbd></td><td>premier et dernier élément</td></tr>
 </table>
+<p>Avec le <strong>joystick</strong>, une flèche jaune apparaît : il la déplace, et la ligne qu'elle survole devient le fichier choisi. Le bouton ouvre ce qu'elle désigne, ou tourne la page sur les flèches de défilement de la fenêtre. Poussée contre le haut ou le bas de la liste, la flèche la fait défiler. Le menu s'ouvre par <kbd>Espace</kbd> ; on y choisit ensuite une entrée avec la flèche, et le bouton l'exécute.</p>
 <p>De petites flèches dans la marge de droite signalent qu'il reste des éléments au-dessus ou au-dessous. Un <code>+</code> après le nombre d'éléments indique un dossier si grand que la liste a été tronquée.</p>
 
 <h2>Les dossiers</h2>
@@ -398,6 +397,7 @@ python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
   <tr><td><code>MONITEUR</code></td><td>examiner et modifier la mémoire, lire le compte rendu du dernier incident</td></tr>
   <tr><td><code>SDTEST</code></td><td>tester la carte SD en détail</td></tr>
   <tr><td><code>AYTEST</code></td><td>tester le générateur de son, voix par voix</td></tr>
+  <tr><td><code>JOYCAL</code></td><td>étalonner le joystick (chapitre 2)</td></tr>
   <tr><td><code>AYJOUE morceau</code></td><td>jouer un morceau de musique (chapitre 8)</td></tr>
   <tr><td><code>TELE</code></td><td>se laisser piloter par un ordinateur sur la liaison série (chapitre 10)</td></tr>
   <tr><td><code>ASM source sortie</code></td><td>l'assembleur intégré (chapitre 9)</td></tr>
@@ -505,6 +505,14 @@ python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
 </section>
 <section class="chapitre" id="jeux"><header><div class="numero">CHAPITRE 7</div><h1>Les jeux</h1><div class="bandes"><span style="background:#d8372b"></span><span style="background:#e9b52c"></span><span style="background:#3d9a43"></span><span style="background:#2fa6b8"></span><span style="background:#2d4fb0"></span><span style="background:#9b3fa0"></span></div></header>
 <p class="chapo">Quatre jeux attendent dans le dossier <code>GAMES</code>. Tous se quittent par <kbd>Échap</kbd>, et ramènent le bureau tel que vous l'aviez laissé.</p>
+<p>Tous se jouent au clavier ou au <strong>joystick</strong> (étalonné par <code>JOYCAL</code>, chapitre 2), indifféremment :</p>
+<table>
+  <tr><th>Jeu</th><th>Le joystick</th><th>Le bouton</th></tr>
+  <tr><td>BRIQUES</td><td>haut tourne la pièce ; gauche, droite et bas la déplacent (en le tenant, le mouvement se répète)</td><td>lâche la pièce ; relance après une pause ou une partie finie</td></tr>
+  <tr><td>ENVAHIS</td><td>gauche et droite déplacent le canon</td><td>tire</td></tr>
+  <tr><td>GLOUTON</td><td>la direction poussée oriente GLOUTON</td><td>commence la partie</td></tr>
+  <tr><td>DONJON39</td><td>avance, recule et tourne, comme les flèches</td><td>ouvre la porte</td></tr>
+</table>
 
 <h2>BRIQUES</h2>
 <figure class="moitie"><img src="images/briques.png" alt="BRIQUES en cours de partie"><figcaption><b>BRIQUES</b>.</figcaption></figure>
@@ -678,6 +686,14 @@ Bloc    FDB     0,0,639,399</pre>
   <li>rend la main par <code>RTS</code>, sans effacer l'écran : OSM-VISION le restaure.</li>
 </ol>
 <p>Sur la carte, une application porte l'attribut <code>a</code> et se charge en page 1 : <code>CHMOD NOM +a</code>. ASM le fait de lui-même pour un source qui inclut <code>VISION.ASM</code>.</p>
+
+<h2>Le joystick dans vos programmes</h2>
+<p>Incluez <code>LIB/JOY.ASM</code> après votre point d'entrée. Au démarrage, <code>JSR Joy_Init</code> charge l'étalonnage de <code>JOYCAL</code>. Ensuite, à chaque trame :</p>
+<ul>
+  <li><code>JSR Joy_Lit</code> rend dans A l'état du joystick, toujours dans le même ordre quel que soit le câblage : bit 0 haut, bit 1 droite, bit 2 bas, bit 3 gauche, bit 4 le bouton (1 = appuyé ; une diagonale allume deux bits). C'est la lecture des jeux.</li>
+  <li><code>JSR Joy_Evts</code> rend des événements, au rythme d'un pointeur : un pas dès qu'une direction est poussée, puis un pas toutes les 3 trames après 12 trames ; le bit du bouton seulement au moment où on l'enfonce. C'est la lecture d'OSM-VISION.</li>
+</ul>
+<p>Sans AY, les deux ne rendent jamais rien : un programme qui lit le joystick marche aussi sur une machine sans générateur de son.</p>
 
 <h2>Les outils sur PC</h2>
 <table>
