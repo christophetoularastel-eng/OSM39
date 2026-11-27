@@ -122,3 +122,10 @@ tools/osm3d/essais/
 tools/tele/neige_captures/
 tools/tele/essai_8x1.bin
 tools/tele/essai_8x1.lst
+tools/tele/essai_16.bin
+tools/tele/essai_16.lst
+tools/tele/essai_mire.bin
+tools/tele/essai_mire.lst
+tools/tele/mire_tv_data.inc
+tools/tele/essai_bits.bin
+tools/tele/essai_bits.lst

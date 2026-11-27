@@ -1409,3 +1409,18 @@ même port, ici le terminal VT100, donne des échecs aléatoires).
   (par TELE) met une couleur différente sur chaque ligne des rangées 0-11
   et une par case en dessous ; la carte montre exactement l'aperçu calculé
   sur le PC.
+
+## 27 nov. 2026 — Couleur 8 x 1 : diagnostic, la carte est bonne
+
+- Sur des lignes d'un point de 16 couleurs (`tools/tele/essai_16.asm`),
+  l'utilisateur ne voyait que noir, cyan, rouge et blanc ; 8 couleurs en
+  bandes de 4 points. Mesures au multimètre des 4 fils de U512 : bonnes.
+- Banc par TELE + webcam en gros plan (`tools/tele/essai_mire.asm`, mire
+  de télévision tirée de `tools/tele/mire_tv.py`, pour la mise au point) :
+  le moniteur rend les rayures horizontales d'une ligne en noir et blanc.
+  `tools/tele/essai_bits.asm` : chaque ligne d'adresse `RA11`-`RA14`
+  alterne à la bonne période (1, 2, 4, 8 lignes) et chaque bit de couleur
+  D0-D3 change d'une ligne à l'autre.
+- Conclusion : la carte est bonne ; des lignes d'un point de couleurs
+  différentes se mélangent à l'œil (mise à l'échelle de l'écran plat,
+  atténuées collées aux vives). Pour le rendu : des aplats de 2 à 4 lignes.
