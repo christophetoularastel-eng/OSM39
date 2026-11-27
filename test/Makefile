@@ -353,6 +353,7 @@ demarrage:
 bureau:
 	@$(MAKE) -s -C ../bios
 	@$(MAKE) -s -C ../osmvision
+	@$(MAKE) -s -C ../apps CALCUL
 	@python3 verifie_bureau.py
 
 # Dossiers de l'OSMFS : BIOS, commandes CD/MKDIR/PWD/RM, liste d'OSM-VISION.
@@ -392,6 +393,12 @@ joycal:
 	@$(MAKE) -s -C ../cmd
 	@python3 verifie_joycal.py
 
+# La calculatrice d'OSM-VISION : le vrai apps/CALCUL face à tools/calcul/calcul.py.
+calcul:
+	@$(MAKE) -s -C ../bios
+	@$(MAKE) -s -C ../apps CALCUL
+	@python3 verifie_calcul.py
+
 # Horloge MC146818 sur le PIA : le vrai cmd/HORLOGE face à un PIA et une puce simulés.
 horloge:
 	@$(MAKE) -s -C ../bios
@@ -420,4 +427,4 @@ asm-tout:
 	@$(MAKE) -s -C ../bios
 	@python3 verifie_asm.py tout
 
-.PHONY: all clean tout tout-long contrat send verifier remplissage banc_mono negatifs parole minitel terminal donjon39 osmcity osm3d zmachine zmachine-tout fs farcall asm asm-tout dossiers demarrage bureau sdtest tele aytest joycal ayjoue clavier horloge graphe FORCE
+.PHONY: all clean tout tout-long contrat send verifier remplissage banc_mono negatifs parole minitel terminal donjon39 osmcity osm3d zmachine zmachine-tout fs farcall asm asm-tout dossiers demarrage bureau sdtest tele aytest joycal calcul ayjoue clavier horloge graphe FORCE

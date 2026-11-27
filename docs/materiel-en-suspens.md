@@ -96,10 +96,3 @@ schéma KiCad, pas encore sur le circuit imprimé :
   encore montée : il faut aussi `$A120` D4-D5 vers A13-A14 de U515 (U525
   O4/O5 -> broches 26 et 1). Fichier prêt : `dist/EPROM/font_osm39_28c256.bin`.
 - AGENTS.md : `apps/osmcity.asm`, « Tiles ».
-
-## 7. Joystick
-
-- Branché le 27 nov. 2026 sur J602 (port A de l'AY), étalonné par
-  `JOYCAL` (`/BIN/JOYSTICK.CFG`) ; un micro-rupteur qui ne basculait pas a
-  été réglé. Reste : le lire dans le logiciel (`lib/joy.asm` : OSM-VISION
-  et les jeux), le manuel (« Brancher la Clouris » -> le joystick).

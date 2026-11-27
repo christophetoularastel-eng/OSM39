@@ -55,7 +55,7 @@ fi
 #   rw   = $06 : fichier de données.
 # Map « - » : pas un programme, adresse 0000.
 # Rangement de la carte (OSMVISION seul à la racine : le démarrage l'y charge) :
-#   BIN/    programmes système, et EDIT et CALC : OSM-VISION les lance par leur
+#   BIN/    programmes système, et EDIT, CALC et CALCUL : OSM-VISION les lance par leur
 #           nom pour ouvrir un .ASM ou un .CAL, et le BIOS ne cherche un
 #           programme absent du dossier courant que dans /BIN puis à la racine
 #   APPS/   applications (MINITEL, PAROLE...) ; GAMES/ les jeux
@@ -102,6 +102,7 @@ games/BRIQUES          GAMES/BRIQUES 1  games/BRIQUES.map         rwxa
 apps/MIRE             APPS/MIRE   1  apps/MIRE.map            rwxa
 apps/ENVAHIS         GAMES/ENVAHIS 1  apps/ENVAHIS.map        rwxa
 apps/CALC             BIN/CALC   1  apps/CALC.map            rwxa
+apps/CALCUL           BIN/CALCUL 1  apps/CALCUL.map          rwxa
 apps/EDIT             BIN/EDIT   1  apps/EDIT.map            rwxa
 apps/GLOUTON           GAMES/GLOUTON 1  apps/GLOUTON.map          rwxa
 apps/DONJON39           GAMES/DONJON39 1  apps/DONJON39.map          rwxa
@@ -127,6 +128,7 @@ asm/test/hello.asm    SRC/HELLO.ASM 1  -                        rw
 apps/glouton.asm       SRC/GLOUTON.ASM 1  -                   rw
 apps/glout_data.inc  SRC/GLOUT_DATA.INC 1 -               rw
 apps/mire.asm         SRC/MIRE.ASM 1  -                      rw
+apps/calcul.asm       SRC/CALCUL.ASM 1 -                     rw
 bios/hardware.inc     BIOS/HARDWARE.INC 1 -                  rw
 bios/sysfunc.inc      BIOS/SYSFUNC.INC 1  -                  rw
 lib/ui.inc            LIB/UI.INC     1  -                    rw

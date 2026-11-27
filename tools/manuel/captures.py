@@ -148,6 +148,7 @@ def main():
         'osmvision': [],
         'osmvision_aide': [ord('?')],
         'osmvision_menu': [BAS, BAS, ESPACE],
+        'calcul': [ord(c_) for c_ in '=12.5*8=p/3'],
     }
     for nom, touches in scenes.items():
         m, r = vb.lance(c, s, touches, ov)

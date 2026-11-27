@@ -86,6 +86,21 @@ make -C bios osm39.hex    # debug Intel-hex link
   `ENVAHIS.HI`), `apps/calc.asm` (VisiCalc-like sheet, 26 x 50, cell texts in
   RAM page 3; Esc asks O/N while the sheet is unsaved) and `apps/edit.asm` (WordStar-like editor, gap buffer over RAM
   pages 2-3, files up to 64 KB minus 256 bytes). OSMVISION's "Editer" and "Ouvrir" on .ASM/.TXT/.INC launch `EDIT`.
+- `apps/calcul.asm` (CALCUL, in `/BIN`: the desktop's pocket calculator;
+  OSM-VISION key `=` or the Space menu's 13th item `Act_Calcul`, run by
+  bare name like EDIT). A 30 x 17 window; Esc = `RTS` (OSM-VISION restores
+  the screen). Exact decimal: a number = sign + 24 digits, one per byte
+  (10^12 .. 10^-11); results rounded half away from zero to 12 significant
+  digits and at most 11 decimals (what is shown is what is kept), >= 10^12
+  = Erreur (only C clears it). `Arrondir` needs only the next digit, so
+  `Divise` (long division, 36 quotient digits) and `Racine` (digit by
+  digit, odd numbers 20P+1...) stop at 10^-12. 25 pad keys = every
+  command: the keyboard picks one (`TabCles`) and selects it, the
+  joystick (`Joy_Evts`) moves the selection, its button presses it. Rows
+  are composed in `VisTxt` directly (raw CP437; `$FB` of our font is NOT
+  a root sign: the key says `Rac`) and copied by `vis_Ligne`. The single
+  source of the rules is `tools/calcul/calcul.py` (`Calcul`, `rangees()`).
+  After any change to either side, run `make -C test calcul`.
 - `apps/glouton.asm` (GLOUTON, arcade ghost AI, high score in `GLOUTON.HI`):
   maze and glyphs come only from `video/glyphes_glouton.py`, which writes font
   page 1 `$88-$FF` and generates `apps/glout_data.inc` (never edit it).
@@ -745,6 +760,7 @@ on 4 cores; logs in `test/tout/`; `tout-long` adds `zmachine-tout` and
 | `verifie_osm3d.py` | the real `apps/OSM3D` (`OSM3D.MAP`, `OSM3D.RUE` on the emulated card) with the VSYNC IRQ every frame and raw PS/2 arrows: at 7 stops (walk, turn, walk into a wall, U-turn) and 6 by the Valgelas bridge (under it on the ground, onto it by its ramp) the 30 rows of the screen = `osm3d.py`'s `ecran()` for the position and angle in memory (view, mini-map and frame, plate, help); every VRAM access inside the IRQ, <= 1900 estimated cycles after its entry, <= 546 bytes per frame; no walking into buildings; level and cell always agree (never on a deck at level 0 except `SOUS_PONT`, level 1 only on a deck); one Left/Right press = one 16/1024 step, held = one step per keyboard repeat (`appuis()`), Up held + Right tapped (the keyboard then repeats only Right) keeps walking, an arrow held with 30/s repeats then released stops, no keyboard byte lost by the NMI (a full queue drops bytes, as on the board); Esc: RTS, rows 25-29 given back, `rvec_IRQ` restored, key queue empty; frames per image measured | `make -C test osm3d` |
 | `verifie_sdtest.py` | the real `cmd/SDTEST` against an SPI-level SDHC card model on the SD-KBD-SON registers: 80 clocks /CS high, CMD0/CMD8 CRCs, ACMD41 with HCS, OCR, CID, CSD capacity, sector 0, 200 compared reads (missing tokens counted), write + read-back + restore at LBA `$00100000` on O, nothing written on N, no card; spacing between transfers as a lower bound in distinct bus accesses (>= 150 slow, >= 9 fast; 30 slow turns fail) | `make -C test sdtest` |
 | `verifie_tele.py` | the real `cmd/TELE` driven by the real `tools/tele/tele.py` over a simulated line (NMI ring in, TDR out): ping, R/W in page 1 (direct), page 2 (FarRead/FarWrite, page restored) and system RAM, call with registers and carry, a BIOS service through the table, bad sum / unknown command / bad length refused, Q leaves raw mode and returns; `depose.py` creates then replaces a file on the emulated card (one entry, content, page, address, attributes read back by `egofs_core`), missing folder refused | `make -C test tele` |
+| `verifie_calcul.py` | the real `apps/CALCUL` on the real BIOS: `Opere` (+ - x ÷), `Multiplie` with `Decal` = 2 (%) and `Racine` called directly on ~8000 random and edge numbers = `calcul.py` digit for digit (Erreur, no -0); 40 scripted and 30 random keyboard sessions and one joystick session (steps, repeat, diagonal, button, Clouris wiring): before every key, the LCD row, the 5 key rows (selection) and the help = `Calcul.rangees()`; VRAM writes <= 1650 estimated cycles after the frame; Esc returns. `verifie_bureau.py` adds `=` and Espace `=` from OSM-VISION | `make -C test calcul` |
 | `verifie_joycal.py` | the real `cmd/JOYCAL` on the real BIOS, port A scripted frame by frame: the machine's turned wiring with a bounce, a diagonal and a bit already taken (both refused and asked again) and a mirrored wiring give the right `/BIN/JOYSTICK.CFG` and name each bit and pin; `Joy_Init` + `Joy_Lit` on all 32 press combinations; no file or 5 kinds of bad file = the Clouris wiring; no AY = nothing pressed; Esc keeps the old file | `make -C test joycal` |
 | `verifie_aytest.py` | the real `cmd/AYTEST` against a simulated AY: 28/28 read-backs on a sound chip, 26/28 with the two R9 faults shown when R9 reads 0; each listening step's registers and length (A, B, C at period 262, chord, noise, envelope), silence between steps and at the end, ports never outputs; the BIOS sequencer (`snd_play` + the IRQ's `AUDIO_UPDATE`) drives A and C frame by frame for the boot jingle and a score copied from page 1, then silence | `make -C test aytest` |
 | `verifie_ayjoue.py` | the real `cmd/AYJOUE` (`lib/ay_joue.asm`) with the VSYNC IRQ taken every frame and a simulated AY: register state frame by frame = `tools/ay/ay.py`'s model (a test song using the whole format, then KOROBEINIKI until Esc), ends by itself, `rvec_IRQ` restored, silence, frame writes inside the IRQ, `son_coupe` zeroes volumes, no argument / missing file / not a song refused | `make -C test ayjoue` |
@@ -1100,7 +1116,7 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     unused. Proven by `make -C test joycal` and `bureau` (OSM-VISION); the
     games' verifiers run with the stick at rest. Live reading:
     `tools/tele/clouris.py`.
-  - OSMVISION is a file manager: the Space menu (11 items) and Ctrl
+  - OSMVISION is a file manager: the Space menu (13 items) and Ctrl
     shortcuts — Copier `C`/Ctrl+C, Couper `U`/Ctrl+X, Coller `L`/Ctrl+V,
     Nouveau dossier `N`/Ctrl+N, plus Renommer, Supprimer... The clipboard is
     a name + its folder number; Coller rebuilds the full path

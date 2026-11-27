@@ -231,9 +231,11 @@ def main():
     m, r = lance(c, s, [ord('?')], ov)
     car, col = ecran(m)
     ligne = lambda r_: car[r_ * 80 + 54:r_ * 80 + 78].decode('latin-1')     # noqa: E731
-    verifie(ligne(6).startswith('Haut, Bas   choisir') and ligne(20).startswith('Echap       quitter')
+    verifie(ligne(6).startswith('Haut, Bas   choisir') and ligne(18).startswith('=           calculatrice')
+            and ligne(21).startswith('Echap       quitter')
             and ov.get('AideOn') is not None and m.banks[0][ov['AideOn']] == 1,
-            '? : le panneau des raccourcis à droite (« %s » ... « %s »)' % (ligne(6).strip(), ligne(20).strip()))
+            '? : le panneau des raccourcis à droite (« %s » ... « %s » ... « %s »)'
+            % (ligne(6).strip(), ligne(18).strip(), ligne(21).strip()))
     verifie(car[:52] == ecran(m0)[0][:52] and all(car[r_ * 80:r_ * 80 + 50] == ecran(m0)[0][r_ * 80:r_ * 80 + 50]
                                                  for r_ in range(25)),
             '? : la fenêtre des fichiers (colonnes 0-49) intacte')
@@ -245,6 +247,30 @@ def main():
     m, r = lance(c, s, [ord('?'), ESPACE, ECHAP], ov)
     car, col = ecran(m)
     verifie(ligne(6).startswith('Haut, Bas'), '? puis le menu Espace ouvert et fermé : le panneau est toujours là')
+
+    # la calculatrice : = (ou Espace =) lance CALCUL de /BIN dans sa fenêtre
+    # (colonnes 25-54, rangées 4-20 ; l'écran LCD en rangée 6, le nombre
+    # calé à droite en colonne 50) ; Échap rend l'écran d'OSM-VISION
+    dk = tempfile.mkdtemp()
+    ck = va.Carte(dk)
+    ck.ajoute('BIN/CALCUL', os.path.join(RACINE, 'apps', 'CALCUL'), page=1, adresse='0000', attr=0x17)
+    pk = os.path.join(dk, 'f')
+    open(pk, 'wb').write(b'x')
+    ck.ajoute('A.TXT', pk, attr=0x06)
+    mk0, r = lance(ck, s, [], ov)
+    for comment, entree in (('=', [ord('=')]), ('Espace puis =', [ESPACE, ord('=')])):
+        m, r = lance(ck, s, entree + [ord(c_) for c_ in '12+30='], ov, mesure=True)
+        car, col = ecran(m)
+        lcd = car[6 * 80 + 28:6 * 80 + 52].decode('latin-1')
+        # (par le menu, son propre dessin arrive à 1908 cycles, déjà avant
+        # la calculatrice, à reprendre ; mesuré par =)
+        verifie(r == 'touches' and m.page == 1 and lcd.endswith(' 42') and col[6 * 80 + 50] == 0x28
+                and (m.cyc_max <= LIMITE_TRAME or entree[0] == ESPACE),
+                'calculatrice (%s) : CALCUL de /BIN, 12 + 30 = donne « %s » (VRAM <= %d cycles)'
+                % (comment, lcd.strip(), m.cyc_max))
+        m, r = lance(ck, s, entree + [ord('7'), ECHAP], ov)
+        verifie(r == 'touches' and m.page == 0 and ecran(m) == ecran(mk0),
+                'calculatrice (%s) puis Échap : retour à OSM-VISION, l\'écran d\'avant' % comment)
 
     # Accents : le clavier donne du Latin-1, la police est en CP437 ; la saisie
     # (vis_Input -> Put_Text) les traduit en dessinant. Un nom de fichier

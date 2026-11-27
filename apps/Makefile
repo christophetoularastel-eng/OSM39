@@ -15,7 +15,7 @@ LD = lwlink
 ASFLAGS = --format=obj --6309
 LDFLAGS = --format=raw --section-base=.code=0x0000
 
-APPS = MIRE ENVAHIS CALC EDIT GLOUTON SON PAROLE PONT MINITEL DONJON39 OSMCITY OSM3D
+APPS = MIRE ENVAHIS CALC CALCUL EDIT GLOUTON SON PAROLE PONT MINITEL DONJON39 OSMCITY OSM3D
 # Modules de page (passerelle FAR_CALLN) : liés à $0000, table de
 # fonctions en tête, chargés en page 2 ou 3 par l'application.
 MODULES = PONT2 PONT3
@@ -29,6 +29,9 @@ ENVAHIS: envahis.o
 	$(LD) $(LDFLAGS) --map=$@.map -o $@ $<
 
 CALC: calc.o
+	$(LD) $(LDFLAGS) --map=$@.map -o $@ $<
+
+CALCUL: calcul.o
 	$(LD) $(LDFLAGS) --map=$@.map -o $@ $<
 
 EDIT: edit.o

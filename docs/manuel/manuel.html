@@ -119,7 +119,7 @@
 <h2>Ce que vous pouvez faire</h2>
 <p>Dès la mise sous tension, OSM39 joue sa petite mélodie et ouvre <strong>OSM-VISION</strong>, son bureau. De là, tout se fait au clavier :</p>
 <ul>
-  <li><strong>écrire et calculer</strong> avec EDIT, un traitement de texte, et CALC, un tableur ;</li>
+  <li><strong>écrire et calculer</strong> avec EDIT, un traitement de texte, CALC, un tableur, et la calculatrice du bureau ;</li>
   <li><strong>se connecter au Minitel</strong> : avec un modem, OSM39 appelle les services Vidéotex encore ouverts, comme MiniPavi ;</li>
   <li><strong>jouer</strong> à BRIQUES, ENVAHIS, GLOUTON ou DONJON39, un labyrinthe en trois dimensions ;</li>
   <li><strong>écouter de la musique</strong> et <strong>faire parler la machine</strong> en français avec PAROLE ;</li>
@@ -329,6 +329,7 @@ python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
   <tr><td><kbd>P</kbd></td><td><b>Propriétés</b> : taille, adresse de chargement, et les attributs à cocher</td></tr>
   <tr><td><kbd>S</kbd></td><td><b>Supprimer</b>, après confirmation</td></tr>
   <tr><td><kbd>T</kbd></td><td>ouvrir le <b>Terminal</b></td></tr>
+  <tr><td><kbd>=</kbd></td><td>ouvrir la <b>calculatrice</b></td></tr>
 </table>
 
 <h2>Copier, couper, coller</h2>
@@ -338,6 +339,26 @@ python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
 <h2>Le son</h2>
 <p>Le petit haut-parleur de la barre d'état montre si le son est en marche ou coupé. La touche <kbd>M</kbd> coupe et rétablit le son, pour OSM-VISION comme pour toutes les applications.</p>
 <p>Si la carte d'horloge est branchée sur le connecteur du PIA, la date et l'heure s'affichent à droite du haut-parleur (<code>14/11/2026 18:32</code>), relues chaque seconde. Sans carte, cet endroit reste vide. L'horloge se règle avec la commande <code>HORLOGE</code>.</p>
+
+<h2>La calculatrice</h2>
+<p>La touche <kbd>=</kbd> (ou la ligne <b>Calculatrice</b> du menu) pose une calculatrice de poche sur le bureau ; <kbd>Échap</kbd> la referme et rend le bureau tel qu'il était. Elle se tape au clavier, pavé numérique compris, ou se pilote au joystick : le joystick déplace la touche en jaune, le bouton l'appuie. Une touche frappée au clavier passe elle aussi en jaune.</p>
+<figure>
+  <img src="images/calcul.png" alt="La calculatrice posée sur le bureau d'OSM-VISION">
+  <figcaption><b>La calculatrice.</b> 12,5 × 8 = 100 a été mis en mémoire (le <code>M</code> à gauche de l'écran), et une division attend son second nombre.</figcaption>
+</figure>
+<table>
+  <tr><th>Au clavier</th><th>Touche</th></tr>
+  <tr><td><kbd>0</kbd> à <kbd>9</kbd>, <kbd>.</kbd> ou <kbd>,</kbd></td><td>les chiffres et la virgule</td></tr>
+  <tr><td><kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> (ou <kbd>x</kbd>) <kbd>/</kbd></td><td>les quatre opérations</td></tr>
+  <tr><td><kbd>=</kbd> ou <kbd>Entrée</kbd></td><td>le résultat ; répétée, refait la dernière opération (2 × 3 = = = donne 6, 18, 54)</td></tr>
+  <tr><td><kbd>%</kbd></td><td>le pourcentage : 200 + 10 % = donne 220, 200 × 10 % = donne 20</td></tr>
+  <tr><td><kbd>V</kbd></td><td>la racine carrée (touche <b>Rac</b>)</td></tr>
+  <tr><td><kbd>N</kbd></td><td>change le signe (touche <b>±</b>)</td></tr>
+  <tr><td><kbd>Retour arrière</kbd></td><td>efface le dernier chiffre tapé (touche <b>&lt;-</b>)</td></tr>
+  <tr><td><kbd>C</kbd> ou <kbd>Suppr</kbd></td><td>remet tout à zéro, sauf la mémoire</td></tr>
+  <tr><td><kbd>P</kbd> <kbd>M</kbd> <kbd>R</kbd> <kbd>E</kbd></td><td>la mémoire : <b>M+</b> y ajoute le nombre affiché, <b>M-</b> l'en retranche, <b>MR</b> la rappelle, <b>MC</b> l'efface</td></tr>
+</table>
+<p>Elle calcule en décimal exact, comme une calculatrice de poche à 12 chiffres et non comme un ordinateur : 0,1 + 0,2 donne bien 0,3. Un résultat garde 12 chiffres significatifs et 11 décimales au plus, arrondi au plus proche (2 ÷ 3 = 0.66666666667). Ce qui est affiché est exactement ce qui est gardé pour la suite. Il n'y a pas de priorités : <code>2 + 3 × 4 =</code> donne 20, chaque opération se fait dans l'ordre. Un résultat de mille milliards ou plus, une division par zéro ou la racine d'un nombre négatif affichent <code>Erreur</code> ; seule la touche <b>C</b> l'efface.</p>
 
 <h2>L'aide</h2>
 <p>Vous ne vous souvenez plus d'une touche ? Frappez <kbd>?</kbd> : le panneau des raccourcis s'ouvre à droite du bureau. Il reste affiché pendant que vous travaillez, et revient même après une application ; frappez de nouveau <kbd>?</kbd> pour le refermer.</p>

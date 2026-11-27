@@ -1462,3 +1462,14 @@ même port, ici le terminal VT100, donne des échecs aléatoires).
   joystick » avec JOYCAL, le pointeur d'OSM-VISION, JOYCAL dans les
   commandes, un tableau du joystick dans les jeux, « Le joystick dans vos
   programmes » : Joy_Init, Joy_Lit, Joy_Evts).
+- 2026-11-27 : CALCUL, la calculatrice de poche d'OSM-VISION (touche =,
+  13e ligne du menu Espace, une ligne du panneau d'aide) : décimal exact
+  à 12 chiffres, modèle tools/calcul/calcul.py, test/verifie_calcul.py
+  (l'arithmétique au chiffre près, l'écran à chaque touche, le joystick).
+  Trouvé par le vérificateur : un résultat négatif arrondi à zéro donnait
+  « -0 ». Le $FB de notre police n'est pas un √ : la touche dit « Rac ».
+  Constaté : l'ouverture du menu Espace écrit en VRAM jusqu'à ~1908
+  cycles estimés après le signal de trame (limite 1650), déjà avant la
+  calculatrice ; à reprendre.
+  La section « Joystick » de docs/materiel-en-suspens.md est close (le
+  logiciel et le manuel sont faits).

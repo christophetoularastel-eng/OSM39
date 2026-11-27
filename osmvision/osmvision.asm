@@ -25,7 +25,7 @@ VISIBLE_ROWS    equ 16          ; lignes de la liste visibles dans la fenêtre
 ASCII_0         equ $30
 MENU_X          equ 26          ; colonne du menu contextuel
 MENU_W          equ 22          ; largeur (bordures comprises)
-MENU_ITEMS      equ 12          ; Ouvrir Editer Voir Renommer Copier Couper Coller Nouveau-dossier Executer Infos Supprimer Terminal
+MENU_ITEMS      equ 13          ; Ouvrir Editer Voir Renommer Copier Couper Coller Nouveau-dossier Executer Infos Supprimer Terminal Calculatrice
 MENU_H          equ MENU_ITEMS+2
 MENU_Y_MAX      equ 24-MENU_H   ; ligne max du haut du menu (ombre comprise, il tient à l'écran)
 PATH_NIV        equ 8           ; niveaux de dossiers d'un chemin reconstruit (Coller)
@@ -194,6 +194,8 @@ EL_Touche:
     LBEQ    Act_NewDir
     CMPA    #$20            ; Espace -> menu contextuel
     LBEQ    Menu_Open
+    CMPA    #'='            ; '=' : la calculatrice (CALCUL, de /BIN)
+    LBEQ    Act_Calcul
     CMPA    #'t'            ; 't' / 'T' : Terminal (le SHELL dans une fenêtre)
     LBEQ    Act_Terminal
     CMPA    #'T'
@@ -1033,10 +1035,10 @@ MDO_Attr:
     RTS
 
 MenuText:       FDB Txt_Open,Txt_Edit,Txt_View,Txt_Ren,Txt_Copy,Txt_Cut,Txt_Paste,Txt_NewDir
-                FDB Txt_Exec,Txt_Info,Txt_Del,Txt_Term
+                FDB Txt_Exec,Txt_Info,Txt_Del,Txt_Term,Txt_Calcul
 MenuAction:     FDB Act_Open,Act_Edit,Act_View,Act_Rename,Act_Copy,Act_Cut,Act_Paste,Act_NewDir
-                FDB Act_Command,Act_Info,Act_Delete,Act_Terminal
-MenuKeys:       FCB $4F,$45,$56,$52,$43,$55,$4C,$4E,$58,$50,$53,$54 ; O E V R C U L N X P S T
+                FDB Act_Command,Act_Info,Act_Delete,Act_Terminal,Act_Calcul
+MenuKeys:       FCB $4F,$45,$56,$52,$43,$55,$4C,$4E,$58,$50,$53,$54,'=' ; O E V R C U L N X P S T =
 Txt_Open:       FCN " Ouvrir         Ent "
 Txt_Edit:       FCN " Editer           E "
 Txt_View:       FCN " Voir             V "
@@ -1049,6 +1051,7 @@ Txt_Exec:       FCN " Executer...      X "
 Txt_Info:       FCN " Proprietes...    P "
 Txt_Del:        FCN " Supprimer        S "
 Txt_Term:       FCN " Terminal         T "
+Txt_Calcul:     FCN " Calculatrice     = "
 
 ; ===================================================================
 ; ACTIONS
@@ -1825,6 +1828,18 @@ Act_Edit:
     CLR     RunPause
     JSR     Run_Command
     JMP     After_Run
+
+; ----------------------- La calculatrice (touche = ou le menu) : CALCUL,
+; une application de /BIN, dans sa fenêtre sur le bureau
+Act_Calcul:
+    LDU     #CmdBuf
+    LDX     #Prog_Calcul
+    JSR     Append
+    CLR     ,U
+    CLR     RunPause
+    JSR     Run_Command
+    JMP     After_Run
+Prog_Calcul:    FCN "CALCUL"
 
 ; ------------------------------------- Exécuter une commande (Tab / menu)
 Act_Command:
@@ -3427,6 +3442,7 @@ Txt_Aide:
     FCN     "Ctrl+N      dossier"
     FCN     "Suppr       supprimer"
     FCN     "T           Terminal"
+    FCN     "=           calculatrice"
     FCN     "M           son oui/non"
     FCN     "?           cette aide"
     FCN     "Echap       quitter"
