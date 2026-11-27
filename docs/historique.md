@@ -1392,3 +1392,20 @@ même port, ici le terminal VT100, donne des échecs aléatoires).
 - `AGENTS.md` disait que les octets impairs des pages 1-7 n'étaient pas
   affichés et qu'il fallait garder `$08` en `$9000-$9FFF` : vrai pour
   l'ancien câblage seulement.
+
+## 26 nov. 2026 — Liste du matériel en suspens ; l'horloge marche
+
+- `docs/materiel-en-suspens.md` rassemble les problèmes matériels connus
+  (74HC165 de la carte SD chargé en lecture, PCB à router, défauts
+  d'affichage, neige, R9 de l'AY, police 28C256, joystick).
+- L'horloge : le MC146818 de récupération ne battait pas ; des MC146818
+  neufs marchent très bien (l'utilisateur). `AGENTS.md` le disait « non
+  prouvé ».
+
+## 27 nov. 2026 — La couleur 8 x 1 vérifiée sur la carte
+
+- Les 4 fils de U512 soudés. `cmd/GRAPHE` propre mais identique à avant (le
+  BIOS ne met qu'une couleur par case) : la mire `tools/tele/essai_8x1.asm`
+  (par TELE) met une couleur différente sur chaque ligne des rangées 0-11
+  et une par case en dessous ; la carte montre exactement l'aperçu calculé
+  sur le PC.

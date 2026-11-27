@@ -120,3 +120,5 @@ tools/osm3d/apercus/
 # OSM3D : captures Street View (Google) et dessins de l utilisateur ; captures webcam
 tools/osm3d/essais/
 tools/tele/neige_captures/
+tools/tele/essai_8x1.bin
+tools/tele/essai_8x1.lst

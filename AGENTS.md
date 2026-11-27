@@ -862,6 +862,9 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     of the KiCad repo; text mode unchanged): one colour per LINE of 8
     points (8 x 1), the odd byte right after the pixel byte. A board
     without the wires shows the line-0 colours (page 0) for every line.
+    Soldered and checked on the board on 2026-11-27 with
+    `tools/tele/essai_8x1.asm` (through TELE, A = seconds: rows 0-11 one
+    colour per line, rows 12-24 one per cell, for comparison).
   - **The BIOS graphic mode** (`bios/graphe.asm`, BIOS2; service
     `sys_Graphe`, B = function, X = parameter block of signed words, A =
     mode or attribute; functions and exact effects in
@@ -1312,9 +1315,13 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     kept 35 min powered off. The DS1287 needs MOT (pin 1) at VCC (internal
     ~20k pull-down = Intel mode), is inaccessible below 4.25 V and for
     200 ms after power-up, and its VRT bit, once 0, stays 0 (so HORLOGE
-    always says the battery failed). The MC146818 did not tick there
-    (salvaged crystal, not proven). A badly soldered R/W gave "reads
-    right, every write ignored".
+    always says the battery failed). A salvaged MC146818 did not tick;
+    newly bought MC146818 chips work very well (user, 2026-11-26). A
+    badly soldered R/W gave "reads right, every write ignored".
+- Open hardware issues (SD 74HC165 loading on reads, PCB to route,
+  display defects, snow, AY R9, 28C256 font, joystick):
+  `docs/materiel-en-suspens.md`; a solved one leaves that file and goes
+  to `docs/historique.md`.
 - `bios/verifie_ext.py` (in the BIOS build): no EPROM code names a BIOS2
   label except through `ExtV`.
 - `LDMD #$01` in `__start` enables native mode. `IT.asm` owns all handlers
