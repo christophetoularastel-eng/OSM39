@@ -106,6 +106,7 @@ Briques_Start:
 TS_Abandon:
     RTS
 TS_VisOk:
+    JSR     Joy_Init                ; le joystick (/BIN/JOYSTICK.CFG)
     ; 1. Initialisation du jeu
     JSR     Reset_Score
     JSR     Clear_Board
@@ -139,11 +140,14 @@ ML_NoScore:
     JSR     Move_Down
 
 Check_Keys:
+    JSR     Joy_Touche      ; le joystick d'abord : A = la touche qu'il fait
+    BNE     CK_Action
     TST     NEW_CODE        ; Y a-t-il une nouvelle touche pressée ? (Ton astuce !)
     LBEQ    Main_Loop        ; Si 0, aucune touche -> on saute le scan bloquant
     JSR     [table_function_ram+sys_scan_keyboard]
     CMPA    #0
     LBEQ    Main_Loop
+CK_Action:
 
     CMPA    #$1B            ; Echap -> Quitter
     BEQ     Quit_Game
@@ -216,9 +220,7 @@ Do_Pause:
     JSR     [VIS_TABLE+vis_Text]
     JSR     [VIS_TABLE+vis_Sync_End]
 DP_Wait:
-    JSR     [table_function_ram+sys_scan_keyboard]
-    CMPA    #0
-    BEQ     DP_Wait
+    JSR     Attend_Touche   ; une touche, ou le bouton du joystick
     JSR     [VIS_TABLE+vis_Sync_Begin]
     LDA     #PAUSE_X
     LDB     #PAUSE_Y
@@ -227,6 +229,47 @@ DP_Wait:
     JSR     [VIS_TABLE+vis_Rect_Restore]
     JSR     [VIS_TABLE+vis_Sync_End]
     LBRA    Main_Loop
+
+; -------------------------------------------------------------------
+; JOYSTICK (lib/joy.asm, Joy_Evts : un pas à l'appui, puis toutes les 3
+; trames après 12) : Joy_Touche -> A = la touche qu'il fait (Z = 1 :
+; aucune) : bouton = Espace (chute), haut = rotation, gauche, droite, bas.
+; -------------------------------------------------------------------
+Joy_Touche:
+    JSR     Joy_Evts
+    BEQ     JT_Fin
+    LDB     #$20
+    BITA    #JOY_BOUTON
+    BNE     JT_B
+    LDB     #$80
+    BITA    #JOY_HAUT
+    BNE     JT_B
+    LDB     #$82
+    BITA    #JOY_GAUCHE
+    BNE     JT_B
+    LDB     #$83
+    BITA    #JOY_DROITE
+    BNE     JT_B
+    LDB     #$81
+JT_B:
+    TFR     B,A
+JT_Fin:
+    RTS
+
+; Attend_Touche : une touche (sys_kbd_poll), ou le bouton du joystick
+; (A = $20, Espace), une trame à la fois -> A
+Attend_Touche:
+    JSR     [table_function_ram+sys_kbd_poll]
+    TSTA
+    BNE     AT_Fin
+    LDE     #1
+    JSR     [table_function_ram+sys_video_wait_vsync]
+    JSR     Joy_Evts
+    BITA    #JOY_BOUTON
+    BEQ     Attend_Touche
+    LDA     #$20
+AT_Fin:
+    RTS
 
 ; -------------------------------------------------------------------
 ; LOGIQUE DU JEU (Grille,Collisions & Pièces)
@@ -342,10 +385,7 @@ Game_Over:
     JSR     [VIS_TABLE+vis_Sync_End]
 
 GO_Wait:
-    ;JSR     [table_function_ram+sys_video_wait_vsync]
-    ;TST     NEW_CODE
-    ;BPL     GO_Wait         ; Attend une touche sans bloquer les IRQ
-    JSR     [table_function_ram+sys_scan_keyboard]
+    JSR     Attend_Touche   ; une touche, ou le bouton du joystick (Espace)
 
     CMPA    #$1B            ; Echap -> Quitter vers OSM-VISION
     lBEQ     Quit_Game
@@ -1109,3 +1149,4 @@ BoardGrid       rmb BOARD_W*BOARD_H ; 10x20 octets
 ; Les services d'affichage (lib/vis.inc) : l'application tourne dans sa
 ; propre page et emporte sa copie (OSM-VISION, en page 0, ne se voit pas).
     include "../lib/vision.asm"
+    include "../lib/joy.asm"

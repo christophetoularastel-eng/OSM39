@@ -29,7 +29,7 @@ JOURNAUX = os.path.join(ICI, 'tout')
 # Les plus longues d'abord (mesuré : bbcbasic et zmachine ~10 min)
 CIBLES = ['bbcbasic', 'zmachine', 'asm', 'bureau', 'graphe', 'minitel', 'donjon39', 'osmcity', 'osm3d',
           'demarrage', 'dossiers', 'fs', 'parole', 'terminal', 'farcall',
-          'tele', 'clavier', 'horloge', 'aytest', 'ayjoue', 'sdtest',
+          'tele', 'clavier', 'horloge', 'aytest', 'joycal', 'ayjoue', 'sdtest',
           'contrat', 'constantes', 'negatifs']
 LONGUES = {'zmachine': 'zmachine-tout', 'asm': 'asm-tout'}
 # Carte mono : le banc V4 (étapes 1-8) refuse de s'assembler, donc pas de

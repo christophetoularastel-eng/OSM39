@@ -29,10 +29,11 @@ import carte                    # noqa: E402  (VRAM : v4 ou mono)
 HAUT, BAS, ENTREE, ECHAP, ESPACE = 0x80, 0x81, 0x0D, 0x1B, 0x20
 LIMITE_TRAME = 1650     # cycles estimés après le signal de trame (voir Bureau)
 CTRL_C, CTRL_X, CTRL_V, CTRL_N = 0x03, 0x18, 0x16, 0x0E
-REPOS = 0xC0                    # la Clouris branchée, aucun doigt (IOA6-7 libres : 1)
+REPOS = 0xC0                    # le joystick branché, rien d'appuyé (IOA6-7 libres : 1)
 ABSENTE = None                  # rien de branché : R14 = $FF (tirages de l'AY)
-# Les essais disent les clous touchés (bit à 1) ; la carte Clouris à
-# transistors PNP (lib/clouris.asm, CLOU_INVERSE = 1) donne un 0 par doigt posé :
+# Les essais disent les contacts appuyés (bit à 1) ; un micro-rupteur met son
+# bit à 0 (lib/joy.asm ; sans /BIN/JOYSTICK.CFG, le brochage de la Clouris :
+# IOA0 haut, IOA1 droite, IOA2 bas, IOA3 gauche, IOA5 bouton) :
 # R14 lu = contacts ^ $3F.
 
 
@@ -40,12 +41,26 @@ def r14(contacts):
     return 0xFF if contacts is ABSENTE else contacts ^ 0x3F
 
 
+def code_intact(m, code, ov):
+    """Le CODE d'OSM-VISION (page 0) = son binaire, sauf ses variables :
+    celles de lib/vision.asm (WinPlane..SaveBuf), de lib/joy.asm
+    (JoyAY..JoyNom) et les siennes (à partir de FileCount)."""
+    exclus = [(ov['WinPlane'], ov['SaveBuf'] + 1400), (ov['JoyAY'], ov['JoyNom'] + 16),
+              (ov['FileCount'], len(code))]
+    d = 0
+    for e0, e1 in sorted(exclus):
+        if m.banks[0][d:e0] != code[d:e0]:
+            return False
+        d = max(d, e1)
+    return True
+
+
 class Fini(Exception):
     pass
 
 
 class Bureau(va.MachineAsm):
-    """touches : codes du clavier, ou (R14, n) : la Clouris tient R14 pendant
+    """touches : codes du clavier, ou (R14, n) : le joystick tient R14 pendant
     n lectures du port A (une par trame), sans touche."""
 
     def __init__(self, image, s, touches):
@@ -67,7 +82,7 @@ class Bureau(va.MachineAsm):
         # chargement, en haut à droite, écrit sans synchronisation)
         if self.mesure_cycles == 'actif' and 0x8000 <= a & 0xFFFF < 0xA000 and self.pc_i < 0x8000:
             self.cyc_max = max(self.cyc_max, self.cyc)
-        # une lecture de la Clouris par trame : elle commence par le choix de
+        # une lecture du joystick par trame : elle commence par le choix de
         # R14 (l'émulateur relit aussi l'adresse d'un STA : on ne compte pas
         # les lectures)
         if a & 0xFFFF == v.AY_ADR and val & 255 == 14:
@@ -90,7 +105,7 @@ class Bureau(va.MachineAsm):
             t = self.touches
             if t and isinstance(t[0], tuple):
                 if pc == s['scan_keyboard']:
-                    raise RuntimeError('scan_keyboard pendant un contact de la Clouris')
+                    raise RuntimeError('scan_keyboard pendant un contact du joystick')
                 self.a = 0
             elif not t:
                 raise Fini()
@@ -104,7 +119,7 @@ class Bureau(va.MachineAsm):
         if pc == s['video_wait_vsync']:
             t = self.touches
             if not self.ay_present and t and isinstance(t[0], tuple):
-                # sans AY, la Clouris n'est plus lue : une trame à vide = une attente
+                # sans AY, le joystick n'est plus lu : une trame à vide = une attente
                 port, n = t[0]
                 if n <= 1:
                     t.pop(0)
@@ -246,7 +261,7 @@ def main():
     verifie(i > 0 and car[i - 1] not in (0x82, 0xE9),
             'Renommer (nom de fichier, INP_MAJ) : « é » refusé, « QW » inscrit')
 
-    # Sans AY-3-8910 (puce retirée) : la Clouris lit le bus vide ($50 : des
+    # Sans AY-3-8910 (puce retirée) : le joystick lit le bus vide ($50 : des
     # bits à 0, donc des « doigts posés »). La sonde de Clou_Lit le voit :
     # pas de pointeur, et le clavier marche (M change l'icône du son)
     m, r = lance(c, s, [(REPOS, 20), ord('M'), (REPOS, 3)], ov, sans_ay=True)
@@ -296,14 +311,14 @@ def main():
     verifie(barre(m) == b'14/11/2026 3-:32', 'chiffre BCD impossible (heure $3F) : « - » (« %s »)'
             % barre(m).decode('latin-1'))
 
-    # la Clouris (R14) : un contact compte à la 2e trame, puis répétition
+    # le joystick (R14, lib/joy.asm Joy_Evts) : un contact compte à la 2e trame, puis répétition
     # après 12 trames, un pas toutes les 3 ; pointeur parti de (30, 12)
     def tape(v, n=1):
         return [(v, 2), (REPOS, 2)] * n
     po = lambda m: (m.banks[0][ov['PtrX']], m.banks[0][ov['PtrY']])     # noqa: E731
     m, r = lance(c, s, [(REPOS, 10), (ABSENTE, 10)], ov)
     verifie(ecran(m) == ecran(m0) and m.banks[0][ov['PtrVu']] == 0,
-            'Clouris au repos (R14 = $FF), puis absente ($FF) : pas de pointeur, écran inchangé')
+            'joystick au repos (R14 = $FF), puis absent ($FF) : pas de pointeur, écran inchangé')
     m, r = lance(c, s, tape(0xC2), ov)
     car, col = ecran(m)
     k = 12 * 80 + 31
@@ -324,32 +339,27 @@ def main():
             'pointeur sur ZJEU : sélectionné et recoloré, la flèche par-dessus (jaune sur bleu, $96) (%d)' % m.banks[0][ov['Selection']])
     m, r = lance(c, s, tape(0xC1, 3) + tape(0xC8, 10) + tape(0xC1, 2) + tape(0xE0), ov)
     verifie(m.mem[s['fs_dossier']:s['fs_dossier'] + 2] != b'\0\0' and m.banks[0][ov['Selection']] == 0,
-            'pointeur sur ZJEU puis sur APPS, un clic : on entre dans le dossier')
+            'pointeur sur ZJEU puis sur APPS, le bouton : on entre dans le dossier')
     m, r = lance(c, s, tape(0xC8, 25) + tape(0xC1, 3), ov)
     verifie(po(m) == (5, 9) and m.banks[0][ov['Selection']] == 0, 'hors de la liste (colonne 5) : la sélection ne bouge pas')
-    m, r = lance(c, s, tape(0xD0), ov)
-    car, col = ecran(m)
-    verifie(b'Ouvrir' in car[9 * 80:10 * 80] and car[19 * 80 + 27:19 * 80 + 38] == b' Supprimer ',
-            'centre : le menu Espace s\'ouvre')
-    # menu en ligne 8 (entrées lignes 9-20, colonnes 27-46) ; flèche en (30, 12)
-    m, r = lance(c, s, tape(0xD0) + tape(0xC4, 2), ov)
+    # le menu (Espace) : en ligne 8 (entrées lignes 9-20, colonnes 27-46) ;
+    # la flèche du joystick part de (30, 12)
+    m, r = lance(c, s, [ESPACE] + tape(0xC4, 2), ov)
     car, col = ecran(m)
     k2 = 14 * 80 + 30
     verifie(m.banks[0][ov['MenuSel']] == 5 and car[k2] == 0x1F and col[14 * 80 + 28] == 0x1F
             and car[14 * 80 + 27:14 * 80 + 30] == b' Co' and car[14 * 80 + 31:14 * 80 + 34] == b'per',
-            'centre, puis bas, bas : la flèche sur « Couper », qui passe en bleu (6e entrée)')
-    m, r = lance(c, s, tape(0xD0) + tape(0xC4, 2) + tape(0xD0), ov)
-    car, col = ecran(m)
-    verifie(m.banks[0][ov['MenuSel']] == 5 and car[:k2] == car0[:k2] and car[k2 + 1:] == car0[k2 + 1:]
-            and col[:k2] == col0[:k2] and col[k2 + 1:] == col0[k2 + 1:],
-            'centre, bas, bas, centre : menu refermé, écran rendu (la flèche seule en plus)')
-    m, r = lance(c, s, [BAS] + tape(0xD0) + tape(0xC4, 2) + tape(0xE0), ov)
-    verifie(m.banks[0][ov['ClipMode']] == 1, 'sur EDIT : centre, flèche sur « Copier », pouce : copié (ClipMode %d)'
+            'Espace, puis bas, bas au joystick : la flèche sur « Couper », qui passe en bleu (6e entrée)')
+    m, r = lance(c, s, [BAS, ESPACE] + tape(0xC4, 2) + tape(0xE0), ov)
+    verifie(m.banks[0][ov['ClipMode']] == 1, 'sur EDIT : Espace, flèche sur « Copier », bouton : copié (ClipMode %d)'
             % m.banks[0][ov['ClipMode']])
-    m, r = lance(c, s, tape(0xD0) + tape(0xC8, 10) + tape(0xE0), ov)
+    m, r = lance(c, s, [ESPACE] + tape(0xC8, 10) + tape(0xE0), ov)
     car, col = ecran(m)
     verifie(m.banks[0][ov['ClipMode']] == 0 and car[:k2 - 300] == car0[:k2 - 300],
-            'centre, flèche hors du menu, pouce : menu refermé, rien de fait')
+            'Espace, flèche hors du menu, bouton : menu refermé, rien de fait')
+    m, r = lance(c, s, tape(0xD0), ov)
+    verifie(ecran(m) == ecran(m0) and m.banks[0][ov['PtrVu']] == 0,
+            'IOA4 (l\'ancien centre de la Clouris) : plus rien (le menu : Espace)')
 
     # une liste de 20 fichiers : la flèche poussée contre le bas, puis le haut
     d2 = tempfile.mkdtemp()
@@ -512,10 +522,9 @@ def main():
         except Exception as e:      # noqa: BLE001 (un plantage de l'émulateur = un échec)
             r = 'PLANTE : %s' % e
         # le CODE d'OSM-VISION intact : ses variables bougent (celles de
-        # lib/vision.asm, WinPlane..SaveBuf, et les siennes, FileCount..)
-        a_, b_ = ov['WinPlane'], ov['SaveBuf'] + 1400
-        intact = (m.banks[0][:a_] == code[:a_] and
-                  m.banks[0][b_:ov['FileCount']] == code[b_:ov['FileCount']])
+        # lib/vision.asm, WinPlane..SaveBuf, celles de lib/joy.asm,
+        # JoyAY..JoyNom, et les siennes, FileCount..)
+        intact = code_intact(m, code, ov)
         verifie(m.vu_page1 > 1000 and not r.startswith('PLANTE') and intact,
                 '%-8s : tourne en page 1 (%d instructions), OSM-VISION intact (%s)' % (nom, m.vu_page1, r))
 
@@ -585,8 +594,7 @@ def main():
         verifie(('ver' in t or 'ver' not in tape_txt) and 'pwd' in t and 'exit' in t, 'Terminal (%s) : ' % comment + 'la saisie est renvoyée en écho')
         verifie('\n/' in t.replace('\r', '') or '/\n' in t.replace('\r', ''),
                 'Terminal (%s) : ' % comment + 'PWD (page 1) affiche le dossier (%r)' % t[-120:])
-        a_, b_ = ov['WinPlane'], ov['SaveBuf'] + 1400
-        intact = (m.banks[0][:a_] == code[:a_] and m.banks[0][b_:ov['FileCount']] == code[b_:ov['FileCount']])
+        intact = code_intact(m, code, ov)
         verifie(0x6D in r10 and r10[-1] == 0x2D,
                 'Terminal (%s) : curseur visible pendant le SHELL, caché au retour (R10 : %s)'
                 % (comment, ' '.join('$%02X' % x for x in r10)))

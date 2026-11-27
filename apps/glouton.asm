@@ -141,6 +141,8 @@ AS_VisOk:
     STA     Seed
     CLR     KbRel
     CLR     StartReq
+    CLR     JoyAvant
+    JSR     Joy_Init            ; le joystick (/BIN/JOYSTICK.CFG)
     CLR     PauseReq
     CLR     QuitReq
     CLR     EscUp
@@ -260,7 +262,38 @@ PK_Q:
     STA     QuitReq
     BRA     Poll_Keys
 PK_End:
+    ; (continue dans Joy_Touches)
+
+; Joy_Touches : le joystick (lib/joy.asm) : une direction nouvellement
+; poussée devient la direction voulue (en diagonale : la dernière
+; poussée) ; le bouton, à l'appui, fait Espace (StartReq).
+Joy_Touches:
+    JSR     Joy_Lit
+    LDB     JoyAvant
+    STA     JoyAvant
+    COMB
+    PSHS    B
+    ANDA    ,S+                 ; A = les appuis nouveaux
+    BEQ     JT_Fin
+    BITA    #JOY_BOUTON
+    BEQ     JT_Dir
+    LDB     #1
+    STB     StartReq
+JT_Dir:
+    LDX     #JoyDirs            ; haut, droite, bas, gauche
+JT_Bit:
+    LSRA
+    BCC     JT_Suiv
+    LDB     ,X
+    STB     WantDir
+JT_Suiv:
+    LEAX    1,X
+    CMPX    #JoyDirs+4
+    BLO     JT_Bit
+JT_Fin:
     RTS
+JoyDirs:
+    FCB     D_HAUT,D_DROITE,D_BAS,D_GAUCHE
 
 ; Code PS/2 (jeu 2), action : 0-3 direction, 4 Espace, 5 pause, 6 Echap
 KeyTbl:
@@ -2430,6 +2463,7 @@ Seed            rmb 1
 LastTick        rmb 2
 KbRel           rmb 1           ; préfixe F0 reçu
 WantDir         rmb 1           ; direction demandée au clavier
+JoyAvant        rmb 1           ; le joystick à la trame d'avant
 StartReq        rmb 1
 PauseReq        rmb 1
 QuitReq         rmb 1
@@ -2544,3 +2578,4 @@ Lab             rmb PM_W*PM_H   ; le labyrinthe en cours (points mangés)
 ; Les services d'affichage (lib/vis.inc) : l'application tourne dans sa
 ; propre page et emporte sa copie (OSM-VISION, en page 0, ne se voit pas).
     include "../lib/vision.asm"
+    include "../lib/joy.asm"

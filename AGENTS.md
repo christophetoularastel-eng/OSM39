@@ -745,6 +745,7 @@ on 4 cores; logs in `test/tout/`; `tout-long` adds `zmachine-tout` and
 | `verifie_osm3d.py` | the real `apps/OSM3D` (`OSM3D.MAP`, `OSM3D.RUE` on the emulated card) with the VSYNC IRQ every frame and raw PS/2 arrows: at 7 stops (walk, turn, walk into a wall, U-turn) and 6 by the Valgelas bridge (under it on the ground, onto it by its ramp) the 30 rows of the screen = `osm3d.py`'s `ecran()` for the position and angle in memory (view, mini-map and frame, plate, help); every VRAM access inside the IRQ, <= 1900 estimated cycles after its entry, <= 546 bytes per frame; no walking into buildings; level and cell always agree (never on a deck at level 0 except `SOUS_PONT`, level 1 only on a deck); one Left/Right press = one 16/1024 step, held = one step per keyboard repeat (`appuis()`), Up held + Right tapped (the keyboard then repeats only Right) keeps walking, an arrow held with 30/s repeats then released stops, no keyboard byte lost by the NMI (a full queue drops bytes, as on the board); Esc: RTS, rows 25-29 given back, `rvec_IRQ` restored, key queue empty; frames per image measured | `make -C test osm3d` |
 | `verifie_sdtest.py` | the real `cmd/SDTEST` against an SPI-level SDHC card model on the SD-KBD-SON registers: 80 clocks /CS high, CMD0/CMD8 CRCs, ACMD41 with HCS, OCR, CID, CSD capacity, sector 0, 200 compared reads (missing tokens counted), write + read-back + restore at LBA `$00100000` on O, nothing written on N, no card; spacing between transfers as a lower bound in distinct bus accesses (>= 150 slow, >= 9 fast; 30 slow turns fail) | `make -C test sdtest` |
 | `verifie_tele.py` | the real `cmd/TELE` driven by the real `tools/tele/tele.py` over a simulated line (NMI ring in, TDR out): ping, R/W in page 1 (direct), page 2 (FarRead/FarWrite, page restored) and system RAM, call with registers and carry, a BIOS service through the table, bad sum / unknown command / bad length refused, Q leaves raw mode and returns; `depose.py` creates then replaces a file on the emulated card (one entry, content, page, address, attributes read back by `egofs_core`), missing folder refused | `make -C test tele` |
+| `verifie_joycal.py` | the real `cmd/JOYCAL` on the real BIOS, port A scripted frame by frame: the machine's turned wiring with a bounce, a diagonal and a bit already taken (both refused and asked again) and a mirrored wiring give the right `/BIN/JOYSTICK.CFG` and name each bit and pin; `Joy_Init` + `Joy_Lit` on all 32 press combinations; no file or 5 kinds of bad file = the Clouris wiring; no AY = nothing pressed; Esc keeps the old file | `make -C test joycal` |
 | `verifie_aytest.py` | the real `cmd/AYTEST` against a simulated AY: 28/28 read-backs on a sound chip, 26/28 with the two R9 faults shown when R9 reads 0; each listening step's registers and length (A, B, C at period 262, chord, noise, envelope), silence between steps and at the end, ports never outputs; the BIOS sequencer (`snd_play` + the IRQ's `AUDIO_UPDATE`) drives A and C frame by frame for the boot jingle and a score copied from page 1, then silence | `make -C test aytest` |
 | `verifie_ayjoue.py` | the real `cmd/AYJOUE` (`lib/ay_joue.asm`) with the VSYNC IRQ taken every frame and a simulated AY: register state frame by frame = `tools/ay/ay.py`'s model (a test song using the whole format, then KOROBEINIKI until Esc), ends by itself, `rvec_IRQ` restored, silence, frame writes inside the IRQ, `son_coupe` zeroes volumes, no argument / missing file / not a song refused | `make -C test ayjoue` |
 | `verifie_clavier.py` | the real BIOS with the keyboard 6850 simulated: Caps Lock toggles `kbd_verr`, case of a-z and é è à ç ù flipped, Shift+letter lowercase, digit row/punctuation/Ctrl/AltGr unchanged; the real `handler_IRQ` sends `$ED` then the LED byte two frames later (TDR, RTS low >= 100 instructions, RTS high), `kbd_muet` counted down, CR `$DC` at IRQ exit; the real `handler_NMI` drops the echo while muted and queues a key afterwards; dead keys `^`/`¨` (vowels, capitals, Caps Lock, Space, another key, arrow, AltGr, AltGr+ç not dead, kept across a `scan_keyboard` entry) | `make -C test clavier` |
@@ -1041,7 +1042,9 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     `Hor_Affiche`, right after the wait, writes it (the Clouris pointer
     on that row is removed first); `Draw_Status` redraws it. Read only:
     nothing is ever written to the chip.
-  - **Clouris** (the user's touch mouse: 6 nails + a palm plate at GND,
+  - **Clouris** (ARCHIVED on 2026-11-27, replaced by the joystick below;
+    `lib/clouris.asm` is kept, unused: what follows describes it and the
+    OSM-VISION of before) (the user's touch mouse: 6 nails + a palm plate at GND,
     outputs on AY port A: J602 of OSM39_mono, J104 of SD-KBD-SON, same
     pins, odd = port A: IOA0 17 up, IOA1 15 right, IOA2 13 down, IOA3 11
     left, IOA4 9 centre, IOA5 7 thumb click; +5 V 1-2, GND 19-20).
@@ -1069,6 +1072,34 @@ three ~8 s phases each. 6 = black, colour bands, black (writes vs pipeline);
     pointer stays, the hovered item is selected (`Menu_Survol`), thumb
     runs it (outside the items: closes), centre closes. Tools: `cmd/CLOUTEST`, `tools/tele/clouris.py` (live, via
     TELE). Proven by `make -C test bureau`.
+  - **Joystick** (Gotronic 07355, connected on 2026-11-27, replaces the
+    Clouris): 4 micro-switches + 1 button, each between a port A bit (J602,
+    IOAn on pin 17 - 2n) and GND, the AY's internal pull-ups: pressed =
+    0, rest and unplugged = `$FF`. It may be mounted turned and wired in
+    any order (the machine's: up IOA4, right IOA3, down IOA2, left IOA0,
+    button IOA5): `cmd/JOYCAL` asks up, right, down, left, button (all
+    released 6 frames, then one bit stable 6 frames; a diagonal or a bit
+    already taken is refused) and writes `/BIN/JOYSTICK.CFG` ("JOY", 1, the
+    5 masks). `lib/joy.asm`: `Joy_Init` loads it (else the Clouris
+    wiring), `Joy_Lit` = a standard byte (`JOY_HAUT`... bits 0-4, diagonals
+    = two bits, no timing), `Joy_Brut` = the raw port; the same AY probe as
+    `lib/clouris.asm` (no chip: nothing ever pressed); `Joy_Evts` = the
+    Clouris rhythm (a step at once, then every `JOY_PAS` frames after
+    `JOY_DELAI`, button edge). Users (each calls `Joy_Init` at start; the
+    keyboard still works): OSM-VISION (pointer and menu through
+    `Joy_Evts`, button = the old thumb; no centre: the menu is Space),
+    BRIQUES (`Joy_Evts`: up rotate, left/right/down, button = drop; pause
+    and game over wait for a key or the button), GLOUTON (a newly pushed
+    direction = `WantDir`, button = Space), ENVAHIS (left/right reload
+    `KeyLeft`/`KeyRight`, button fires), DONJON39 (`Joy_Fleches`: `FHaut`...
+    = arrow OR stick, button = Space), OSM City (`Joy_Trame` per frame:
+    `Voulu` adds the stick through `JoyVoulu`, button = Space); OSM3D
+    only in its relief version, not committed yet (`Joy_Irq` in its IRQ:
+    up/down walk, left/right a step then one every `JOY_REP` frames after
+    `JOY_RETARD`). `lib/clouris.asm` is kept,
+    unused. Proven by `make -C test joycal` and `bureau` (OSM-VISION); the
+    games' verifiers run with the stick at rest. Live reading:
+    `tools/tele/clouris.py`.
   - OSMVISION is a file manager: the Space menu (11 items) and Ctrl
     shortcuts — Copier `C`/Ctrl+C, Couper `U`/Ctrl+X, Coller `L`/Ctrl+V,
     Nouveau dossier `N`/Ctrl+N, plus Renommer, Supprimer... The clipboard is

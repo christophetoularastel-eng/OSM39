@@ -37,6 +37,7 @@ cmd/TELE
 cmd/AYTEST
 cmd/AYJOUE
 cmd/CLOUTEST
+cmd/JOYCAL
 cmd/NEIGE
 cmd/HORLOGE
 cmd/GRAPHE

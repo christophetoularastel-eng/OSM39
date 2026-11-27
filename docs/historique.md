@@ -1439,3 +1439,22 @@ même port, ici le terminal VT100, donne des échecs aléatoires).
   (`demo_graphe()` de `captures.py`, ordres lus dans le source). Le
   chapitre 10 et l'annexe A donnaient encore l'écran de la V4 ($8000 les
   caractères, $9000 les couleurs) : corrigé pour la mono (entrelacé).
+- Joystick (Gotronic 07355, 27 nov. 2026) sur le port A de l'AY, à la
+  place de la Clouris. Relevé en direct par TELE (`tools/tele/clouris.py`) :
+  contacts francs, sans rebond ; le micro-rupteur de droite ne basculait
+  pas (réglé), puis les fils se sont révélés décalés (haut IOA4, droite
+  IOA3, bas IOA2, gauche IOA0, bouton IOA5). Plutôt que de recâbler,
+  l'utilisateur veut pouvoir monter le joystick dans n'importe quel sens :
+  `cmd/JOYCAL` (étalonnage -> `/BIN/JOYSTICK.CFG`) et `lib/joy.asm`
+  (`Joy_Init`, `Joy_Lit`, `Joy_Brut`), prouvés par `verifie_joycal.py`.
+  Étalonnage fait sur la machine.
+- Le joystick dans OSM-VISION et les jeux (27 nov. 2026) : `lib/joy.asm`
+  gagne `Joy_Evts` (le rythme de la Clouris) ; OSM-VISION lit le joystick
+  au lieu de la Clouris (le bouton remplace le pouce ; le « centre », qui
+  ouvrait le menu, disparaît : Espace) ; BRIQUES, GLOUTON, ENVAHIS,
+  DONJON39 et OSM City le lisent en plus du clavier (OSM3D aussi, dans sa
+  version avec relief, pas encore commitée). Essayé sur la machine. `verifie_bureau.py` : essais du pointeur au joystick,
+  le menu par Espace, les variables de lib/joy.asm hors du contrôle du
+  code d'OSM-VISION. Constaté en passant : `make -C test asm-tout` échoue
+  déjà sur OSMCITY.ASM (et OSM3D.ASM) au dernier commit (« fichier de plus
+  de 64 Ko », nom illisible) : à corriger à part.

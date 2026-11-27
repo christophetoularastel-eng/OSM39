@@ -84,6 +84,7 @@ Vision_Main:
     LDA     #$CF            ; Cache le curseur en bas à droite sous l'ombre
     STA     CRTC_DATA
     JSR     Hor_Init        ; l'horloge (carte RTC sur le PIA) : PIA au repos
+    JSR     Joy_Init        ; le joystick : son étalonnage (/BIN/JOYSTICK.CFG)
     LDA     #1
     STA     HorCpt          ; première lecture à la première trame libre
 
@@ -112,7 +113,7 @@ VS_NoKeep:
     CLR     BootSnd
     JSR     Snd_Boot
 
-; Clavier sans attente et Clouris à chaque trame. En entrant (après chaque
+; Clavier sans attente et joystick à chaque trame. En entrant (après chaque
 ; action), la file du clavier est vidée si quelqu'un a lu le clavier brut
 ; (NEW_CODE à 0), comme le fait scan_keyboard : un programme rendu ne
 ; laisse pas ses touches à OSM-VISION.
@@ -131,14 +132,12 @@ EL_Attente:
     LDE     #1                  ; une trame ; au retour, l'écran est libre
     JSR     [table_function_ram+sys_video_wait_vsync]
     JSR     Hor_Affiche         ; la date lue, s'il y en a une nouvelle
-    JSR     Clou_Lit
+    JSR     Joy_Evts
     BEQ     EL_Pointeur
-    LDB     #1                  ; la Clouris sert : le pointeur s'affiche
+    LDB     #1                  ; le joystick sert : le pointeur s'affiche
     STB     PtrVu
-    BITA    #CLOU_CLIC
-    LBNE    Clou_Clic
-    BITA    #CLOU_CENTRE
-    LBNE    Clou_Centre
+    BITA    #JOY_BOUTON
+    LBNE    Joy_Clic
     JSR     Ptr_Bord            ; poussé contre le haut ou le bas de la liste ?
     BCS     EL_Attente          ; elle a défilé
     JSR     Ptr_Trame           ; A = pas : le pointeur se déplace
@@ -208,16 +207,13 @@ EL_Touche:
     LBRA    Event_Loop
 
 ; -------------------------------------------------------------------
-; CLOURIS : le pouce clique là où est le pointeur ; le centre ouvre le
-; menu (comme Espace). Dans la liste, la ligne survolée devient la
-; sélection (Ptr_Survol) et un clic l'ouvre (comme Entrée) ; les flèches
-; de défilement (colonne 47, lignes 7 et 23) tournent les pages.
+; JOYSTICK (lib/joy.asm) : il déplace le pointeur, le bouton clique là où
+; il est. Dans la liste, la ligne survolée devient la sélection
+; (Ptr_Survol) et un clic l'ouvre (comme Entrée) ; les flèches de
+; défilement (colonne 47, lignes 7 et 23) tournent les pages. Le menu :
+; Espace au clavier, puis le joystick.
 ; -------------------------------------------------------------------
-Clou_Centre:
-    JSR     Ptr_Cache
-    LBRA    Menu_Open
-
-Clou_Clic:
+Joy_Clic:
     JSR     Ptr_Cache
     LDB     Selection
     STB     OldSel
@@ -248,33 +244,33 @@ CC_Liste:
 PTR_MAX_X       equ 79
 PTR_MAX_Y       equ 24
 
-; A = pas (CLOU_HAUT...), appelé au début d'une trame : ôte, déplace, pose
+; A = pas (JOY_HAUT...), appelé au début d'une trame : ôte, déplace, pose
 Ptr_Trame:
     PSHS    CC,A
     ORCC    #%00010000
     CLR     VRAM_CTRL
     JSR     Ptr_Ote
     LDA     1,S
-    BITA    #CLOU_HAUT
+    BITA    #JOY_HAUT
     BEQ     PT_PasHaut
     TST     PtrY
     BEQ     PT_PasHaut
     DEC     PtrY
 PT_PasHaut:
-    BITA    #CLOU_BAS
+    BITA    #JOY_BAS
     BEQ     PT_PasBas
     LDB     PtrY
     CMPB    #PTR_MAX_Y
     BHS     PT_PasBas
     INC     PtrY
 PT_PasBas:
-    BITA    #CLOU_GAUCHE
+    BITA    #JOY_GAUCHE
     BEQ     PT_PasGauche
     TST     PtrX
     BEQ     PT_PasGauche
     DEC     PtrX
 PT_PasGauche:
-    BITA    #CLOU_DROITE
+    BITA    #JOY_DROITE
     BEQ     PT_PasDroite
     LDB     PtrX
     CMPB    #PTR_MAX_X
@@ -304,7 +300,7 @@ Ptr_Bord:
     BSR     Ptr_Ligne
     BCS     PB_Non
     LDA     ,S
-    BITA    #CLOU_BAS
+    BITA    #JOY_BAS
     BEQ     PB_Haut
     LDA     PtrY
     CMPA    #7+VISIBLE_ROWS-1
@@ -317,7 +313,7 @@ Ptr_Bord:
     BRA     PB_Defile
 PB_Haut:
     LDA     ,S
-    BITA    #CLOU_HAUT
+    BITA    #JOY_HAUT
     BEQ     PB_Non
     LDA     PtrY
     CMPA    #7
@@ -426,7 +422,7 @@ PP_Attr:
 PtrX            FCB 30
 PtrY            FCB 12
 PtrOn           FCB 0               ; 1 : la flèche est à l'écran
-PtrVu           FCB 0               ; 1 : la Clouris a servi (pointeur affiché)
+PtrVu           FCB 0               ; 1 : le joystick a servi (pointeur affiché)
 PtrSous         FDB 0               ; caractère et attribut sous la flèche
 
 ; Début / Fin de la liste
@@ -685,8 +681,8 @@ Quit_Vision:
 ; incluse aussi par chaque application (elle ne voit pas OSM-VISION).
     include "../lib/vision.asm"
 
-; La Clouris (souris tactile sur le port A de l'AY)
-    include "../lib/clouris.asm"
+; Le joystick (port A de l'AY), étalonné par JOYCAL
+    include "../lib/joy.asm"
 
 ; L'horloge sauvegardée (MC146818 sur le PIA) : Hor_Init, Hor_Etat, Hor_LitDate
     include "../lib/horloge.asm"
@@ -760,7 +756,7 @@ HB_Pose:
     STA     ,U+
     RTS
 
-; Juste après l'attente de trame : VRAM libre. Le pointeur de la Clouris,
+; Juste après l'attente de trame : VRAM libre. Le pointeur du joystick,
 ; s'il est sur la barre, est ôté (il se repose à la trame suivante).
 Hor_Affiche:
     TST     HorSale
@@ -862,20 +858,18 @@ MO_Y:
 
     JSR     Menu_DrawItems
 
-Menu_Loop:                      ; clavier, ou Clouris : haut/bas, pouce = exécuter, centre = fermer
+Menu_Loop:                      ; clavier, ou joystick : haut/bas, bouton = exécuter
     JSR     [table_function_ram+sys_kbd_poll]
     TSTA
     BNE     ML_Touche
     LDE     #1
     JSR     [table_function_ram+sys_video_wait_vsync]
-    JSR     Clou_Lit
+    JSR     Joy_Evts
     BEQ     ML_Pointeur
     LDB     #1
     STB     PtrVu
-    BITA    #CLOU_CLIC
+    BITA    #JOY_BOUTON
     BNE     ML_Clic
-    BITA    #CLOU_CENTRE
-    LBNE    Menu_Cancel
     JSR     Ptr_Trame
     JSR     Menu_Survol
     BRA     Menu_Loop

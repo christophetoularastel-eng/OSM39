@@ -97,6 +97,9 @@ AS_Rues:
     CLR     OcSauf+1
     CLR     Pied
     CLR     KeyEsp
+    CLR     JoyEt
+    CLR     JoyAvant
+    JSR     Joy_Init                ; le joystick (/BIN/JOYSTICK.CFG)
     LDA     #COUL_JOUEUR
     STA     VCoul
     CLR     Dir
@@ -188,6 +191,7 @@ Boucle:
     JSR     Fenetre
     JSR     Appliquer
     JSR     Lire_Clavier
+    JSR     Joy_Trame
     TST     QuitReq
     LBNE    Quitter
     JSR     Pas
@@ -4039,12 +4043,40 @@ Vo_B:
     ORB     #2
 Vo_G:
     TST     KeyGauche
-    BEQ     Vo_T
+    BEQ     Vo_J
     ORB     #1
+Vo_J:
+    LDA     JoyEt                   ; le joystick : bits 0-3 haut, droite,
+    ANDA    #$0F                    ; bas, gauche -> 8, 4, 2, 1
+    LDX     #JoyVoulu
+    ORB     A,X
 Vo_T:
     LDX     #VouluT
     LDA     B,X
     RTS
+; Joy_Trame : une fois par trame, le joystick (lib/joy.asm) : JoyEt (Voulu
+; l'ajoute aux flèches) ; le bouton, à l'appui, fait Espace (KeyEsp).
+Joy_Trame:
+    JSR     Joy_Lit
+    STA     JoyEt
+    ANDA    #JOY_BOUTON
+    LDB     JoyAvant
+    STA     JoyAvant
+    COMB
+    PSHS    B
+    ANDA    ,S+
+    BEQ     JT_Fin
+    LDA     #1
+    STA     KeyEsp
+JT_Fin:
+    RTS
+; JoyVoulu : les bits du joystick (haut 1, droite 2, bas 4, gauche 8) en
+; ceux de Voulu (haut 8, droite 4, bas 2, gauche 1)
+JoyVoulu:
+    fcb     0,8,4,12,2,10,6,14,1,9,5,13,3,11,7,15
+
+    include "../lib/joy.asm"
+
 ; -------------------------------------------------------------------
 ; Clavier : octets PS/2 de la file de la NMI (comme DONJON39)
 ; -------------------------------------------------------------------
@@ -4269,6 +4301,8 @@ SnVc        rmb 1
 Pied        rmb 1                   ; 1 : à pied
 VCoul       rmb 1                   ; la couleur de la voiture conduite
 KeyEsp      rmb 1
+JoyEt       rmb 1               ; le joystick (Joy_Lit) de cette trame
+JoyAvant    rmb 1               ; son bouton à la trame d'avant
 BaPlace     rmb 2
 BaPtr       rmb 2
 BaN         rmb 1

@@ -145,6 +145,8 @@ AS_VisOk:
     ORA     #1
     STA     Seed
     CLR     KeyLeft
+    CLR     JoyAvant
+    JSR     Joy_Init            ; le joystick (/BIN/JOYSTICK.CFG)
     CLR     KeyRight
     CLR     KbE0
     CLR     KbRel
@@ -268,6 +270,34 @@ PK_Done:
     CLR     KbRel
     BRA     Poll_Keys
 PK_End:
+    ; (continue dans Joy_Touches)
+
+; Joy_Touches : le joystick (lib/joy.asm) comme les flèches : gauche ou
+; droite poussé recharge KeyLeft / KeyRight ; le bouton, à l'appui, tire.
+Joy_Touches:
+    JSR     Joy_Lit
+    TFR     A,B
+    BITB    #JOY_GAUCHE
+    BEQ     JT_PasG
+    LDA     #KEY_TIMEOUT
+    STA     KeyLeft
+JT_PasG:
+    BITB    #JOY_DROITE
+    BEQ     JT_PasD
+    LDA     #KEY_TIMEOUT
+    STA     KeyRight
+JT_PasD:
+    TFR     B,A                 ; le bouton : son front
+    ANDA    #JOY_BOUTON
+    LDB     JoyAvant
+    STA     JoyAvant
+    COMB
+    PSHS    B
+    ANDA    ,S+
+    BEQ     JT_Fin
+    LDA     #1
+    STA     FireReq
+JT_Fin:
     RTS
 
 ; -------------------------------------------------------------------
@@ -1855,6 +1885,7 @@ Seed            rmb 1
 LastTick        rmb 2
 KeyLeft         rmb 1           ; non nul : flèche gauche enfoncée
 KeyRight        rmb 1
+JoyAvant        rmb 1           ; le bouton du joystick à la trame d'avant
 KbE0            rmb 1           ; préfixe E0 reçu
 KbRel           rmb 1           ; préfixe F0 reçu
 FireReq         rmb 1
@@ -1934,3 +1965,4 @@ DispA           rmb F_SIZE
 ; Les services d'affichage (lib/vis.inc) : l'application tourne dans sa
 ; propre page et emporte sa copie (OSM-VISION, en page 0, ne se voit pas).
     include "../lib/vision.asm"
+    include "../lib/joy.asm"

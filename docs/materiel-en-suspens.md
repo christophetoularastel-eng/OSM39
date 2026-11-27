@@ -99,5 +99,7 @@ schéma KiCad, pas encore sur le circuit imprimé :
 
 ## 7. Joystick
 
-- Commandé le 21 nov. 2026 pour remplacer la Clouris (port A de l'AY) :
-  à brancher, puis à lire dans le logiciel.
+- Branché le 27 nov. 2026 sur J602 (port A de l'AY), étalonné par
+  `JOYCAL` (`/BIN/JOYSTICK.CFG`) ; un micro-rupteur qui ne basculait pas a
+  été réglé. Reste : le lire dans le logiciel (`lib/joy.asm` : OSM-VISION
+  et les jeux), le manuel (« Brancher la Clouris » -> le joystick).

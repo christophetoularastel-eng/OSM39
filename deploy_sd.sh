@@ -92,6 +92,7 @@ cmd/TELE              BIN/TELE   1  cmd/TELE.map             rwx
 cmd/AYTEST            BIN/AYTEST 1  cmd/AYTEST.map           rwx
 cmd/AYJOUE            BIN/AYJOUE 1  cmd/AYJOUE.map           rwx
 cmd/CLOUTEST          BIN/CLOUTEST 1  cmd/CLOUTEST.map       rwx
+cmd/JOYCAL            BIN/JOYCAL 1    cmd/JOYCAL.map         rwx
 cmd/NEIGE             BIN/NEIGE    1  cmd/NEIGE.map          rwx
 cmd/HORLOGE           BIN/HORLOGE 1  cmd/HORLOGE.map         rwx
 bios/BIOS2            BIN/BIOS2  1  -                        rw
@@ -136,6 +137,7 @@ lib/vision.asm        LIB/VISION.ASM 1  -                    rw
 lib/latin_cp437.inc   LIB/LATIN_CP437.INC 1  -               rw
 lib/vram.asm          LIB/VRAM.ASM   1  -                    rw
 lib/snd.asm           LIB/SND.ASM    1  -                    rw
+lib/joy.asm           LIB/JOY.ASM    1  -                    rw
 "
 
 attr_hex() {

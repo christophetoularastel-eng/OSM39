@@ -386,6 +386,12 @@ aytest:
 	@$(MAKE) -s -C ../cmd
 	@python3 verifie_aytest.py
 
+# Joystick sur le port A de l'AY : le vrai cmd/JOYCAL et lib/joy.asm, port simulé.
+joycal:
+	@$(MAKE) -s -C ../bios
+	@$(MAKE) -s -C ../cmd
+	@python3 verifie_joycal.py
+
 # Horloge MC146818 sur le PIA : le vrai cmd/HORLOGE face à un PIA et une puce simulés.
 horloge:
 	@$(MAKE) -s -C ../bios
@@ -414,4 +420,4 @@ asm-tout:
 	@$(MAKE) -s -C ../bios
 	@python3 verifie_asm.py tout
 
-.PHONY: all clean tout tout-long contrat send verifier remplissage banc_mono negatifs parole minitel terminal donjon39 osmcity osm3d zmachine zmachine-tout fs farcall asm asm-tout dossiers demarrage bureau sdtest tele aytest ayjoue clavier horloge graphe FORCE
+.PHONY: all clean tout tout-long contrat send verifier remplissage banc_mono negatifs parole minitel terminal donjon39 osmcity osm3d zmachine zmachine-tout fs farcall asm asm-tout dossiers demarrage bureau sdtest tele aytest joycal ayjoue clavier horloge graphe FORCE

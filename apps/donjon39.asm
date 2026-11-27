@@ -110,6 +110,8 @@ AS_VisOk:
     CLR     UsageReq
     CLR     MiniOn
     CLR     TabBas
+    CLR     JoyAvant
+    JSR     Joy_Init                ; le joystick (/BIN/JOYSTICK.CFG)
     LDX     #Portes                 ; aucune porte ouverte
     LDB     #PORTES_N*4
 AS_Portes:
@@ -296,6 +298,47 @@ LC_Suite:
 LC_Fin:
     RTS
 
+; Joy_Fleches : FHaut... = la flèche tenue OU le joystick (lib/joy.asm) ;
+; le bouton, à l'appui, ouvre comme Espace (UsageReq).
+Joy_Fleches:
+    JSR     Joy_Lit
+    TFR     A,B
+    LDA     KeyHaut
+    BITB    #JOY_HAUT
+    BEQ     JF_1
+    LDA     #1
+JF_1:
+    STA     FHaut
+    LDA     KeyBas
+    BITB    #JOY_BAS
+    BEQ     JF_2
+    LDA     #1
+JF_2:
+    STA     FBas
+    LDA     KeyGauche
+    BITB    #JOY_GAUCHE
+    BEQ     JF_3
+    LDA     #1
+JF_3:
+    STA     FGauche
+    LDA     KeyDroite
+    BITB    #JOY_DROITE
+    BEQ     JF_4
+    LDA     #1
+JF_4:
+    STA     FDroite
+    TFR     B,A                     ; le bouton : son front
+    ANDA    #JOY_BOUTON
+    LDB     JoyAvant
+    STA     JoyAvant
+    COMB
+    PSHS    B
+    ANDA    ,S+
+    BEQ     JF_Fin
+    STA     UsageReq
+JF_Fin:
+    RTS
+
 ; Attend le prochain VSYNC en lisant le clavier.
 Attendre_Trame:
     LDD     >vsync_tick
@@ -311,18 +354,19 @@ AT_Boucle:
 ; Déplacement : Trames trames depuis la dernière image
 ; -------------------------------------------------------------------
 Bouger:
+    JSR     Joy_Fleches             ; le joystick, en plus des flèches
     LDB     Trames                  ; tourner : ROTATION x trames
     LDA     #ROTATION
     MUL
     STD     Pas
-    TST     KeyGauche
+    TST     FGauche
     BEQ     Bg_PasG
     LDD     Ang
     SUBD    Pas
     ANDA    #3
     STD     Ang
 Bg_PasG:
-    TST     KeyDroite
+    TST     FDroite
     BEQ     Bg_PasD
     LDD     Ang
     ADDD    Pas
@@ -333,9 +377,9 @@ Bg_PasD:
     LDA     #VITESSE
     MUL
     STD     Pas
-    TST     KeyHaut
+    TST     FHaut
     BNE     Bg_Avance
-    TST     KeyBas
+    TST     FBas
     LBEQ     Bg_Fin
     LDD     #0                      ; reculer : pas négatif
     SUBD    Pas
@@ -1329,6 +1373,7 @@ DMP_Fin:
     include "../lib/str.asm"
 ; Services de dessin d'OSM-VISION (VIS_TABLE...)
     include "../lib/vision.asm"
+    include "../lib/joy.asm"
 ; Tables et carte : générées par tools/donjon39/donjon39.py --inc
     include "donjon_data.inc"
 
@@ -1370,6 +1415,11 @@ KeyHaut:    RMB 1
 KeyBas:     RMB 1
 KeyGauche:  RMB 1
 KeyDroite:  RMB 1
+FHaut:      RMB 1                   ; les flèches tenues OU le joystick
+FBas:       RMB 1
+FGauche:    RMB 1
+FDroite:    RMB 1
+JoyAvant:   RMB 1                   ; le bouton à l'image d'avant
 KbE0:       RMB 1
 KbRel:      RMB 1
 QuitReq:    RMB 1
