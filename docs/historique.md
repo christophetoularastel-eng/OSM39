@@ -1424,3 +1424,10 @@ même port, ici le terminal VT100, donne des échecs aléatoires).
 - Conclusion : la carte est bonne ; des lignes d'un point de couleurs
   différentes se mélangent à l'œil (mise à l'échelle de l'écran plat,
   atténuées collées aux vives). Pour le rendu : des aplats de 2 à 4 lignes.
+
+## 27 nov. 2026 — Captures du manuel sur la mono
+
+- `tools/manuel/captures.py` lisait la VRAM à la façon V4 (caractères en
+  $8000, couleurs en $9000) : sur la mono (entrelacée) les écrans du
+  manuel étaient des mélanges d'octets. Il passe par `test/carte.py`
+  (`adr`, `adr_coul`), comme les vérificateurs.

@@ -23,6 +23,7 @@ sys.path.insert(0, ICI)
 import verifie_fs as v          # noqa: E402
 import verifie_asm as va        # noqa: E402
 import verifie_bureau as vb     # noqa: E402
+import carte                    # noqa: E402
 import verifie_donjon39 as vdm    # noqa: E402
 import ecran                    # noqa: E402
 
@@ -39,7 +40,10 @@ def carte_deployee():
 
 
 def vram(m):
-    return bytes(m.mem[0x8000:0x8000 + 2400]), bytes(m.mem[0x9000:0x9000 + 2400])
+    """Les 2400 caractères et couleurs, d'après la carte de CARTE (test/carte.py :
+    sur la mono, caractère et couleur sont entrelacés)."""
+    return (bytes(m.mem[carte.adr(c)] for c in range(2400)),
+            bytes(m.mem[carte.adr_coul(c)] for c in range(2400)))
 
 
 def ecrit(nom, m, rangees=30):
