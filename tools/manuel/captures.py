@@ -129,6 +129,7 @@ def demo_graphe():
             a = e.coul[(y // 16) * 80 + x // 8]
             on = e.img[y * 80 + x // 8] >> (7 - (x & 7)) & 1
             px[x, y] = ecran.couleur(a & 7, bool(a & 8)) if on else ecran.couleur((a >> 4) & 7)
+    os.makedirs(SORTIE, exist_ok=True)
     im.resize((1280, 800), ecran.Image.NEAREST).save(os.path.join(SORTIE, 'graphe.png'))
     print('graphe.png')
 
