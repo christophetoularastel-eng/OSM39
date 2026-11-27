@@ -107,7 +107,7 @@
   <tr><td>Processeur</td><td>Hitachi HD6309 en mode natif, horloge de 1,8432 MHz</td></tr>
   <tr><td>Mémoire vive</td><td>128 Ko pour les programmes, en 4 pages de 32 Ko, plus 8 Ko réservés au système</td></tr>
   <tr><td>Mémoire morte</td><td>8 Ko : le BIOS, qui démarre la machine et offre ses services aux programmes</td></tr>
-  <tr><td>Affichage</td><td>80 colonnes × 30 rangées, caractères de 8 × 16 points, 8 couleurs de premier plan atténuables et 8 couleurs de fond, sortie VGA 640 × 480</td></tr>
+  <tr><td>Affichage</td><td>80 colonnes × 30 rangées, caractères de 8 × 16 points, 8 couleurs de premier plan atténuables et 8 couleurs de fond, sortie VGA 640 × 480 ; mode graphique 640 × 400 points</td></tr>
   <tr><td>Caractères</td><td>Deux pages de 256 : l'alphabet, et une page de semi-graphismes (cadres, mosaïques du Minitel, icônes)</td></tr>
   <tr><td>Son</td><td>Générateur AY-3-8910 : trois voix, bruit, enveloppes ; minuterie 6840 pour la parole</td></tr>
   <tr><td>Stockage</td><td>Carte SD, avec son propre système de fichiers à dossiers (OSMFS)</td></tr>
@@ -496,6 +496,7 @@ python3 tools/egofs/egofs_deploy.py /dev/sdX       # écrire la carte</pre>
   <tr><td><code>MIRE</code></td><td>outil de diagnostic : le code de chaque touche, des écrans de test pour l'image et la touche <kbd>V</kbd> pour régler le contrôleur vidéo</td></tr>
   <tr><td><code>SON</code></td><td>essai d'échantillons sonores par les minuteries</td></tr>
   <tr><td><code>PONT</code></td><td>démonstration des appels entre pages de mémoire (chapitre 10)</td></tr>
+  <tr><td><code>GRAPHE</code></td><td>démonstration du mode graphique 640 × 400 (chapitre 10) ; une touche pour revenir</td></tr>
 </table>
 <figure>
   <img src="images/mire.png" alt="MIRE affiche les codes des touches">
@@ -611,7 +612,7 @@ ASM GLOUTON.ASM /GAMES/GLOUTON</pre>
 <p>Le Hitachi HD6309 est un 6809 amélioré : deux accumulateurs de plus (E et F, réunis en W, puis Q = D:W pour 32 bits), des multiplications et divisions 16 bits, des copies de blocs (<code>TFM</code>) et des opérations sur les bits. OSM39 le fait fonctionner en <strong>mode natif</strong>, plus rapide : une interruption empile alors 14 octets, et l'adresse de retour se trouve à <code>12,S</code>.</p>
 
 <h2>La mémoire</h2>
-<p>Un programme dispose de <code>$0000-$7FFF</code>, 32 Ko pris dans l'une des quatre pages de RAM. OSM-VISION occupe la page 0 et lance les programmes en page 1 ; les pages 2 et 3 servent de mémoire de travail (EDIT y range son texte, CALC ses cellules). L'écran est en <code>$8000</code> (les caractères) et <code>$9000</code> (les couleurs), le BIOS en <code>$E000</code>. Le détail est en annexe.</p>
+<p>Un programme dispose de <code>$0000-$7FFF</code>, 32 Ko pris dans l'une des quatre pages de RAM. OSM-VISION occupe la page 0 et lance les programmes en page 1 ; les pages 2 et 3 servent de mémoire de travail (EDIT y range son texte, CALC ses cellules). L'écran est en <code>$8000-$9FFF</code> : pour la case n, le caractère en <code>$8000 + 2n</code> et sa couleur juste après ; le BIOS en <code>$E000</code>. Le détail est en annexe.</p>
 <p>Pour appeler une routine d'une autre page, le BIOS offre <code>FAR_CALL</code> (A = page, X = adresse), qui revient avec la page de l'appelant ; c'est ce que montre l'application PONT.</p>
 
 <h2>Les services du BIOS</h2>
@@ -627,10 +628,46 @@ ASM GLOUTON.ASM /GAMES/GLOUTON</pre>
   <tr><td>fichiers</td><td>chercher, charger, sauver, renommer, supprimer, lister, lire un secteur</td></tr>
   <tr><td>dossiers</td><td>changer de dossier, en créer, connaître le dossier courant</td></tr>
   <tr><td>mémoire</td><td>copier entre pages, appeler dans une autre page</td></tr>
+  <tr><td>graphisme</td><td>le mode graphique 640 × 400 (<code>sys_Graphe</code>, voir plus bas)</td></tr>
   <tr><td>noms</td><td><code>sys_Format_Filename_83</code> met un nom ou un chemin au format des services de fichiers ; à appeler avant tout service <code>FS_*</code></td></tr>
 </table>
 <p>Le détail de chaque service (registres d'entrée et de sortie, registres qu'il ne rend pas) est dans <code>docs/services.md</code>. Ne comptez pas sur W après un service de fichiers.</p>
 <p>Les adresses d'entrées-sorties et de la RAM du système viennent de <code>HARDWARE.INC</code> : n'écrivez jamais une adresse en dur, elle pourrait changer avec le BIOS.</p>
+
+<h2>Le mode graphique</h2>
+<p>En plus des 80 × 30 caractères, OSM39 sait afficher une image de <strong>640 × 400 points</strong>, un bit par point. La couleur reste celle de l'octet d'attribut (annexe B) : un premier plan pour les points allumés, un fond pour les points éteints. La carte permet une couleur par ligne de 8 points ; le BIOS colorie aujourd'hui par case de 8 × 16 points, comme en mode texte.</p>
+<p>Tout passe par un seul service, <code>sys_Graphe</code> : B = la fonction, X = un bloc de paramètres (des mots de 16 bits signés), A = le mode ou la couleur. Les coordonnées vont de (0, 0) en haut à gauche à (639, 399) ; un point hors de l'écran est simplement ignoré.</p>
+<table>
+  <tr><th>B</th><th>Fonction</th><th>Paramètres</th></tr>
+  <tr><td>0</td><td><code>GR_DEBUT</code> : passer en graphique, image effacée</td><td>A = couleur de toutes les cases</td></tr>
+  <tr><td>1</td><td><code>GR_FIN</code> : revenir au texte (écran texte effacé)</td><td>—</td></tr>
+  <tr><td>2</td><td><code>GR_POINT</code></td><td>x, y ; A = mode</td></tr>
+  <tr><td>3</td><td><code>GR_LIGNE</code></td><td>x0, y0, x1, y1 ; A = mode</td></tr>
+  <tr><td>4</td><td><code>GR_RECT</code> : rectangle plein</td><td>x0, y0, x1, y1 ; A = mode</td></tr>
+  <tr><td>5, 6</td><td><code>GR_CERCLE</code>, <code>GR_DISQUE</code></td><td>xc, yc, r ; A = mode</td></tr>
+  <tr><td>7</td><td><code>GR_LIT</code> : lire un point</td><td>x, y ; rend A = 0 ou 1</td></tr>
+  <tr><td>8</td><td><code>GR_EFFACE</code></td><td>A = couleur</td></tr>
+  <tr><td>9</td><td><code>GR_CAR</code> : un caractère 8 × 8</td><td>colonne (0-79), rangée (0-24), code ; A = 0 normal, 2 inversé</td></tr>
+  <tr><td>10</td><td><code>GR_COULEUR</code> : colorier des cases</td><td>c0, r0, c1, r1 ; A = couleur</td></tr>
+  <tr><td>11</td><td><code>GR_ATTEND</code> : attendre que l'écran ait rattrapé l'image</td><td>—</td></tr>
+</table>
+<p>Les modes : <strong>0</strong> allume les points, <strong>1</strong> les éteint, <strong>2</strong> les inverse (OU exclusif : dessiner deux fois au même endroit efface, l'idéal pour un objet qui bouge). Une ligne blanche en travers de l'écran :</p>
+<pre>        LDA     #$07                ; blanc sur noir
+        LDB     #0                  ; GR_DEBUT
+        JSR     [table_function_ram+sys_Graphe]
+        BCS     PasDeGraphique
+        LDX     #Bloc
+        CLRA                        ; mode 0 : allumer
+        LDB     #3                  ; GR_LIGNE
+        JSR     [table_function_ram+sys_Graphe]
+        ...
+Bloc    FDB     0,0,639,399</pre>
+<p>Comment ça marche : le BIOS dessine dans une copie de l'image rangée en <strong>RAM page 3</strong> (32 000 octets), puis l'interruption de trame la recopie à l'écran, une ligne de points par trame, pendant le retour de trame où la mémoire vidéo est libre. Le dessin lui-même est rapide, mais l'écran entier met environ 7 secondes à se mettre à jour : <code>GR_ATTEND</code> attend qu'il ait fini. Un programme qui utilise le mode graphique laisse donc la page 3 au BIOS. Les caractères viennent du fichier <code>/BIN/POLICE8</code> ; le mode graphique lui-même est dans <code>/BIN/BIOS2</code> : sans lui, <code>GR_DEBUT</code> répond C = 1.</p>
+<p>Pour essayer sans rien écrire : la commande <code>GRAPHE</code> dessine l'écran ci-dessous, et en BBC BASIC <code>MODE 0</code> donne le même mode graphique (<code>BASIC/MODE0.BAS</code>, chapitre 9).</p>
+<figure>
+  <img src="images/graphe.png" alt="La démonstration GRAPHE">
+  <figcaption><b>GRAPHE</b> : lignes, cercles, disque inversé, rectangles, cases coloriées et texte, en 640 × 400.</figcaption>
+</figure>
 
 <h2>Une application OSM-VISION</h2>
 <p>Le plus simple est de partir de <code>SRC/MIRE.ASM</code>, l'application modèle. Une application :</p>
@@ -658,8 +695,7 @@ ASM GLOUTON.ASM /GAMES/GLOUTON</pre>
 <table>
   <tr><th>Adresses</th><th>Contenu</th></tr>
   <tr><td><code>$0000-$7FFF</code></td><td>RAM des programmes : une page de 32 Ko sur quatre</td></tr>
-  <tr><td><code>$8000-$8FFF</code></td><td>écran : les caractères (80 colonnes, 30 rangées)</td></tr>
-  <tr><td><code>$9000-$9FFF</code></td><td>écran : les couleurs, une par caractère</td></tr>
+  <tr><td><code>$8000-$9FFF</code></td><td>écran (80 colonnes, 30 rangées) : pour chaque case, le caractère puis sa couleur</td></tr>
   <tr><td><code>$A000-$A001</code></td><td>liaison série (68B50)</td></tr>
   <tr><td><code>$A040-$A043</code></td><td>interface parallèle (6821)</td></tr>
   <tr><td><code>$A080-$A087</code></td><td>minuteries (68B40)</td></tr>

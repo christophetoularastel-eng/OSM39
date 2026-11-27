@@ -1431,3 +1431,11 @@ même port, ici le terminal VT100, donne des échecs aléatoires).
   $8000, couleurs en $9000) : sur la mono (entrelacée) les écrans du
   manuel étaient des mélanges d'octets. Il passe par `test/carte.py`
   (`adr`, `adr_coul`), comme les vérificateurs.
+- Manuel : une section « Le mode graphique » au chapitre 10 (`sys_Graphe`,
+  ses 12 fonctions, les modes, un exemple, la page 3 recopiée une ligne
+  par trame, POLICE8 et BIOS2), `GRAPHE` dans les outils, une ligne
+  « graphisme » dans les services. L'image `graphe.png` est celle de
+  `cmd/GRAPHE` rejouée par le modèle `tools/graphe/graphe.py`
+  (`demo_graphe()` de `captures.py`, ordres lus dans le source). Le
+  chapitre 10 et l'annexe A donnaient encore l'écran de la V4 ($8000 les
+  caractères, $9000 les couleurs) : corrigé pour la mono (entrelacé).

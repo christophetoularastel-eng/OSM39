@@ -26,6 +26,8 @@ import verifie_bureau as vb     # noqa: E402
 import carte                    # noqa: E402
 import verifie_donjon39 as vdm    # noqa: E402
 import ecran                    # noqa: E402
+sys.path.insert(0, os.path.join(RACINE, 'tools', 'graphe'))
+import graphe                   # noqa: E402
 
 SORTIE = os.path.join(RACINE, 'docs', 'manuel', 'images')
 ESPACE, BAS, ENTREE, HAUT, DROITE = 0x20, 0x81, 0x0D, 0x80, 0x83
@@ -104,6 +106,33 @@ def scene(c, s, nom, touches, photo, rangees=30):
     return m
 
 
+def demo_graphe():
+    """L'écran de cmd/GRAPHE, rejoué par le modèle exact du mode graphique
+    (tools/graphe/graphe.py, que verifie_graphe compare au vrai BIOS) : les
+    ordres de la table Ordres du source, l'éventail, puis le titre."""
+    src = open(os.path.join(RACINE, 'cmd', 'graphe.asm'), encoding='utf-8').read()
+    noms = {n: int(v) for n, v in re.findall(r'^(GR_\w+)\s+EQU\s+(\d+)', src, re.M)}
+    e = graphe.Ecran()
+    e.appel(graphe.GR_DEBUT, 0x07)
+    table = src.split('\nOrdres:')[1].split('$FF')[0]
+    for f, a, mots in re.findall(r'FCB\s+(GR_\w+),\$?([0-9A-F]+)\s*(?:;.*)?\n\s+FDB\s+([-\d,]+)', table):
+        e.appel(noms[f], int(a, 16), [int(w) for w in mots.split(',')])
+    for x in range(0, 640, 32):
+        e.appel(graphe.GR_LIGNE, 0, (0, 399, x, 200))
+    titre = re.search(r'Titre:\s+FCN\s+"([^"]*)"', src).group(1)
+    for i, ch in enumerate(titre):
+        e.appel(graphe.GR_CAR, 0, (2 + i, 1, ord(ch)))
+    im = ecran.Image.new('RGB', (640, 400))
+    px = im.load()
+    for y in range(400):
+        for x in range(640):
+            a = e.coul[(y // 16) * 80 + x // 8]
+            on = e.img[y * 80 + x // 8] >> (7 - (x & 7)) & 1
+            px[x, y] = ecran.couleur(a & 7, bool(a & 8)) if on else ecran.couleur((a >> 4) & 7)
+    im.resize((1280, 800), ecran.Image.NEAREST).save(os.path.join(SORTIE, 'graphe.png'))
+    print('graphe.png')
+
+
 def texte(t):
     return [ord(ch) if ch != '\n' else ENTREE for ch in t]
 
@@ -112,6 +141,7 @@ def main():
     s = v.sym()
     ov = {n: int(a, 16) for n, a in re.findall(
         r'Symbol: (\S+) \(\S+\) = ([0-9A-F]{4})', open(os.path.join(RACINE, 'osmvision', 'OSMVISION.map')).read())}
+    demo_graphe()
     c = carte_deployee()
     scenes = {
         'osmvision': [],
